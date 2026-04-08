@@ -14,21 +14,26 @@ const cube = new THREE.Mesh(
   )
 scene.add(cube)
 const mouse = { x: 0, y: 0 };
-
+let yaw = 0;
+let pitch = 0;
 document.addEventListener('mousemove', (event) => {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = - ((event.clientY / window.innerHeight) * 2 - 1);
+  const sensitivity = 0.002; // adjust to taste
+  yaw   -= event.movementX * sensitivity;
+  pitch -= event.movementY * sensitivity;
+
+  // limit pitch so camera doesn't flip
+  pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
 });
 camera.position.z = 5;
 // In animate function:
 function animate() {
   requestAnimationFrame(animate);
-
-  // Define a vector3 for where the camera looks
-  const target = new THREE.Vector3(mouse.x * 5, mouse.y * 5, 0); 
-  // You can multiply by a factor to scale how far the lookAt point moves
-
-  camera.lookAt(target);
+  const target = new THREE.Vector3(
+  Math.sin(yaw) * Math.cos(pitch),
+  Math.sin(pitch),
+  Math.cos(yaw) * Math.cos(pitch)
+);
+camera.lookAt(target);
   renderer.render(scene, camera);
 }
 animate();
