@@ -1,20 +1,15 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>3D Project</title>
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com"
-        }
-    }
-    </script>
-
-    <!-- 2. Use type="module" so your 'import' line works -->
-    <script type="module" src="script.js"></script>
-    
-
-</head>
+    <title>3D Cube</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+    </style>
+    <!-- This loads the Three.js library globally -->
+    <script src="https://cloudflare.com"></script>
+  </head>
   <body>
+    <!-- This loads your code AFTER the library is ready -->
+    <script src="myscript.js"></script>
   </body>
 </html>
