@@ -3,7 +3,7 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer();
 const canvas = renderer.domElement;
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x202020);  // dark gray background
+renderer.setClearColor(0xffffff);  // dark gray background
 document.body.appendChild(renderer.domElement);
 canvas.addEventListener('click', () => {
   canvas.requestPointerLock();
