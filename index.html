@@ -6,12 +6,11 @@
         body { margin: 0; overflow: hidden; font-family: sans-serif; }
         /* Layer text over the 3D scene */
         #target1 {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            z-index: 10;
-            pointer-events: none; /* Allows clicking through text to the cube */
+            position: absolute; /* This is the key */
+            top: 10px;
+            left: 10px;
+            color: white; /* Make sure you can see it against the background */
+            z-index: 1;    /* Ensures it stays on top of the canvas */
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
