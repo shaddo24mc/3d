@@ -10,7 +10,10 @@ canvas.addEventListener('click', () => {
 });
 const cube = new THREE.Mesh(
     new THREE.BoxGeometry(1, 1, 1),            // inline geometry
-    new THREE.MeshBasicMaterial({ color: 0x00ff00 }) // inline material
+    new THREE.MeshBasicMaterial({ 
+      color: 0x00ff00,
+      wireframe: true
+    }) // inline material
   )
 scene.add(cube)
 const mouse = { x: 0, y: 0 };
