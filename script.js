@@ -36,6 +36,7 @@ function animate() {
   Math.sin(yaw) * Math.cos(pitch),
   Math.sin(pitch),
   Math.cos(yaw) * Math.cos(pitch)
+  targetlabel = target
 );
 camera.lookAt(target);
   renderer.render(scene, camera);
