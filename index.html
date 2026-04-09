@@ -3,7 +3,16 @@
   <head>
     <title>3D Cube</title>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        /* Layer text over the 3D scene */
+        #target1 {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            z-index: 10;
+            pointer-events: none; /* Allows clicking through text to the cube */
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   </head>
