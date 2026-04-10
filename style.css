@@ -12,7 +12,7 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
     left: 50%;
     transform: translate(-50%, -50%); /* Keeps it perfectly centered */
     
-    color: #00ff00;    /* Bright green to match your cube */
+    color: black;    /* Bright green to match your cube */
     font-family: monospace;
     font-size: 24px;
     font-weight: bold;
