@@ -72,6 +72,11 @@ function animate() {
     // -----------------------
 
     const targetPoint = new THREE.Vector3().addVectors(camera.position, direction);
+    if (targetlabel) {
+        const x = direction.x.toFixed(2);
+        const y = direction.y.toFixed(2);
+        targetlabel.innerText = "X: " + x + " Y: " + y; // Using + instead of backticks to be safe
+    }
     camera.lookAt(targetPoint);
     renderer.render(scene, camera);
 }
