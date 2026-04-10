@@ -1,4 +1,8 @@
-body {
-  margin: 0;
-  overflor: hidden;
+body { margin: 0; overflow: hidden; font-family: sans-serif; }
+#targetl {
+            position: absolute; /* This is the key */
+            top: 10px;
+            left: 10px;
+            color: red; /* Make sure you can see it against the background */
+            z-index: 1;    /* Ensures it stays on top of the canvas */
 }
