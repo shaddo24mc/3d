@@ -48,7 +48,7 @@ function animate() {
     const direction = new THREE.Vector3(
         Math.sin(yaw) * Math.cos(pitch),
         Math.sin(pitch),
-        -Math.cos(yaw) * Math.cos(pitch)
+        Math.cos(yaw) * Math.cos(pitch)
     );
 
     // --- MINECRAFT MOVEMENT ---
