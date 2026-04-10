@@ -29,24 +29,46 @@ document.addEventListener('mousemove', (e) => {
         pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
     }
 });
+const keys = { w: false, a: false, s: false, d: false };
+
+window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (key in keys) keys[key] = true;
+});
+
+window.addEventListener('keyup', (e) => {
+    const key = e.key.toLowerCase();
+    if (key in keys) keys[key] = false;
+});
+const moveSpeed = 0.1;
 
 function animate() {
     requestAnimationFrame(animate);
 
-    // 3. Added '-' to the Z math so you look TOWARD the cube at the start
     const direction = new THREE.Vector3(
         Math.sin(yaw) * Math.cos(pitch),
         Math.sin(pitch),
-        Math.cos(yaw) * Math.cos(pitch) 
+        Math.cos(yaw) * Math.cos(pitch)
     );
 
+    // --- MOVEMENT LOGIC ---
+    if (keys.w) camera.position.addScaledVector(direction, moveSpeed);
+    if (keys.s) camera.position.addScaledVector(direction, -moveSpeed);
+
+    if (keys.a || keys.d) {
+        // Calculate "Right" vector by crossing Forward with the Up axis
+        const right = new THREE.Vector3().crossVectors(direction, new THREE.Vector3(0, 1, 0)).normalize();
+        if (keys.d) camera.position.addScaledVector(right, moveSpeed);
+        if (keys.a) camera.position.addScaledVector(right, -moveSpeed);
+    }
+    // -----------------------
+
     if (targetlabel) {
-        targetlabel.innerText = `Direction: ${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}`;
+        targetlabel.innerText = `Pos: ${camera.position.x.toFixed(1)}, ${camera.position.z.toFixed(1)}`;
     }
 
     const targetPoint = new THREE.Vector3().addVectors(camera.position, direction);
     camera.lookAt(targetPoint);
-
     renderer.render(scene, camera);
 }
 animate();
