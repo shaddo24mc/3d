@@ -41,44 +41,40 @@ window.addEventListener('keyup', (e) => {
     if (key in keys) keys[key] = false;
 });
 const moveSpeed = 0.15;
-
 function animate() {
     requestAnimationFrame(animate);
 
-    // 1. Direction the camera is actually looking
+    // Direction you are looking
     const direction = new THREE.Vector3(
         Math.sin(yaw) * Math.cos(pitch),
         Math.sin(pitch),
-        Math.cos(yaw) * Math.cos(pitch)
+        -Math.cos(yaw) * Math.cos(pitch)
     );
 
-    // 2. MINECRAFT STABLE MOVEMENT
-    // We calculate "Forward" purely based on the yaw rotation
-    const forwardX = Math.sin(yaw);
-    const forwardZ = -Math.cos(yaw);
+    // --- MINECRAFT MOVEMENT ---
     
-    // This is our 'flat' forward (horizontal only)
-    const flatForward = new THREE.Vector3(forwardX, 0, forwardZ).normalize();
+    // 1. Get the horizontal forward vector (ignore Y)
+    const flatForward = new THREE.Vector3(direction.x, 0, direction.z).normalize();
     
-    // The 'Right' vector is always 90 degrees to the flatForward
-    // Crossing (X, 0, Z) with (0, 1, 0) always gives a consistent Right
-    const flatRight = new THREE.Vector3().crossVectors(flatForward, new THREE.Vector3(0, 1, 0));
+    // 2. Get the horizontal right vector
+    const flatRight = new THREE.Vector3().crossVectors(flatForward, new THREE.Vector3(0, 1, 0)).normalize();
 
-    // Move the camera body
+    // WASD - Move on the horizontal plane
     if (keys.w) camera.position.addScaledVector(flatForward, moveSpeed);
     if (keys.s) camera.position.addScaledVector(flatForward, -moveSpeed);
     if (keys.d) camera.position.addScaledVector(flatRight, moveSpeed);
     if (keys.a) camera.position.addScaledVector(flatRight, -moveSpeed);
 
-    // Vertical flight
+    // Space/Shift - Vertical flight
     if (keys[' ']) camera.position.y += moveSpeed;
     if (keys.shift) camera.position.y -= moveSpeed;
 
-    // 3. Update Camera Look
+    // -----------------------
+
     const targetPoint = new THREE.Vector3().addVectors(camera.position, direction);
     camera.lookAt(targetPoint);
-
     renderer.render(scene, camera);
 }
+
 
 animate();
