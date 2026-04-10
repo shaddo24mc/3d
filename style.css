@@ -15,7 +15,7 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
     color: black;    /* Bright green to match your cube */
     font-family: monospace;
     font-size: 24px;
-    font-weight: bold;
+    font-weight: light;
     
     pointer-events: none; /* Allows you to click the canvas through the '+' */
     z-index: 100;         /* Keeps it above the 3D scene */
