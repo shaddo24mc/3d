@@ -32,13 +32,20 @@ camera.position.z = 5;
 // In animate function:
 function animate() {
   requestAnimationFrame(animate);
+
+  // 1. Added the missing closing ')' after the coordinates
   const target = new THREE.Vector3(
-  Math.sin(yaw) * Math.cos(pitch),
-  Math.sin(pitch),
-  Math.cos(yaw) * Math.cos(pitch)
-);
-targetlabel = target
-camera.lookAt(target);
+    Math.sin(yaw) * Math.cos(pitch),
+    Math.sin(pitch),
+    Math.cos(yaw) * Math.cos(pitch)
+  );
+
+  // 2. Instead of reassigning the variable, update the text inside the element
+  if (targetlabel) {
+    targetlabel.innerText = `Look Target: ${target.x.toFixed(2)}, ${target.y.toFixed(2)}`;
+  }
+
+  camera.lookAt(target.clone().add(camera.position));
   renderer.render(scene, camera);
 }
 animate();
