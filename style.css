@@ -6,3 +6,18 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
             color: red; /* Make sure you can see it against the background */
             z-index: 1;    /* Ensures it stays on top of the canvas */
 }
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Keeps it perfectly centered */
+    
+    color: #00ff00;    /* Bright green to match your cube */
+    font-family: monospace;
+    font-size: 24px;
+    font-weight: bold;
+    
+    pointer-events: none; /* Allows you to click the canvas through the '+' */
+    z-index: 100;         /* Keeps it above the 3D scene */
+    user-select: none;    /* Prevents accidental text highlighting */
+}
