@@ -40,9 +40,6 @@ window.addEventListener('keyup', (e) => {
     const key = e.key.toLowerCase();
     if (key in keys) keys[key] = false;
 });
-
-const moveSpeed = 0.1;
-
 const moveSpeed = 0.15;
 
 function animate() {
