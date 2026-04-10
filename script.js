@@ -1,51 +1,48 @@
-const targetlabel = document.getElementById("targetl")
+const targetlabel = document.getElementById("targetl"); // Fix 1: lowercase 'g'
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
-const canvas = renderer.domElement;
+
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0xffffff);  // dark gray background
+renderer.setClearColor(0x000000); // Set to Black so you can see the Green cube
 document.body.appendChild(renderer.domElement);
-canvas.addEventListener('click', () => {
-  canvas.requestPointerLock();
-});
+
 const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1, 1),            // inline geometry
-    new THREE.MeshBasicMaterial({ 
-      color: 0x00ff00,
-      wireframe: true
-    }) // inline material
-  )
-scene.add(cube)
-const mouse = { x: 0, y: 0 };
-let yaw = 0;
-let pitch = 0;
-document.addEventListener('mousemove', (event) => {
-  const sensitivity = 0.002; // adjust to taste
-  yaw   -= event.movementX * sensitivity;
-  pitch -= event.movementY * sensitivity;
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+);
+scene.add(cube);
 
-  // limit pitch so camera doesn't flip
-  pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+let yaw = 0, pitch = 0;
+document.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement) {
+        yaw -= e.movementX * 0.002;
+        pitch -= e.movementY * 0.002;
+        pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+    }
 });
+
 camera.position.z = 5;
-// In animate function:
+
 function animate() {
-  requestAnimationFrame(animate);
+    requestAnimationFrame(animate);
 
-  // 1. Added the missing closing ')' after the coordinates
-  const target = new THREE.Vector3(
-    Math.sin(yaw) * Math.cos(pitch),
-    Math.sin(pitch),
-    Math.cos(yaw) * Math.cos(pitch)
-  );
+    // Create the direction vector
+    const direction = new THREE.Vector3(
+        Math.sin(yaw) * Math.cos(pitch),
+        Math.sin(pitch),
+        Math.cos(yaw) * Math.cos(pitch)
+    );
 
-  // 2. Instead of reassigning the variable, update the text inside the element
-  if (targetlabel) {
-    targetlabel.innerText = `Look Target: ${target.x.toFixed(2)}, ${target.y.toFixed(2)}`;
-  }
+    // Fix 2: Use innerText instead of overwriting the variable
+    if (targetlabel) {
+        targetlabel.innerText = `Direction: ${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}`;
+    }
 
-  camera.lookAt(target.clone().add(camera.position));
-  renderer.render(scene, camera);
+    // Fix 3: Look at a point IN FRONT of the camera
+    const targetPoint = new THREE.Vector3().addVectors(camera.position, direction);
+    camera.lookAt(targetPoint);
+
+    renderer.render(scene, camera);
 }
 animate();
