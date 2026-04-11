@@ -1,23 +1,32 @@
-body { margin: 0; overflow: hidden; font-family: sans-serif; }
-#targetl {
-            position: absolute; /* This is the key */
-            top: 10px;
-            left: 10px;
-            color: red; /* Make sure you can see it against the background */
-            z-index: 1;    /* Ensures it stays on top of the canvas */
+body { 
+    margin: 0; 
+    overflow: hidden; 
+    background-color: #4a5a4a; /* Woods background */
 }
+
 #crosshair {
-    position: absolute;
-    top: 50%;
+    position: fixed; 
+    top: 50%; 
     left: 50%;
-    transform: translate(-50%, -50%); /* Keeps it perfectly centered */
-    
-    color: black;    /* Bright green to match your cube */
-    font-family: monospace;
-    font-size: 24px;
-    font-weight: light;
-    
-    pointer-events: none; /* Allows you to click the canvas through the '+' */
-    z-index: 100;         /* Keeps it above the 3D scene */
-    user-select: none;    /* Prevents accidental text highlighting */
+    width: 16px; 
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.8); 
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none; 
+    z-index: 10;
+}
+
+#ui {
+    position: fixed; 
+    bottom: 20px; 
+    left: 20px;
+    color: white; 
+    font-family: 'Courier New', Courier, monospace;
+    background: rgba(0, 0, 0, 0.6); 
+    padding: 15px;
+    pointer-events: none; 
+    border-radius: 4px;
+    line-height: 1.5;
+    border: 1px solid #555;
 }
