@@ -1,188 +1,137 @@
-
-const targetlabel = document.getElementById("targetl"); 
+// 1. Scene & Camera Setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-const loader = new THREE.TextureLoader();
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-
-
-
-
-
-
-//grass
-const grassside = loader.load('./textures/grass_block_side.png');
-const grass = loader.load('./textures/grass_block_top.png');
-const dirt = loader.load('./textures/dirt.png');dirt.magFilter = THREE.NearestFilter;
-const grass_mat = [
-  new THREE.MeshStandardMaterial({ map: grassside }),   // Right
-  new THREE.MeshStandardMaterial({ map: grassside }),   // Left
-  new THREE.MeshStandardMaterial({ map: grass, color: 0x55ab55 }), // Top (Tinted Green)
-  new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
-  new THREE.MeshStandardMaterial({ map: grassside }),   // Front
-  new THREE.MeshStandardMaterial({ map: grassside })    // Back
-];
-const grass_block = new THREE.Mesh(geometry, grass_mat);
-//grass
-
-
-
-
-
-
-//dirt
-const dirt_mat = [
-  new THREE.MeshStandardMaterial({ map: dirt }),   // Right
-  new THREE.MeshStandardMaterial({ map: dirt }),   // Left
-  new THREE.MeshStandardMaterial({ map: dirt }), // Top
-  new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
-  new THREE.MeshStandardMaterial({ map: dirt }),   // Front
-  new THREE.MeshStandardMaterial({ map: dirt })    // Back]
-];
-const dirt_block = new THREE.Mesh(geometry, dirt_mat);
-//dirt
-
-//stone
-const stone = loader.load("./textures/stone.png");
-const stone_mat = [
-  new THREE.MeshStandardMaterial({ map: stone }),   // Right
-  new THREE.MeshStandardMaterial({ map: stone }),   // Left
-  new THREE.MeshStandardMaterial({ map: stone }), // top
-  new THREE.MeshStandardMaterial({ map: stone }), // Bottom
-  new THREE.MeshStandardMaterial({ map: stone }),   // Front
-  new THREE.MeshStandardMaterial({ map: stone })    // Back]
-];
-const stone_block = new THREE.Mesh(geometry, stone_mat);
-//stone
-
-
-[grassside, grass, dirt, stone].forEach((t) => {
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
-});
 renderer.setSize(window.innerWidth, window.innerHeight);
-// 1. Changed to white background
-renderer.setClearColor(0xffffff); 
+renderer.setClearColor(0x87ceeb); // Sky blue
 document.body.appendChild(renderer.domElement);
 
-// 2. Add click listener to lock the mouse (required for movement to work)
-renderer.domElement.addEventListener('click', () => {
-    renderer.domElement.requestPointerLock();
-});
-document.addEventListener('pointerlockerror', () => {
-    console.error("Pointer Lock failed. Try clicking again after the page fully loads.");
-}, false);
+// 2. Texture & Material Setup
+const loader = new THREE.TextureLoader();
+const loadTex = (path) => {
+    const t = loader.load(path);
+    t.magFilter = THREE.NearestFilter; // Keep pixels sharp
+    t.minFilter = THREE.NearestFilter;
+    return t;
+};
 
+const grassTop = loadTex('./textures/grass_block_top.png');
+const grassSide = loadTex('./textures/grass_block_side.png');
+const dirt = loadTex('./textures/dirt.png');
+const stone = loadTex('./textures/stone.png');
 
-camera.position.z = 5;
+const grass_mat = [
+    new THREE.MeshStandardMaterial({ map: grassSide }), // Right
+    new THREE.MeshStandardMaterial({ map: grassSide }), // Left
+    new THREE.MeshStandardMaterial({ map: grassTop, color: 0x55ab55 }), // Top
+    new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
+    new THREE.MeshStandardMaterial({ map: grassSide }), // Front
+    new THREE.MeshStandardMaterial({ map: grassSide })  // Back
+];
+const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
+const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 
-let yaw = 0, pitch = 0;
-document.addEventListener('mousemove', (e) => {
-    if (document.pointerLockElement) {
-        yaw -= e.movementX * 0.002;
-        pitch -= e.movementY * 0.002;
-        pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
-    }
-});
-const keys = { w: false, a: false, s: false, d: false, ' ': false, shift: false };
+// 3. Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(10, 20, 10);
+scene.add(sun);
 
-window.addEventListener('keydown', (e) => {
-    const key = e.key.toLowerCase();
-    if (key in keys) keys[key] = true;
-});
+// 4. World Generation (Optimized with InstancedMesh)
+const worldSize = 50;
+const heightScale = 12;
+const noiseScale = 25;
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const maxBlocks = worldSize * worldSize * heightScale;
 
-window.addEventListener('keyup', (e) => {
-    const key = e.key.toLowerCase();
-    if (key in keys) keys[key] = false;
-});
-const moveSpeed = 0.15;
-// 1. Ambient Light (Lights up everything equally so there are no pitch-black shadows)
-const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); 
-scene.add(ambientLight);
+// Create 3 meshes (one for each material)
+const grassIM = new THREE.InstancedMesh(geometry, grass_mat, maxBlocks);
+const dirtIM = new THREE.InstancedMesh(geometry, dirt_mat, maxBlocks);
+const stoneIM = new THREE.InstancedMesh(geometry, stone_mat, maxBlocks);
 
-// 2. Directional Light (Like the Sun - gives the block 3D shading)
-const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
-sunLight.position.set(5, 10, 2); // Position it above and to the side
-scene.add(sunLight);
-// 1. Set your world seed
-noise.seed(Math.random()); // Or a fixed number like 12345
+let gIdx = 0, dIdx = 0, sIdx = 0;
+const matrix = new THREE.Matrix4();
+noise.seed(Math.random());
 
-const worldSize = 100;    // Width and depth of your world
-const heightScale = 10;  // Maximum height of your hills
-const noiseScale = 30;   // Higher = smoother, wider hills
+// Occlusion check: Don't render blocks completely surrounded
+const isSurface = (x, y, z) => {
+    const h = Math.floor(((noise.perlin2(x / noiseScale, z / noiseScale) + 1) / 2) * heightScale);
+    return y >= h;
+};
 
 for (let x = 0; x < worldSize; x++) {
     for (let z = 0; z < worldSize; z++) {
-        
-        // 2. Generate smooth noise (-1 to 1) 
-        // We divide x and z by noiseScale to "zoom in" and get smooth hills
-        let n = noise.perlin2(x / noiseScale, z / noiseScale);
-        
-        // 3. Convert -1...1 range to 0...1 range and scale to height
-        let h = (n + 1) / 2;
-        let surfaceY = Math.floor(h * heightScale);
-
-        // 4. Fill the column with blocks
-        for (let y = 0; y <= surfaceY; y++) {
-            let block;
-            
-            if (y === surfaceY) {
-                block = grass_block.clone(); // Top is grass
-            } else if (y > surfaceY - 3) {
-                block = dirt_block.clone();  // Middle is dirt
-            } else {
-                block = stone_block.clone(); // Bottom is stone
+        const h = Math.floor(((noise.perlin2(x / noiseScale, z / noiseScale) + 1) / 2) * heightScale);
+        for (let y = 0; y <= h; y++) {
+            // Optimization: Only render if top face or sides might be visible
+            if (y === h || isSurface(x+1,y,z) || isSurface(x-1,y,z) || isSurface(x,y,z+1) || isSurface(x,y,z-1)) {
+                matrix.setPosition(x, y, z);
+                if (y === h) grassIM.setMatrixAt(gIdx++, matrix);
+                else if (y > h - 3) dirtIM.setMatrixAt(dIdx++, matrix);
+                else stoneIM.setMatrixAt(sIdx++, matrix);
             }
-
-            block.position.set(x, y, z);
-            scene.add(block);
         }
     }
 }
+scene.add(grassIM, dirtIM, stoneIM);
 
+// 5. Controls & Movement
+camera.position.set(worldSize/2, heightScale + 5, worldSize/2);
+let yaw = 0, pitch = 0;
+const keys = {};
 
+document.addEventListener('mousedown', () => {
+    if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
+    else breakBlock(); // Break block on click if locked
+});
 
+document.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement) {
+        yaw -= e.movementX * 0.002;
+        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - e.movementY * 0.002));
+    }
+});
 
+window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+// 6. Block Breaking Logic
+const raycaster = new THREE.Raycaster();
+const centerMouse = new THREE.Vector2(0, 0);
+
+function breakBlock() {
+    raycaster.setFromCamera(centerMouse, camera);
+    const intersects = raycaster.intersectObjects([grassIM, dirtIM, stoneIM]);
+
+    if (intersects.length > 0) {
+        const hit = intersects[0];
+        const mesh = hit.object;
+        const instanceId = hit.instanceId;
+
+        // Hide instance by scaling to 0
+        const tempMatrix = new THREE.Matrix4();
+        tempMatrix.makeScale(0, 0, 0);
+        mesh.setMatrixAt(instanceId, tempMatrix);
+        mesh.instanceMatrix.needsUpdate = true; // Required to see change
+    }
+}
+
+// 7. Animation Loop
 function animate() {
     requestAnimationFrame(animate);
 
-    // Direction you are looking
-    const direction = new THREE.Vector3(
-        Math.sin(yaw) * Math.cos(pitch),
-        Math.sin(pitch),
-        Math.cos(yaw) * Math.cos(pitch)
-    );
+    const moveSpeed = 0.15;
+    const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
-    // --- MINECRAFT MOVEMENT ---
-    
-    // 1. Get the horizontal forward vector (ignore Y)
-    const flatForward = new THREE.Vector3(direction.x, 0, direction.z).normalize();
-    
-    // 2. Get the horizontal right vector
-    const flatRight = new THREE.Vector3().crossVectors(flatForward, new THREE.Vector3(0, 1, 0)).normalize();
-
-    // WASD - Move on the horizontal plane
-    if (keys.w) camera.position.addScaledVector(flatForward, moveSpeed);
-    if (keys.s) camera.position.addScaledVector(flatForward, -moveSpeed);
-    if (keys.d) camera.position.addScaledVector(flatRight, moveSpeed);
-    if (keys.a) camera.position.addScaledVector(flatRight, -moveSpeed);
-
-    // Space/Shift - Vertical flight
+    if (keys.w) camera.position.addScaledVector(forward, -moveSpeed);
+    if (keys.s) camera.position.addScaledVector(forward, moveSpeed);
+    if (keys.a) camera.position.addScaledVector(right, -moveSpeed);
+    if (keys.d) camera.position.addScaledVector(right, moveSpeed);
     if (keys[' ']) camera.position.y += moveSpeed;
     if (keys.shift) camera.position.y -= moveSpeed;
 
-    // -----------------------
-
-    const targetPoint = new THREE.Vector3().addVectors(camera.position, direction);
-    if (targetlabel) {
-        const x = direction.x.toFixed(2);
-        const y = direction.y.toFixed(2);
-        targetlabel.innerText = "X: " + x + " Y: " + y; // Using + instead of backticks to be safe
-    }
-    camera.lookAt(targetPoint);
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
     renderer.render(scene, camera);
 }
-
-
 animate();
