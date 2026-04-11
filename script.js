@@ -44,7 +44,7 @@ const dirt_block = new THREE.Mesh(geometry, dirt_mat);
 //dirt
 
 //stone
-const stone = loader.load("./textures/stone.png")
+const stone = loader.load("./textures/stone.png");
 const stone_mat = [
   new THREE.MeshStandardMaterial({ map: stone }),   // Right
   new THREE.MeshStandardMaterial({ map: stone }),   // Left
