@@ -3,7 +3,42 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 const loader = new THREE.TextureLoader();
-const texture = loader.load('./textures/dirt.png');
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+
+
+
+
+
+
+
+
+
+//dirt
+const grassside = loader.load('./textures/grass_block_side.png');
+const grass = loader.load('./textures/grass_block_top.png');
+const dirt = loader.load('./textures/dirt.png');dirt.magFilter = THREE.NearestFilter;
+[grassside, grass, dirt].forEach((t) => {
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
+});
+const grassblock = [
+  new THREE.MeshStandardMaterial({ map: grassside }),   // Right
+  new THREE.MeshStandardMaterial({ map: grassside }),   // Left
+  new THREE.MeshStandardMaterial({ map: grass, color: 0x55ab55 }), // Top (Tinted Green)
+  new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
+  new THREE.MeshStandardMaterial({ map: grassside }),   // Front
+  new THREE.MeshStandardMaterial({ map: grassside })    // Back
+];
+const grass_block = new THREE.Mesh(geometry, materials);
+scene.add(grass_block);
+//dirt
+
+
+
+
+
+
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 // 1. Changed to white background
 renderer.setClearColor(0xffffff); 
@@ -14,11 +49,7 @@ renderer.domElement.addEventListener('click', () => {
     renderer.domElement.requestPointerLock();
 });
 
-const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1, 1),
-    new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
-);
-scene.add(cube);
+
 
 camera.position.z = 5;
 
