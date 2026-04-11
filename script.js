@@ -27,7 +27,7 @@ const grass_mat = [new THREE.MeshStandardMaterial({map: grassSide}), new THREE.M
 const log_mat = [new THREE.MeshStandardMaterial({map: logSide}), new THREE.MeshStandardMaterial({map: logSide}), new THREE.MeshStandardMaterial({map: logTop}), new THREE.MeshStandardMaterial({map: logTop}), new THREE.MeshStandardMaterial({map: logSide}), new THREE.MeshStandardMaterial({map: logSide})];
 const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
 const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
-const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, opacity: 0.9 });
+const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, opacity: 0.9, color: 0x55ab55 });
 
 // 3. World Generation Variables
 const worldSize = 40;
