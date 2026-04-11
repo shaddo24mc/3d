@@ -75,6 +75,15 @@ window.addEventListener('keyup', (e) => {
     if (key in keys) keys[key] = false;
 });
 const moveSpeed = 0.15;
+// 1. Ambient Light (Lights up everything equally so there are no pitch-black shadows)
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); 
+scene.add(ambientLight);
+
+// 2. Directional Light (Like the Sun - gives the block 3D shading)
+const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+sunLight.position.set(5, 10, 2); // Position it above and to the side
+scene.add(sunLight);
+
 function animate() {
     requestAnimationFrame(animate);
 
