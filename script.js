@@ -60,7 +60,7 @@ const stone_block = new THREE.Mesh(geometry, stone_mat)
 [grassside, grass, dirt, stone].forEach((t) => {
   t.magFilter = THREE.NearestFilter;
   t.minFilter = THREE.NearestFilter;
-)};
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 // 1. Changed to white background
 renderer.setClearColor(0xffffff); 
