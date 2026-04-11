@@ -1,19 +1,18 @@
+
 const targetlabel = document.getElementById("targetl"); 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 const loader = new THREE.TextureLoader();
 const geometry = new THREE.BoxGeometry(1, 1, 1);
+const worldSize = 32;
+const maxHeight = 10;
 
 
 
 
 
-
-
-
-
-//dirt
+//grass
 const grassside = loader.load('./textures/grass_block_side.png');
 const grass = loader.load('./textures/grass_block_top.png');
 const dirt = loader.load('./textures/dirt.png');dirt.magFilter = THREE.NearestFilter;
@@ -30,10 +29,16 @@ const grass_mat = [
   new THREE.MeshStandardMaterial({ map: grassside })    // Back
 ];
 const grass_block = new THREE.Mesh(geometry, grass_mat);
-scene.add(grass_block);
+//grass
+
+
+
+
+
+
 //dirt
 
-
+//dirt
 
 
 
@@ -83,6 +88,30 @@ scene.add(ambientLight);
 const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
 sunLight.position.set(5, 10, 2); // Position it above and to the side
 scene.add(sunLight);
+for (let x = 0; x < worldSize; x++) {
+    for (let z = 0; z < worldSize; z++) {
+        // 1. Determine the surface height for this column
+        const surfaceHeight = Math.floor(noise.noise(x * 0.1, z * 0.1) * 5 + 5);
+
+        for (let y = 0; y <= surfaceHeight; y++) {
+            let block;
+            
+            // 2. Decide block type based on its depth
+            if (y === surfaceHeight) {
+                block = grass_block.clone(); // Top layer
+            } else if (y > surfaceHeight - 3) {
+                block = dirt_block.clone();  // 3 blocks of dirt
+            } else {
+                block = stone_block.clone(); // Everything else is stone
+            }
+
+            block.position.set(x, y, z);
+            scene.add(block);
+        }
+    }
+}
+
+
 
 function animate() {
     requestAnimationFrame(animate);
