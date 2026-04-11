@@ -37,7 +37,7 @@ const grass_block = new THREE.Mesh(geometry, grass_mat);
 const dirt_mat = [
   new THREE.MeshStandardMaterial({ map: dirt }),   // Right
   new THREE.MeshStandardMaterial({ map: dirt }),   // Left
-  new THREE.MeshStandardMaterial({ map: dirt, color: 0x55ab55 }), // Top (Tinted Green)
+  new THREE.MeshStandardMaterial({ map: dirt }), // Top
   new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
   new THREE.MeshStandardMaterial({ map: dirt }),   // Front
   new THREE.MeshStandardMaterial({ map: dirt })    // Back]
@@ -46,16 +46,16 @@ const dirt_block = new THREE.Mesh(geometry, dirt_mat)
 //dirt
 
 //stone
-const stone = loader.load("./textures.")
+const stone = loader.load("./textures/stone.png")
 const stone_mat = [
-  new THREE.MeshStandardMaterial({ map: dirt }),   // Right
-  new THREE.MeshStandardMaterial({ map: dirt }),   // Left
-  new THREE.MeshStandardMaterial({ map: dirt, color: 0x55ab55 }), // Top (Tinted Green)
-  new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
-  new THREE.MeshStandardMaterial({ map: dirt }),   // Front
-  new THREE.MeshStandardMaterial({ map: dirt })    // Back]
+  new THREE.MeshStandardMaterial({ map: stone }),   // Right
+  new THREE.MeshStandardMaterial({ map: stone }),   // Left
+  new THREE.MeshStandardMaterial({ map: stone }), // top
+  new THREE.MeshStandardMaterial({ map: stone }), // Bottom
+  new THREE.MeshStandardMaterial({ map: stone }),   // Front
+  new THREE.MeshStandardMaterial({ map: stone })    // Back]
 ];
-const stone_block = new THREE.Mesh(geometry, dirt_mat)
+const stone_block = new THREE.Mesh(geometry, stone_mat)
 //stone
 
 
