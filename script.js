@@ -5,8 +5,7 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 const loader = new THREE.TextureLoader();
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const worldSize = 32;
-const maxHeight = 10;
+
 
 
 
@@ -16,9 +15,7 @@ const maxHeight = 10;
 const grassside = loader.load('./textures/grass_block_side.png');
 const grass = loader.load('./textures/grass_block_top.png');
 const dirt = loader.load('./textures/dirt.png');dirt.magFilter = THREE.NearestFilter;
-[grassside, grass, dirt].forEach((t) => {
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
+
 });
 const grass_mat = [
   new THREE.MeshStandardMaterial({ map: grassside }),   // Right
@@ -37,13 +34,34 @@ const grass_block = new THREE.Mesh(geometry, grass_mat);
 
 
 //dirt
-
+const dirt_mat = [
+  new THREE.MeshStandardMaterial({ map: dirt }),   // Right
+  new THREE.MeshStandardMaterial({ map: dirt }),   // Left
+  new THREE.MeshStandardMaterial({ map: dirt, color: 0x55ab55 }), // Top (Tinted Green)
+  new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
+  new THREE.MeshStandardMaterial({ map: dirt }),   // Front
+  new THREE.MeshStandardMaterial({ map: dirt })    // Back]
+];
+const dirt_block = new THREE.Mesh(geometry, dirt_mat)
 //dirt
 
+//stone
+const stone = loader.load("./textures.")
+const stone_mat = [
+  new THREE.MeshStandardMaterial({ map: dirt }),   // Right
+  new THREE.MeshStandardMaterial({ map: dirt }),   // Left
+  new THREE.MeshStandardMaterial({ map: dirt, color: 0x55ab55 }), // Top (Tinted Green)
+  new THREE.MeshStandardMaterial({ map: dirt }), // Bottom
+  new THREE.MeshStandardMaterial({ map: dirt }),   // Front
+  new THREE.MeshStandardMaterial({ map: dirt })    // Back]
+];
+const stone_block = new THREE.Mesh(geometry, dirt_mat)
+//stone
 
 
-
-
+[grassside, grass, dirt, stone].forEach((t) => {
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
 renderer.setSize(window.innerWidth, window.innerHeight);
 // 1. Changed to white background
 renderer.setClearColor(0xffffff); 
@@ -88,21 +106,34 @@ scene.add(ambientLight);
 const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
 sunLight.position.set(5, 10, 2); // Position it above and to the side
 scene.add(sunLight);
+// 1. Set your world seed
+noise.seed(Math.random()); // Or a fixed number like 12345
+
+const worldSize = 25;    // Width and depth of your world
+const heightScale = 10;  // Maximum height of your hills
+const noiseScale = 30;   // Higher = smoother, wider hills
+
 for (let x = 0; x < worldSize; x++) {
     for (let z = 0; z < worldSize; z++) {
-        // 1. Determine the surface height for this column
-        const surfaceHeight = Math.floor(noise.noise(x * 0.1, z * 0.1) * 5 + 5);
+        
+        // 2. Generate smooth noise (-1 to 1) 
+        // We divide x and z by noiseScale to "zoom in" and get smooth hills
+        let n = noise.perlin2(x / noiseScale, z / noiseScale);
+        
+        // 3. Convert -1...1 range to 0...1 range and scale to height
+        let h = (n + 1) / 2;
+        let surfaceY = Math.floor(h * heightScale);
 
-        for (let y = 0; y <= surfaceHeight; y++) {
+        // 4. Fill the column with blocks
+        for (let y = 0; y <= surfaceY; y++) {
             let block;
             
-            // 2. Decide block type based on its depth
-            if (y === surfaceHeight) {
-                block = grass_block.clone(); // Top layer
-            } else if (y > surfaceHeight - 3) {
-                block = dirt_block.clone();  // 3 blocks of dirt
+            if (y === surfaceY) {
+                block = grass_block.clone(); // Top is grass
+            } else if (y > surfaceY - 3) {
+                block = dirt_block.clone();  // Middle is dirt
             } else {
-                block = stone_block.clone(); // Everything else is stone
+                block = stone_block.clone(); // Bottom is stone
             }
 
             block.position.set(x, y, z);
@@ -110,6 +141,7 @@ for (let x = 0; x < worldSize; x++) {
         }
     }
 }
+
 
 
 
