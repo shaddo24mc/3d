@@ -108,7 +108,7 @@ scene.add(sunLight);
 // 1. Set your world seed
 noise.seed(Math.random()); // Or a fixed number like 12345
 
-const worldSize = 25;    // Width and depth of your world
+const worldSize = 100;    // Width and depth of your world
 const heightScale = 10;  // Maximum height of your hills
 const noiseScale = 30;   // Higher = smoother, wider hills
 
