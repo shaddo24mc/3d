@@ -15,8 +15,6 @@ const geometry = new THREE.BoxGeometry(1, 1, 1);
 const grassside = loader.load('./textures/grass_block_side.png');
 const grass = loader.load('./textures/grass_block_top.png');
 const dirt = loader.load('./textures/dirt.png');dirt.magFilter = THREE.NearestFilter;
-
-});
 const grass_mat = [
   new THREE.MeshStandardMaterial({ map: grassside }),   // Right
   new THREE.MeshStandardMaterial({ map: grassside }),   // Left
@@ -62,6 +60,7 @@ const stone_block = new THREE.Mesh(geometry, stone_mat)
 [grassside, grass, dirt, stone].forEach((t) => {
   t.magFilter = THREE.NearestFilter;
   t.minFilter = THREE.NearestFilter;
+)};
 renderer.setSize(window.innerWidth, window.innerHeight);
 // 1. Changed to white background
 renderer.setClearColor(0xffffff); 
