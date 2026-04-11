@@ -21,7 +21,7 @@ const dirt = loader.load('./textures/dirt.png');dirt.magFilter = THREE.NearestFi
   t.magFilter = THREE.NearestFilter;
   t.minFilter = THREE.NearestFilter;
 });
-const grassblock = [
+const grass_mat = [
   new THREE.MeshStandardMaterial({ map: grassside }),   // Right
   new THREE.MeshStandardMaterial({ map: grassside }),   // Left
   new THREE.MeshStandardMaterial({ map: grass, color: 0x55ab55 }), // Top (Tinted Green)
@@ -29,7 +29,7 @@ const grassblock = [
   new THREE.MeshStandardMaterial({ map: grassside }),   // Front
   new THREE.MeshStandardMaterial({ map: grassside })    // Back
 ];
-const grass_block = new THREE.Mesh(geometry, materials);
+const grass_block = new THREE.Mesh(geometry, grass_mat);
 scene.add(grass_block);
 //dirt
 
