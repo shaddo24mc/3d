@@ -40,7 +40,7 @@ const dirt_mat = [
   new THREE.MeshStandardMaterial({ map: dirt }),   // Front
   new THREE.MeshStandardMaterial({ map: dirt })    // Back]
 ];
-const dirt_block = new THREE.Mesh(geometry, dirt_mat)
+const dirt_block = new THREE.Mesh(geometry, dirt_mat);
 //dirt
 
 //stone
@@ -53,7 +53,7 @@ const stone_mat = [
   new THREE.MeshStandardMaterial({ map: stone }),   // Front
   new THREE.MeshStandardMaterial({ map: stone })    // Back]
 ];
-const stone_block = new THREE.Mesh(geometry, stone_mat)
+const stone_block = new THREE.Mesh(geometry, stone_mat);
 //stone
 
 
