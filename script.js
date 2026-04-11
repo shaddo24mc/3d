@@ -48,7 +48,9 @@ document.body.appendChild(renderer.domElement);
 renderer.domElement.addEventListener('click', () => {
     renderer.domElement.requestPointerLock();
 });
-
+document.addEventListener('pointerlockerror', () => {
+    console.error("Pointer Lock failed. Try clicking again after the page fully loads.");
+}, false);
 
 
 camera.position.z = 5;
