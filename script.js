@@ -191,9 +191,6 @@ function updateMining() {
 } // End of updateMining
 
 
-}
-
-
 // 8. Listeners & Loop
 document.addEventListener('mousedown', (e) => {
     if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
