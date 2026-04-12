@@ -28,7 +28,7 @@ const leaves = loadTex('./textures/oak_leaves.png');
 // 3. Materials
 const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
-    new THREE.MeshbBasicMaterial({ map: grassSide }),
+    new THREE.MeshbStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassTop, color: 0x90b953 }),
     new THREE.MeshStandardMaterial({ map: dirt }),
     new THREE.MeshStandardMaterial({ map: grassSide }),
@@ -38,7 +38,7 @@ const grass_mat = [
 const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
 // 2. Create the actual fringe material for the sides
-const fringeMat = new THREE.MeshBasicMaterial({ 
+const fringeMat = new THREE.MeshStandardMaterial({ 
     map: grasssideoverlay, 
     color: 0x90b953, 
     transparent: true, 
