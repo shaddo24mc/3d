@@ -70,13 +70,28 @@ function spawnTree(x, y, z) {
         matrix.setPosition(x, y + i, z);
         logIM.setMatrixAt(lIdx++, matrix);
     }
+
     // Leaves (Layered Boxes)
     for (let ly = trunkH - 2; ly <= trunkH + 1; ly++) {
-        let radius = (ly > trunkH - 1) ? 1 : 2; // Top layers are smaller
+        let radius = (ly > trunkH - 1) ? 1 : 2; 
+
         for (let lx = -radius; lx <= radius; lx++) {
             for (let lz = -radius; lz <= radius; lz++) {
-                // Skip corners on the big layers for that "rounded voxel" look
-                if (radius === 2 && Math.abs(lx) === 2 && Math.abs(lz) === 2) continue;
+                
+                // 1. Identify if we are at a corner
+                const isCorner = Math.abs(lx) === radius && Math.abs(lz) === radius;
+
+                if (isCorner) {
+                    // 2. Define trim chance based on layer height
+                    let trimChance = 0;
+                    if (ly === trunkH + 1) trimChance = 1.0; // Top layer: always trim all 4 corners
+                    else if (ly === trunkH) trimChance = 0.75; // 2nd layer: usually trims 3 corners, leaves 1
+                    else if (ly === trunkH - 1) trimChance = 0.5; // 3rd layer: 50/50 chance per corner
+                    else trimChance = 0.2; // Bottom layer: very bushy, rarely trims
+
+                    if (Math.random() < trimChance) continue;
+                }
+
                 // Don't place inside the trunk
                 if (lx === 0 && lz === 0 && ly < trunkH) continue;
 
@@ -86,6 +101,7 @@ function spawnTree(x, y, z) {
         }
     }
 }
+
 
 // 6. Terrain Generation with Culling
 const terrain = [];
