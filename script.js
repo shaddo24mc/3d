@@ -121,8 +121,8 @@ for (let x = 0; x < worldSize; x++) {
 
 [grassIM, dirtIM, stoneIM, logIM, leafIM].forEach(m => {
     scene.add(m);
+    m.frustumCulled = false; // Prevents stuttering when looking away
     m.instanceMatrix.needsUpdate = true;
-    m.computeBoundingSphere(); // Important for lag reduction!
 });
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
