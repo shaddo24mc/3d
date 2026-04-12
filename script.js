@@ -28,7 +28,7 @@ const leaves = loadTex('./textures/oak_leaves.png');
 const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide }),
-    new THREE.MeshStandardMaterial({ map: grassTop, color: 0x55ab55 }),
+    new THREE.MeshStandardMaterial({ map: grassTop, color: 0x91bd59 }),
     new THREE.MeshStandardMaterial({ map: dirt }),
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide })
@@ -43,7 +43,7 @@ const log_mat = [
 ];
 const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
 const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
-const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, opacity: 0.9 });
+const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, opacity: 0.9, color: 0x91bd59 });
 
 // 4. World Settings & Optimized Meshes
 const worldSize = 40;
@@ -71,7 +71,7 @@ function spawnTree(x, y, z) {
         logIM.setMatrixAt(lIdx++, matrix);
     }
     // Leaves (Layered Boxes)
-    for (let ly = trunkH - 3; ly <= trunkH + 1; ly++) {
+    for (let ly = trunkH - 2; ly <= trunkH + 1; ly++) {
         let radius = (ly > trunkH - 1) ? 1 : 2; // Top layers are smaller
         for (let lx = -radius; lx <= radius; lx++) {
             for (let lz = -radius; lz <= radius; lz++) {
