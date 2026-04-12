@@ -152,28 +152,34 @@ function startMining(hit) {
 }
 
 function updateMining() {
-    // 1. Create an empty matrix to "zero out" the block
+    if (!mining.active) return; // Stop if not clicking
+
+    const hit = getTarget();
+    // If we lose the target or look at a different block, reset
+    if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
+        if (hit) startMining(hit);
+        else mining.active = false;
+        return;
+    }
+
     const shortMatrix = new THREE.Matrix4().makeScale(0, 0, 0); 
 
-// 2. Inside your "BREAK" logic:
     if (Date.now() - mining.startTime >= mining.requiredTime) {
-    // Set the specific block scale to 0 so it vanishes
         mining.targetMesh.setMatrixAt(mining.targetId, shortMatrix);
-    
-    // CRITICAL: Only upload the changed part to the GPU (16 floats per matrix)
+        
+        // This part is perfect - keep it!
         mining.targetMesh.instanceMatrix.updateRange = { 
             offset: mining.targetId * 16, 
             count: 16 
         };
         mining.targetMesh.instanceMatrix.needsUpdate = true;
 
-    // Reset mining state
         const next = getTarget();
         if (next) startMining(next);
         else mining.active = false;
     }
-
 }
+
 
 // 8. Listeners & Loop
 document.addEventListener('mousedown', (e) => {
