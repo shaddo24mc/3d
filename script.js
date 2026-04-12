@@ -46,7 +46,7 @@ const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, opacity: 0.9 });
 
 // 4. World Settings & Optimized Meshes
-const worldSize = 40;
+const worldSize = 10;
 const worldDepth = 40;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
