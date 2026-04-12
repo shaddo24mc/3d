@@ -34,12 +34,26 @@ const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide })
 ];
-const side_overlay_mat = new THREE.MeshBasicMaterial({ 
+// 1. Create a "hidden" material for the top and bottom
+const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+
+// 2. Create the actual fringe material for the sides
+const fringeMat = new THREE.MeshBasicMaterial({ 
     map: grasssideoverlay, 
-    color: 0x90b953, // Match your grass top color
-    transparent: true,
-    alphaTest: 0.1 // Prevents weird outline glitches
+    color: 0x90b953, 
+    transparent: true, 
+    alphaTest: 0.5 
 });
+
+// 3. Apply them in order: [Right, Left, Top, Bottom, Front, Back]
+const side_overlay_mat = [
+    fringeMat,     // Right
+    fringeMat,     // Left
+    invisibleMat,  // Top (HIDE)
+    invisibleMat,  // Bottom (HIDE)
+    fringeMat,     // Front
+    fringeMat      // Back
+];
 const log_mat = [
     new THREE.MeshStandardMaterial({ map: logSide }),
     new THREE.MeshStandardMaterial({ map: logSide }),
@@ -64,8 +78,10 @@ const dirtIM = new THREE.InstancedMesh(geometry, dirt_mat, maxBlocks);
 const stoneIM = new THREE.InstancedMesh(geometry, stone_mat, maxBlocks);
 const logIM = new THREE.InstancedMesh(geometry, log_mat, 2000);
 const leafIM = new THREE.InstancedMesh(geometry, leaf_mat, 10000);
+// Ensure it uses the new array material
 const sideOverlayIM = new THREE.InstancedMesh(geometry, side_overlay_mat, maxBlocks);
 scene.add(sideOverlayIM);
+
 let gIdx = 0, dIdx = 0, sIdx = 0, lIdx = 0, lfIdx = 0;
 const matrix = new THREE.Matrix4();
 noise.seed(Math.random());
