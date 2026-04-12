@@ -4,7 +4,7 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
-renderer.setPixelRatio(1); // Set to 1 for maximum performance
+renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
 
 // 2. Textures
@@ -34,10 +34,9 @@ const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide })
 ];
-// 1. Create a "hidden" material for the top and bottom
+
 const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
-// 2. Create the actual fringe material for the sides
 const fringeMat = new THREE.MeshStandardMaterial({ 
     map: grasssideoverlay, 
     color: 0x90b953, 
@@ -45,15 +44,10 @@ const fringeMat = new THREE.MeshStandardMaterial({
     alphaTest: 0.5 
 });
 
-// 3. Apply them in order: [Right, Left, Top, Bottom, Front, Back]
 const side_overlay_mat = [
-    fringeMat,     // Right
-    fringeMat,     // Left
-    invisibleMat,  // Top (HIDE)
-    invisibleMat,  // Bottom (HIDE)
-    fringeMat,     // Front
-    fringeMat      // Back
+    fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat
 ];
+
 const log_mat = [
     new THREE.MeshStandardMaterial({ map: logSide }),
     new THREE.MeshStandardMaterial({ map: logSide }),
@@ -62,61 +56,57 @@ const log_mat = [
     new THREE.MeshStandardMaterial({ map: logSide }),
     new THREE.MeshStandardMaterial({ map: logSide })
 ];
+
 const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
 const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, opacity: 0.9, color: 0x91bd59 });
 
-// 4. World Settings & Optimized Meshes
+// 4. World Settings
 const worldSize = 40;
-const worldDepth = 40;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const maxBlocks = 80000;
 
-const grassIM = new THREE.InstancedMesh(geometry, grass_mat, maxBlocks);
-const dirtIM = new THREE.InstancedMesh(geometry, dirt_mat, maxBlocks);
-const stoneIM = new THREE.InstancedMesh(geometry, stone_mat, maxBlocks);
-const logIM = new THREE.InstancedMesh(geometry, log_mat, 2000);
-const leafIM = new THREE.InstancedMesh(geometry, leaf_mat, 10000);
-// Ensure it uses the new array material
-const sideOverlayIM = new THREE.InstancedMesh(geometry, side_overlay_mat, maxBlocks);
+const grassIM = new THREE.InstancedMesh(geometry, grass_mat, 80000);
+const dirtIM = new THREE.InstancedMesh(geometry, dirt_mat, 80000);
+const stoneIM = new THREE.InstancedMesh(geometry, stone_mat, 80000);
+
+// 🔧 Increased limits so trees don't get cut off
+const logIM = new THREE.InstancedMesh(geometry, log_mat, 5000);
+const leafIM = new THREE.InstancedMesh(geometry, leaf_mat, 20000);
+
+const sideOverlayIM = new THREE.InstancedMesh(geometry, side_overlay_mat, 80000);
 scene.add(sideOverlayIM);
 
 let gIdx = 0, dIdx = 0, sIdx = 0, lIdx = 0, lfIdx = 0;
 const matrix = new THREE.Matrix4();
 noise.seed(Math.random());
 
-// 5. Tree Logic (Minecraft Box Style)
+// 🌳 Tree Function
 function spawnTree(x, y, z) {
     const trunkH = 4 + Math.floor(Math.random() * 2);
-    // Trunk
+
     for (let i = 0; i < trunkH; i++) {
         matrix.setPosition(x, y + i, z);
         logIM.setMatrixAt(lIdx++, matrix);
     }
 
-    // Leaves (Layered Boxes)
     for (let ly = trunkH - 2; ly <= trunkH + 1; ly++) {
-        let radius = (ly > trunkH - 1) ? 1 : 2; 
+        let radius = (ly > trunkH - 1) ? 1 : 2;
 
         for (let lx = -radius; lx <= radius; lx++) {
             for (let lz = -radius; lz <= radius; lz++) {
-                
-                // 1. Identify if we are at a corner
                 const isCorner = Math.abs(lx) === radius && Math.abs(lz) === radius;
 
                 if (isCorner) {
-                    // 2. Define trim chance based on layer height
                     let trimChance = 0;
-                    if (ly === trunkH + 1) trimChance = 1.0; // Top layer: always trim all 4 corners
-                    else if (ly === trunkH) trimChance = 0.75; // 2nd layer: usually trims 3 corners, leaves 1
-                    else if (ly === trunkH - 1) trimChance = 0.5; // 3rd layer: 50/50 chance per corner
-                    else trimChance = 0.2; // Bottom layer: very bushy, rarely trims
+                    if (ly === trunkH + 1) trimChance = 1.0;
+                    else if (ly === trunkH) trimChance = 0.75;
+                    else if (ly === trunkH - 1) trimChance = 0.5;
+                    else trimChance = 0.2;
 
                     if (Math.random() < trimChance) continue;
                 }
 
-                // Don't place inside the trunk
                 if (lx === 0 && lz === 0 && ly < trunkH) continue;
 
                 matrix.setPosition(x + lx, y + ly, z + lz);
@@ -126,8 +116,7 @@ function spawnTree(x, y, z) {
     }
 }
 
-
-// 6. Terrain Generation with Culling
+// 6. Terrain
 const terrain = [];
 for (let x = 0; x < worldSize; x++) {
     terrain[x] = [];
@@ -140,156 +129,73 @@ for (let x = 0; x < worldSize; x++) {
 for (let x = 0; x < worldSize; x++) {
     for (let z = 0; z < worldSize; z++) {
         const h = terrain[x][z];
+
         for (let y = 0; y <= h; y++) {
-            // CULLING CHECK: If block is surrounded on all sides, skip it
-            const isHidden = (x > 0 && x < worldSize - 1 && z > 0 && z < worldSize - 1 && y < h &&
-                             terrain[x+1][z] >= y && terrain[x-1][z] >= y &&
-                             terrain[x][z+1] >= y && terrain[x][z-1] >= y);
-            
+            const isHidden =
+                (x > 0 && x < worldSize - 1 && z > 0 && z < worldSize - 1 && y < h &&
+                terrain[x+1][z] >= y && terrain[x-1][z] >= y &&
+                terrain[x][z+1] >= y && terrain[x][z-1] >= y);
+
             if (!isHidden) {
                 matrix.setPosition(x, y, z);
+
                 if (y === h) {
-                    matrix.setPosition(x, y, z);
-                    grassIM.setMatrixAt(gIdx, matrix); // Your regular grass block
-    
-    // Scale up the overlay slightly so it "wraps" around the side
+                    grassIM.setMatrixAt(gIdx, matrix);
+
+                    // 🌳 TREE SPAWN HERE
+                    if (Math.random() < 0.02) {
+                        spawnTree(x, y + 1, z);
+                    }
+
                     const overlayMatrix = new THREE.Matrix4();
                     overlayMatrix.makeScale(1.002, 1.002, 1.002);
                     overlayMatrix.setPosition(x, y, z);
                     sideOverlayIM.setMatrixAt(gIdx, overlayMatrix);
-    
-                    gIdx++; // Advance the index for both
-}
-                     else if (y > h - 3) dirtIM.setMatrixAt(dIdx++, matrix);
-                    else stoneIM.setMatrixAt(sIdx++, matrix);
+
+                    gIdx++;
+                }
+                else if (y > h - 3) dirtIM.setMatrixAt(dIdx++, matrix);
+                else stoneIM.setMatrixAt(sIdx++, matrix);
             }
         }
     }
 }
 
+// Add meshes
 [grassIM, dirtIM, stoneIM, logIM, leafIM].forEach(m => {
     scene.add(m);
     m.frustumCulled = false;
-    // Set the draw count to the number of blocks actually placed
+
     if (m === grassIM) m.count = gIdx;
     if (m === dirtIM) m.count = dIdx;
     if (m === stoneIM) m.count = sIdx;
     if (m === logIM) m.count = lIdx;
     if (m === leafIM) m.count = lfIdx;
-    
+
     m.instanceMatrix.needsUpdate = true;
 });
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 
-// 7. Controls & Mining (Continuous)
+// Controls
 camera.position.set(worldSize / 2, 25, worldSize / 2);
 let yaw = 0, pitch = 0, keys = {};
 const raycaster = new THREE.Raycaster();
 raycaster.far = 6;
 
-let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
-
-function getTarget() {
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const hit = raycaster.intersectObjects([grassIM, dirtIM, stoneIM, logIM, leafIM]);
-    return hit.length > 0 ? hit[0] : null;
-}
-
-function startMining(hit) {
-    mining = {
-        active: true,
-        startTime: Date.now(),
-        targetMesh: hit.object,
-        targetId: hit.instanceId,
-        requiredTime: (hit.object === stoneIM) ? 1000 : (hit.object === logIM) ? 700 : 300
-    };
-}
-
-function updateMining() {
-    if (!mining.active) return; 
-
-    const hit = getTarget();
-    // Reset mining if we look away or the block is gone
-    if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
-        if (hit) startMining(hit);
-        else mining.active = false;
-        return;
-    }
-
-    // Check if enough time has passed to break the block
-    if (Date.now() - mining.startTime >= mining.requiredTime) {
-        const mesh = mining.targetMesh;
-        const targetIdx = mining.targetId;
-
-        /**
-         * 1. SPECIAL CASE FOR GRASS:
-         * If the block being broken is grass, we must also remove its 
-         * corresponding side overlay fringe.
-         */
-        if (mesh === grassIM) {
-            const lastOverlayIdx = sideOverlayIM.count - 1;
-            // Swap: Move the last overlay block into the target slot
-            if (targetIdx !== lastOverlayIdx) {
-                const tempMat = new THREE.Matrix4();
-                sideOverlayIM.getMatrixAt(lastOverlayIdx, tempMat);
-                sideOverlayIM.setMatrixAt(targetIdx, tempMat);
-            }
-            // Pop: Hide the last slot
-            sideOverlayIM.count--;
-            sideOverlayIM.instanceMatrix.needsUpdate = true;
-        }
-
-        /**
-         * 2. GENERAL SWAP-AND-POP:
-         * This works for any block (Stone, Log, Dirt, or Grass).
-         */
-        const lastIdx = mesh.count - 1; 
-        if (targetIdx !== lastIdx) {
-            const lastMatrix = new THREE.Matrix4();
-            mesh.getMatrixAt(lastIdx, lastMatrix);
-            mesh.setMatrixAt(targetIdx, lastMatrix);
-        }
-
-        // Reduce the draw count of the target mesh
-        mesh.count--;
-        mesh.instanceMatrix.needsUpdate = true;
-
-        // Immediately check if there is another block behind the one we just broke
-        const next = getTarget();
-        if (next) startMining(next);
-        else mining.active = false;
-    }
-}
-
-
-
-// 8. Listeners & Loop
-document.addEventListener('mousedown', (e) => {
-    if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
-    else if (e.button === 0) { const hit = getTarget(); if (hit) startMining(hit); }
-});
-document.addEventListener('mouseup', () => mining.active = false);
-document.addEventListener('mousemove', (e) => {
-    if (document.pointerLockElement) {
-        yaw -= e.movementX * 0.002;
-        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - e.movementY * 0.002));
-    }
-});
-window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
-
 function animate() {
     requestAnimationFrame(animate);
-    updateMining();
+
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+
     if (keys.w) camera.position.addScaledVector(fwd, -0.15);
     if (keys.s) camera.position.addScaledVector(fwd, 0.15);
     if (keys.a) camera.position.addScaledVector(rgt, -0.15);
     if (keys.d) camera.position.addScaledVector(rgt, 0.15);
     if (keys[' ']) camera.position.y += 0.15;
     if (keys.shift) camera.position.y -= 0.15;
+
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
     renderer.render(scene, camera);
 }
