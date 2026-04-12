@@ -46,7 +46,7 @@ const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, opacity: 0.9 });
 
 // 4. World Settings & Optimized Meshes
-const worldSize = 10;
+const worldSize = 40;
 const worldDepth = 40;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -121,7 +121,14 @@ for (let x = 0; x < worldSize; x++) {
 
 [grassIM, dirtIM, stoneIM, logIM, leafIM].forEach(m => {
     scene.add(m);
-    m.frustumCulled = false; // Prevents stuttering when looking away
+    m.frustumCulled = false;
+    // Set the draw count to the number of blocks actually placed
+    if (m === grassIM) m.count = gIdx;
+    if (m === dirtIM) m.count = dIdx;
+    if (m === stoneIM) m.count = sIdx;
+    if (m === logIM) m.count = lIdx;
+    if (m === leafIM) m.count = lfIdx;
+    
     m.instanceMatrix.needsUpdate = true;
 });
 
@@ -152,32 +159,38 @@ function startMining(hit) {
 }
 
 function updateMining() {
-    if (!mining.active) return; // Stop if not clicking
+    if (!mining.active) return; 
 
     const hit = getTarget();
-    // If we lose the target or look at a different block, reset
     if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
         if (hit) startMining(hit);
         else mining.active = false;
         return;
     }
 
-    const shortMatrix = new THREE.Matrix4().makeScale(0, 0, 0); 
-
     if (Date.now() - mining.startTime >= mining.requiredTime) {
-        mining.targetMesh.setMatrixAt(mining.targetId, shortMatrix);
-        
-        // This part is perfect - keep it!
-        mining.targetMesh.instanceMatrix.updateRange = { 
-            offset: mining.targetId * 16, 
-            count: 16 
-        };
-        mining.targetMesh.instanceMatrix.needsUpdate = true;
+        const mesh = mining.targetMesh;
+        const targetIdx = mining.targetId;
+        const lastIdx = mesh.count - 1; 
+
+        // Swap: Move the last block into the hole left by the broken block
+        if (targetIdx !== lastIdx) {
+            const lastMatrix = new THREE.Matrix4();
+            mesh.getMatrixAt(lastIdx, lastMatrix);
+            mesh.setMatrixAt(targetIdx, lastMatrix);
+        }
+
+        // Pop: Reduce count so the GPU ignores the last slot
+        mesh.count--;
+        mesh.instanceMatrix.needsUpdate = true;
 
         const next = getTarget();
         if (next) startMining(next);
         else mining.active = false;
     }
+} // End of updateMining
+
+
 }
 
 
