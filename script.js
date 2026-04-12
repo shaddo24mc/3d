@@ -18,6 +18,7 @@ const loadTex = (url) => {
 
 const grassTop = loadTex('./textures/grass_block_top.png');
 const grassSide = loadTex('./textures/grass_block_side.png');
+const grasssideoverlay = loadTex('./textures/grass_block_side_overlay.png');
 const dirt = loadTex('./textures/dirt.png');
 const stone = loadTex('./textures/stone.png');
 const logSide = loadTex('./textures/oak_log.png');
@@ -33,6 +34,12 @@ const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide })
 ];
+const side_overlay_mat = new THREE.MeshBasicMaterial({ 
+    map: grasssideoverlay, 
+    color: 0x90b953, // Match your grass top color
+    transparent: true,
+    alphaTest: 0.1 // Prevents weird outline glitches
+});
 const log_mat = [
     new THREE.MeshStandardMaterial({ map: logSide }),
     new THREE.MeshStandardMaterial({ map: logSide }),
@@ -57,7 +64,8 @@ const dirtIM = new THREE.InstancedMesh(geometry, dirt_mat, maxBlocks);
 const stoneIM = new THREE.InstancedMesh(geometry, stone_mat, maxBlocks);
 const logIM = new THREE.InstancedMesh(geometry, log_mat, 2000);
 const leafIM = new THREE.InstancedMesh(geometry, leaf_mat, 10000);
-
+const sideOverlayIM = new THREE.InstancedMesh(geometry, side_overlay_mat, maxBlocks);
+scene.add(sideOverlayIM);
 let gIdx = 0, dIdx = 0, sIdx = 0, lIdx = 0, lfIdx = 0;
 const matrix = new THREE.Matrix4();
 noise.seed(Math.random());
@@ -125,11 +133,19 @@ for (let x = 0; x < worldSize; x++) {
             if (!isHidden) {
                 matrix.setPosition(x, y, z);
                 if (y === h) {
-                    grassIM.setMatrixAt(gIdx++, matrix);
-                    if (Math.random() < 0.02) spawnTree(x, y + 1, z);
-                } 
-                else if (y > h - 3) dirtIM.setMatrixAt(dIdx++, matrix);
-                else stoneIM.setMatrixAt(sIdx++, matrix);
+                    matrix.setPosition(x, y, z);
+                    grassIM.setMatrixAt(gIdx, matrix); // Your regular grass block
+    
+    // Scale up the overlay slightly so it "wraps" around the side
+                    const overlayMatrix = new THREE.Matrix4();
+                    overlayMatrix.makeScale(1.002, 1.002, 1.002);
+                    overlayMatrix.setPosition(x, y, z);
+                    sideOverlayIM.setMatrixAt(gIdx, overlayMatrix);
+    
+                    gIdx++; // Advance the index for both
+}
+                     else if (y > h - 3) dirtIM.setMatrixAt(dIdx++, matrix);
+                    else stoneIM.setMatrixAt(sIdx++, matrix);
             }
         }
     }
@@ -178,33 +194,58 @@ function updateMining() {
     if (!mining.active) return; 
 
     const hit = getTarget();
+    // Reset mining if we look away or the block is gone
     if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
         if (hit) startMining(hit);
         else mining.active = false;
         return;
     }
 
+    // Check if enough time has passed to break the block
     if (Date.now() - mining.startTime >= mining.requiredTime) {
         const mesh = mining.targetMesh;
         const targetIdx = mining.targetId;
-        const lastIdx = mesh.count - 1; 
 
-        // Swap: Move the last block into the hole left by the broken block
+        /**
+         * 1. SPECIAL CASE FOR GRASS:
+         * If the block being broken is grass, we must also remove its 
+         * corresponding side overlay fringe.
+         */
+        if (mesh === grassIM) {
+            const lastOverlayIdx = sideOverlayIM.count - 1;
+            // Swap: Move the last overlay block into the target slot
+            if (targetIdx !== lastOverlayIdx) {
+                const tempMat = new THREE.Matrix4();
+                sideOverlayIM.getMatrixAt(lastOverlayIdx, tempMat);
+                sideOverlayIM.setMatrixAt(targetIdx, tempMat);
+            }
+            // Pop: Hide the last slot
+            sideOverlayIM.count--;
+            sideOverlayIM.instanceMatrix.needsUpdate = true;
+        }
+
+        /**
+         * 2. GENERAL SWAP-AND-POP:
+         * This works for any block (Stone, Log, Dirt, or Grass).
+         */
+        const lastIdx = mesh.count - 1; 
         if (targetIdx !== lastIdx) {
             const lastMatrix = new THREE.Matrix4();
             mesh.getMatrixAt(lastIdx, lastMatrix);
             mesh.setMatrixAt(targetIdx, lastMatrix);
         }
 
-        // Pop: Reduce count so the GPU ignores the last slot
+        // Reduce the draw count of the target mesh
         mesh.count--;
         mesh.instanceMatrix.needsUpdate = true;
 
+        // Immediately check if there is another block behind the one we just broke
         const next = getTarget();
         if (next) startMining(next);
         else mining.active = false;
     }
-} // End of updateMining
+}
+
 
 
 // 8. Listeners & Loop
