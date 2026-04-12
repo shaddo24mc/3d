@@ -28,7 +28,7 @@ const leaves = loadTex('./textures/oak_leaves.png');
 const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide }),
-    new THREE.MeshStandardMaterial({ map: grassTop, color: 0xb2d67d  }),
+    new THREE.MeshStandardMaterial({ map: grassTop, color: 0x7fb045 }),
     new THREE.MeshStandardMaterial({ map: dirt }),
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide })
