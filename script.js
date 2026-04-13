@@ -104,16 +104,6 @@ function spawnTree(x, y, z) {
 
 // 6. Terrain Generation
 const terrain = [];
-for (let x = 0; x < worldSize; x++) {
-    terrain[x] = [];
-    for (let z = 0; z < worldSize; z++) {
-        let n = noise.perlin2(x / 25, z / 25);
-        terrain[x][z] = Math.floor(((n + 1) / 2) * heightScale) + 10;
-    }
-}
-
-// 6. Terrain Generation
-const terrain = [];
 
 // Step 6a: Generate the height map
 for (let x = 0; x < worldSize; x++) {
