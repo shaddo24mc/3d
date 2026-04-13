@@ -61,8 +61,8 @@ const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 });
 
 // 4. Optimized Meshes
-const worldSize = 40;
-const heightScale = 12;
+const worldSize = 100;
+const heightScale = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const maxBlocks = 150000;
 
@@ -111,16 +111,35 @@ for (let x = 0; x < worldSize; x++) {
     }
 }
 
-for (let y = -64; y <= h; y++) {
+// 6. Terrain Generation
+const terrain = [];
+
+// Step 6a: Generate the height map
+for (let x = 0; x < worldSize; x++) {
+    terrain[x] = [];
+    for (let z = 0; z < worldSize; z++) {
+        let n = noise.perlin2(x / 25, z / 25);
+        terrain[x][z] = Math.floor(((n + 1) / 2) * heightScale) + 10;
+    }
+}
+
+// Step 6b: Place the blocks
+for (let x = 0; x < worldSize; x++) {
     for (let z = 0; z < worldSize; z++) {
         const h = terrain[x][z];
-        for (let y = 0; y <= h; y++) {
-            const isHidden = (x > 0 && x < worldSize - 1 && z > 0 && z < worldSize - 1 && y < h &&
-                             terrain[x+1][z] >= y && terrain[x-1][z] >= y &&
-                             terrain[x][z+1] >= y && terrain[x][z-1] >= y);
+        
+        // Loop from the new bottom of the world up to the surface height
+        for (let y = worldDepth; y <= h; y++) {
             
+            // Check if the block is completely surrounded by other blocks
+            const isHidden = (x > 0 && x < worldSize - 1 && z > 0 && z < worldSize - 1 && y < h &&
+                              terrain[x+1][z] >= y && terrain[x-1][z] >= y &&
+                              terrain[x][z+1] >= y && terrain[x][z-1] >= y);
+            
+            // Only render it if it's touching air
             if (!isHidden) {
                 matrix.setPosition(x, y, z);
+                
                 if (y === h) {
                     grassIM.setMatrixAt(gIdx, matrix);
                     const overlayMatrix = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(x, y, z);
@@ -137,6 +156,7 @@ for (let y = -64; y <= h; y++) {
     }
 }
 
+// Step 6c: Add meshes to the scene and update their instance counts
 [grassIM, sideOverlayIM, dirtIM, stoneIM, logIM, leafIM].forEach(m => {
     scene.add(m);
     m.frustumCulled = false;
@@ -149,7 +169,6 @@ for (let y = -64; y <= h; y++) {
 });
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
 // 7. Controls & Sync Mining
 camera.position.set(worldSize / 2, 25, worldSize / 2);
 let yaw = 0, pitch = 0, keys = {};
