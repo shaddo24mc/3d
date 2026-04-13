@@ -139,7 +139,7 @@ for (let x = 0; x < worldSize; x++) {
                     grassIM.setMatrixAt(gIdx, matrix);
                     const overlayMatrix = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(x, y, z);
                     sideOverlayIM.setMatrixAt(gIdx, overlayMatrix);
-                    if (Math.random() < 0.02) spawnTree(x, y + 1, z);
+                    if (Math.random() < 0.0002) spawnTree(x, y + 1, z);
                     gIdx++;
                 } else if (y > h - 3) {
                     dirtIM.setMatrixAt(dIdx++, matrix);
