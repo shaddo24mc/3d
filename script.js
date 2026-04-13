@@ -62,7 +62,7 @@ const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true
 
 // 4. Optimized Meshes
 const worldSize = 100;
-const heightScale = -64;
+const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const maxBlocks = 150000;
 
