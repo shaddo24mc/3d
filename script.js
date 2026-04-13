@@ -230,8 +230,8 @@ function animate() {
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
     if (keys.w) camera.position.addScaledVector(fwd, -0.15);
     if (keys.s) camera.position.addScaledVector(fwd, 0.15);
-    if (keys.a) camera.position.addScaledVector(rgt, -0.15);
-    if (keys.d) camera.position.addScaledVector(rgt, 0.15);
+    if (keys.a) camera.position.addScaledVector(rgt, 0.15);
+    if (keys.d) camera.position.addScaledVector(rgt, -0.15);
     if (keys[' ']) camera.position.y += 0.15;
     if (keys.shift) camera.position.y -= 0.15;
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
