@@ -34,7 +34,7 @@ const leaves = loadTex('./textures/oak_leaves.png');
 const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide }),
-    new THREE.MeshStandardMaterial({ map: grassTop, color: 0x91bd59 }),
+    new THREE.MeshStandardMaterial({ map: grassTop, color: 0x92bc58 }),
     new THREE.MeshStandardMaterial({ map: dirt }),
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide })
@@ -43,7 +43,7 @@ const grass_mat = [
 const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 const fringeMat = new THREE.MeshStandardMaterial({ 
     map: grassSideOverlay, 
-    color: 0x91bd59,
+    color: 0x92bc58,
     transparent: true, 
     alphaTest: 0.5 
 });
