@@ -7,7 +7,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
-
+const stats = new Stats();
+stats.showPanel(0); // 0: fps, 1: ms, 2: mb
+document.body.appendChild(stats.dom);
 // 2. Textures
 const loader = new THREE.TextureLoader();
 const loadTex = (url) => {
@@ -247,5 +249,6 @@ function animate() {
     if (keys.shift) camera.position.y -= 0.15;
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
     renderer.render(scene, camera);
+    stats.update();
 }
 animate();
