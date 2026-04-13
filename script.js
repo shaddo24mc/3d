@@ -64,7 +64,7 @@ const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true
 const worldSize = 40;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const maxBlocks = 80000;
+const maxBlocks = 150000;
 
 const grassIM = new THREE.InstancedMesh(geometry, grass_mat, maxBlocks);
 const sideOverlayIM = new THREE.InstancedMesh(geometry, side_overlay_mat, maxBlocks);
@@ -111,7 +111,7 @@ for (let x = 0; x < worldSize; x++) {
     }
 }
 
-for (let x = 0; x < worldSize; x++) {
+for (let y = -64; y <= h; y++) {
     for (let z = 0; z < worldSize; z++) {
         const h = terrain[x][z];
         for (let y = 0; y <= h; y++) {
