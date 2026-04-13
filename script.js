@@ -1,14 +1,15 @@
 
 // 1. Scene & Renderer Setup
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150);
+scene.fog = new THREE.Fog(0x87ceeb, 20, 128);  // Add Fog! (color, near, far)
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
 const stats = new Stats();
-stats.showPanel(0); // 0: fps, 1: ms, 2: mb
+stats.showPanel(0); // 0: fps,
 document.body.appendChild(stats.dom);
 // 2. Textures
 const loader = new THREE.TextureLoader();
