@@ -149,6 +149,7 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
 }
 
 // 6. Chunk Generator
+// 6. Chunk Generator
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
@@ -214,6 +215,16 @@ function generateChunk(chunkX, chunkZ) {
                 }
 
                 if (!isHidden) {
+                    // 1. ✅ INDEPENDENT TREE LOGIC
+                    // Check if a tree belongs here BEFORE we check if the dirt is broken
+                    if (y === h) {
+                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) {
+                            spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                        }
+                    }
+
+                    // 2. ✅ GROUND BLOCK LOGIC
+                    // Now, if this specific ground block is broken, skip drawing it
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
                     matrix.setPosition(globalX, y, globalZ);
@@ -222,8 +233,6 @@ function generateChunk(chunkX, chunkZ) {
                         meshes.grass.setMatrixAt(indices.g, matrix);
                         const overlayMat = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(globalX, y, globalZ);
                         meshes.overlay.setMatrixAt(indices.g, overlayMat);
-                        
-                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) spawnTree(globalX, y + 1, globalZ, meshes, indices);
                         indices.g++;
                     } else if (y > h - 3) {
                         meshes.dirt.setMatrixAt(indices.d++, matrix);
