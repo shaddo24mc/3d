@@ -64,11 +64,11 @@ const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 });
 
 // 4. Optimized Meshes
-const worldSize = 100;
+const worldSize = 200;
 const worldDepth = -64;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const maxBlocks = 150000;
+const maxBlocks = 2000000;
 
 const grassIM = new THREE.InstancedMesh(geometry, grass_mat, maxBlocks);
 const sideOverlayIM = new THREE.InstancedMesh(geometry, side_overlay_mat, maxBlocks);
