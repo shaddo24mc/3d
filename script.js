@@ -7,7 +7,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
-
+let stonehardness = 7500
+let loghardness = 3000
+let dirthardness = 750
 const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
@@ -297,7 +299,7 @@ function getTarget() {
 function startMining(hit) {
     mining = {
         active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId,
-        requiredTime: (hit.object.name === 'stone') ? 1000 : (hit.object.name === 'log') ? 700 : 300
+        requiredTime: (hit.object.name === 'stone') ? stonebreaktime : (hit.object.name === 'log') ? logbreaktime : (hit.object.name === 'dirt') ? dirtbreaktime : (hit.object.name === 'grass') ? dirtbreaktime :
     };
 
     // Reset to phase 0 when we start hitting a new block
