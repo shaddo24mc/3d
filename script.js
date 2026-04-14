@@ -72,21 +72,26 @@ const worldDepth = -64;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
-// MASTER SEED: Change this number to get a completely different, but permanent world!
-const worldSeed = Math.random();
+// MASTER SEED: Generates a completely new, random world every time you refresh!
+const worldSeed = Math.random(); 
 noise.seed(worldSeed);
 
 const activeChunks = {};
 const interactableMeshes = [];
 const brokenBlocks = new Set(); // The Memory Bank
 
-// NEW: A true Bitwise Hash function for integer grids. No more repeating patterns!
+// NEW: String-Based Avalanche Hash. 100% immune to JS 32-bit integer limits!
 function getDeterministicRandom(x, y, z) {
-    let h = (x * 374761393) ^ (y * 668265263) ^ (z * 2246822519) ^ Math.floor(worldSeed * 4294967296);
-    h = (h ^ (h >> 13)) * 3266489917;
-    h = (h ^ (h >> 16)) * 668265263;
-    h = h ^ (h >> 15);
-    return (h >>> 0) / 4294967296; 
+    let str = `${x},${y},${z},${worldSeed}`;
+    let h = 2166136261; 
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619); 
+    }
+    h ^= h >>> 13;
+    h = Math.imul(h, 2246822507);
+    h ^= h >>> 15;
+    return (h >>> 0) / 4294967296;
 }
 
 // 5. Tree Logic (With Master Seed & Persistence)
@@ -168,11 +173,24 @@ function generateChunk(chunkX, chunkZ) {
             let h = terrain[x + 1][z + 1];
             
             for (let y = worldDepth; y <= h; y++) {
-                const isHidden = (
+                let isHidden = (
                     terrain[x + 2][z + 1] >= y && terrain[x][z + 1] >= y &&
                     terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
                 );
                 
+                // Smart Culling: Check the Memory Bank to reveal hidden blocks!
+                if (isHidden) {
+                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))   
+                    {
+                        isHidden = false;
+                    }
+                }
+
                 if (!isHidden) {
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
@@ -183,7 +201,7 @@ function generateChunk(chunkX, chunkZ) {
                         const overlayMat = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(globalX, y, globalZ);
                         meshes.overlay.setMatrixAt(indices.g, overlayMat);
                         
-                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.02) spawnTree(globalX, y + 1, globalZ, meshes, indices);
                         indices.g++;
                     } else if (y > h - 3) {
                         meshes.dirt.setMatrixAt(indices.d++, matrix);
@@ -279,32 +297,31 @@ function updateMining() {
         const mesh = mining.targetMesh;
         const targetIdx = mining.targetId;
 
+        // Find exact coordinates of the broken block
         const blockMatrix = new THREE.Matrix4();
         mesh.getMatrixAt(targetIdx, blockMatrix);
         const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
+        
+        // Save to memory bank
         brokenBlocks.add(`${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`);
 
-        if (mesh.name === 'grass') {
-            const overlayMesh = activeChunks[mesh.chunkId].overlay;
-            const lastOverlayIdx = overlayMesh.count - 1;
-            if (targetIdx !== lastOverlayIdx) {
-                const tempMat = new THREE.Matrix4();
-                overlayMesh.getMatrixAt(lastOverlayIdx, tempMat);
-                overlayMesh.setMatrixAt(targetIdx, tempMat);
-            }
-            overlayMesh.count--;
-            overlayMesh.instanceMatrix.needsUpdate = true;
-        }
-
-        const lastIdx = mesh.count - 1;
-        if (targetIdx !== lastIdx) {
-            const lastMatrix = new THREE.Matrix4();
-            mesh.getMatrixAt(lastIdx, lastMatrix);
-            mesh.setMatrixAt(targetIdx, lastMatrix);
-        }
-        mesh.count--;
-        mesh.instanceMatrix.needsUpdate = true;
+        // Destroy and instantly rebuild the chunk to reveal the blocks underneath!
+        const chunkId = mesh.chunkId;
+        const meshes = activeChunks[chunkId];
         
+        for (const m of Object.values(meshes)) {
+            scene.remove(m);
+            const index = interactableMeshes.indexOf(m);
+            if (index > -1) interactableMeshes.splice(index, 1);
+            m.dispose();
+        }
+        delete activeChunks[chunkId];
+        
+        // Extract X and Z from the ID and regenerate
+        const [cX, cZ] = chunkId.split(',').map(Number);
+        generateChunk(cX, cZ);
+
+        // Reset mining raycaster
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
     }
