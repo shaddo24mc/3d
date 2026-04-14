@@ -167,6 +167,8 @@ function generateChunk(chunkX, chunkZ) {
         mesh.name = key;
         mesh.chunkId = chunkId;
         mesh.frustumCulled = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
     }
 
     const indices = { g: 0, d: 0, s: 0, l: 0, lf: 0 };
