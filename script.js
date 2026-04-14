@@ -12,6 +12,8 @@ let loghardness = 3000
 let dirthardness = 750
 const stats = new Stats();
 stats.showPanel(0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(stats.dom);
 
 // 2. Textures
@@ -243,9 +245,24 @@ function generateChunk(chunkX, chunkZ) {
     activeChunks[chunkId] = meshes;
 }
 
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+scene.add(hemiLight);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+sunLight.position.set(50, 100, 20); // Angled in the sky
+sunLight.castShadow = true;
 
-sunLight.position.set(50, 100, 50);
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 150;
+sunLight.shadow.bias = -0.0005;
+
+
+const d = 50; 
+sunLight.shadow.camera.left = -d;
+sunLight.shadow.camera.right = d;
+sunLight.shadow.camera.top = d;
+sunLight.shadow.camera.bottom = -d;
 
 scene.add(sunLight);
 let lastPlayerChunkX = -999;
