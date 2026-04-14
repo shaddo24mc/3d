@@ -87,7 +87,7 @@ destroyMesh.visible = false;
 scene.add(destroyMesh);
 // 4. World Variables, Master Seed & Memory System
 const chunkSize = 16;
-const renderDistance = 8;
+const renderDistance = 4;
 const worldDepth = -64;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
