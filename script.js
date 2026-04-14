@@ -1,7 +1,7 @@
 // 1. Scene & Renderer Setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150);
-scene.fog = new THREE.Fog(0x87ceeb, 20, 128);  // Fog hides the chunk loading edges!
+scene.fog = new THREE.Fog(0x87ceeb, 20, 128);
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
@@ -65,23 +65,34 @@ const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
 const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 });
 
-// 4. World & Chunk Variables
+// 4. World Variables & Memory System
 const chunkSize = 16;
-const renderDistance = 4; // How many chunks out from the player to render
+const renderDistance = 4;
 const worldDepth = -64;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 noise.seed(Math.random());
 
-const activeChunks = {}; // Stores all currently loaded chunks
-const interactableMeshes = []; // Array of all meshes we can mine
+const activeChunks = {};
+const interactableMeshes = [];
 
-// 5. Asymmetrical Tree Logic (Updated for chunks)
+// NEW: The Memory Bank for broken blocks
+const brokenBlocks = new Set(); 
+
+// NEW: Deterministic Math for stable generation
+function getDeterministicRandom(x, y, z) {
+    let n = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453;
+    return n - Math.floor(n);
+}
+
+// 5. Tree Logic (Updated for Persistence)
 function spawnTree(x, y, z, chunkMeshes, indices) {
-    const trunkH = 4 + Math.floor(Math.random() * 2);
+    const trunkH = 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
     const treeMatrix = new THREE.Matrix4();
     
     for (let i = 0; i < trunkH; i++) {
+        if (brokenBlocks.has(`${x},${y + i},${z}`)) continue; // Skip if mined!
+        
         treeMatrix.setPosition(x, y + i, z);
         chunkMeshes.log.setMatrixAt(indices.l++, treeMatrix);
     }
@@ -92,22 +103,27 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
                 const isCorner = Math.abs(lx) === radius && Math.abs(lz) === radius;
                 if (isCorner) {
                     let trimChance = (ly === trunkH + 1) ? 1.0 : (ly === trunkH) ? 0.75 : (ly === trunkH - 1) ? 0.4 : 0.1;
-                    if (Math.random() < trimChance) continue;
+                    if (getDeterministicRandom(x + lx, y + ly, z + lz) < trimChance) continue;
                 }
                 if (lx === 0 && lz === 0 && ly < trunkH) continue;
-                treeMatrix.setPosition(x + lx, y + ly, z + lz);
+                
+                const blockX = x + lx;
+                const blockY = y + ly;
+                const blockZ = z + lz;
+                if (brokenBlocks.has(`${blockX},${blockY},${blockZ}`)) continue; // Skip if mined!
+
+                treeMatrix.setPosition(blockX, blockY, blockZ);
                 chunkMeshes.leaf.setMatrixAt(indices.lf++, treeMatrix);
             }
         }
     }
 }
 
-// 6. Chunk Generator Function
+// 6. Chunk Generator
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
-    if (activeChunks[chunkId]) return; // Already loaded!
+    if (activeChunks[chunkId]) return;
 
-    // Create unique meshes just for this 16x16 chunk area
     const maxSurfaceBlocks = chunkSize * chunkSize;
     const maxDeepBlocks = chunkSize * chunkSize * 40; 
     
@@ -120,11 +136,10 @@ function generateChunk(chunkX, chunkZ) {
         leaf: new THREE.InstancedMesh(geometry, leaf_mat, 2000)
     };
 
-    // Label them so the mining script knows what they are
     for (const [key, mesh] of Object.entries(meshes)) {
         mesh.name = key;
         mesh.chunkId = chunkId;
-        mesh.frustumCulled = true; // THIS IS THE MAGIC OPTIMIZATION!
+        mesh.frustumCulled = true;
     }
 
     const indices = { g: 0, d: 0, s: 0, l: 0, lf: 0 };
@@ -133,7 +148,6 @@ function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    // Generate height map including a 1-block border to perfectly calculate hidden blocks on the chunk edges
     const terrain = [];
     for (let x = -1; x <= chunkSize; x++) {
         terrain[x + 1] = [];
@@ -143,7 +157,6 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // Place the blocks
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x;
@@ -157,13 +170,17 @@ function generateChunk(chunkX, chunkZ) {
                 );
                 
                 if (!isHidden) {
+                    // NEW: Check memory bank. If mined, skip entirely!
+                    if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
+
                     matrix.setPosition(globalX, y, globalZ);
                     
                     if (y === h) {
                         meshes.grass.setMatrixAt(indices.g, matrix);
                         const overlayMat = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(globalX, y, globalZ);
                         meshes.overlay.setMatrixAt(indices.g, overlayMat);
-                        if (Math.random() < 0.0002) spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                        
+                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) spawnTree(globalX, y + 1, globalZ, meshes, indices);
                         indices.g++;
                     } else if (y > h - 3) {
                         meshes.dirt.setMatrixAt(indices.d++, matrix);
@@ -175,14 +192,12 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // Lock in the counts
     meshes.grass.count = meshes.overlay.count = indices.g;
     meshes.dirt.count = indices.d;
     meshes.stone.count = indices.s;
     meshes.log.count = indices.l;
     meshes.leaf.count = indices.lf;
 
-    // Add them to the world
     for (const mesh of Object.values(meshes)) {
         mesh.instanceMatrix.needsUpdate = true;
         scene.add(mesh);
@@ -193,7 +208,7 @@ function generateChunk(chunkX, chunkZ) {
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
-// 7. Dynamic Chunk Manager (The Garbage Collector)
+// 7. Dynamic Chunk Manager
 let lastPlayerChunkX = -999;
 let lastPlayerChunkZ = -999;
 
@@ -201,14 +216,12 @@ function updateChunks() {
     const playerChunkX = Math.floor(camera.position.x / chunkSize);
     const playerChunkZ = Math.floor(camera.position.z / chunkSize);
 
-    // Only update if the player has walked into a new chunk
     if (playerChunkX === lastPlayerChunkX && playerChunkZ === lastPlayerChunkZ) return;
     lastPlayerChunkX = playerChunkX;
     lastPlayerChunkZ = playerChunkZ;
 
     const chunksToKeep = new Set();
 
-    // 1. Generate chunks around the player
     for (let x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
         for (let z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
             generateChunk(x, z);
@@ -216,23 +229,22 @@ function updateChunks() {
         }
     }
 
-    // 2. Delete old chunks far behind the player to free up RAM
     for (const chunkId in activeChunks) {
         if (!chunksToKeep.has(chunkId)) {
             const meshes = activeChunks[chunkId];
             for (const mesh of Object.values(meshes)) {
-                scene.remove(mesh); // Remove from view
+                scene.remove(mesh);
                 const index = interactableMeshes.indexOf(mesh);
-                if (index > -1) interactableMeshes.splice(index, 1); // Remove from raycaster
-                mesh.dispose(); // Delete geometry from memory
+                if (index > -1) interactableMeshes.splice(index, 1);
+                mesh.dispose();
             }
             delete activeChunks[chunkId];
         }
     }
 }
 
-// 8. Controls & Sync Mining
-camera.position.set(0, 25, 0); // Spawn at coordinates 0,0
+// 8. Controls & Memory Mining
+camera.position.set(0, 25, 0);
 let yaw = 0, pitch = 0, keys = {};
 const raycaster = new THREE.Raycaster();
 raycaster.far = 6;
@@ -264,7 +276,12 @@ function updateMining() {
         const mesh = mining.targetMesh;
         const targetIdx = mining.targetId;
 
-        // Sync the overlay deletion if mining grass
+        // NEW: Figure out exact X,Y,Z of broken block and save to memory
+        const blockMatrix = new THREE.Matrix4();
+        mesh.getMatrixAt(targetIdx, blockMatrix);
+        const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
+        brokenBlocks.add(`${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`);
+
         if (mesh.name === 'grass') {
             const overlayMesh = activeChunks[mesh.chunkId].overlay;
             const lastOverlayIdx = overlayMesh.count - 1;
@@ -314,7 +331,7 @@ window.addEventListener('resize', () => {
 
 function animate() {
     requestAnimationFrame(animate);
-    updateChunks(); // Automatically loads/unloads world as you walk!
+    updateChunks();
     updateMining();
     
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
