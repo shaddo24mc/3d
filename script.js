@@ -34,10 +34,9 @@ const destroyTextures = [];
 // Make sure these match your actual file names!
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
-}
+};
 
 
-});
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
