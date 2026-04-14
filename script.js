@@ -201,7 +201,7 @@ function generateChunk(chunkX, chunkZ) {
                         const overlayMat = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(globalX, y, globalZ);
                         meshes.overlay.setMatrixAt(indices.g, overlayMat);
                         
-                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.02) spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) spawnTree(globalX, y + 1, globalZ, meshes, indices);
                         indices.g++;
                     } else if (y > h - 3) {
                         meshes.dirt.setMatrixAt(indices.d++, matrix);
