@@ -14,7 +14,7 @@ let leafhardness = 300
 const stats = new Stats();
 stats.showPanel(0);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.BasicShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(stats.dom);
 
 // 2. Textures
@@ -255,11 +255,12 @@ const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
 sunLight.position.set(50, 100, 20); // Angled in the sky
 sunLight.castShadow = true;
 
-sunLight.shadow.mapSize.width = 512;
-sunLight.shadow.mapSize.height = 512;
+sunLight.shadow.mapSize.width = 2000;
+sunLight.shadow.mapSize.height = 2000;
 sunLight.shadow.camera.near = 0.5;
 sunLight.shadow.camera.far = 150;
 sunLight.shadow.bias = -0.0005;
+sunLight.shadow.normalBias = 0.05;
 
 
 const d = 50; 
