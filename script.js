@@ -35,11 +35,6 @@ const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
 };
-
-
-const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
-destroyMesh.visible = false; 
-scene.add(destroyMesh);
 // 3. Materials
 const grass_color = 0x8db753;
 
