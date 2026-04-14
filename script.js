@@ -73,7 +73,7 @@ const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
 // MASTER SEED: Change this number to get a completely different, but permanent world!
-const worldSeed = 0.12345; 
+const worldSeed = Math.random();
 noise.seed(worldSeed);
 
 const activeChunks = {};
