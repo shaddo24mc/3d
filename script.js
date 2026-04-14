@@ -80,10 +80,13 @@ const activeChunks = {};
 const interactableMeshes = [];
 const brokenBlocks = new Set(); // The Memory Bank
 
-// Deterministic Math powered by the World Seed
+// NEW: A true Bitwise Hash function for integer grids. No more repeating patterns!
 function getDeterministicRandom(x, y, z) {
-    let n = Math.sin((x + worldSeed) * 12.9898 + (y + worldSeed) * 78.233 + (z + worldSeed) * 37.719) * 43758.5453;
-    return n - Math.floor(n);
+    let h = (x * 374761393) ^ (y * 668265263) ^ (z * 2246822519) ^ Math.floor(worldSeed * 4294967296);
+    h = (h ^ (h >> 13)) * 3266489917;
+    h = (h ^ (h >> 16)) * 668265263;
+    h = h ^ (h >> 15);
+    return (h >>> 0) / 4294967296; 
 }
 
 // 5. Tree Logic (With Master Seed & Persistence)
