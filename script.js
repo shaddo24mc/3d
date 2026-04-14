@@ -247,9 +247,11 @@ function generateChunk(chunkX, chunkZ) {
     activeChunks[chunkId] = meshes;
 }
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 
-// 7. Dynamic Chunk Manager
+sunLight.position.set(50, 100, 50);
+
+scene.add(sunLight);
 let lastPlayerChunkX = -999;
 let lastPlayerChunkZ = -999;
 
