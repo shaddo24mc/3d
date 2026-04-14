@@ -29,7 +29,18 @@ const stone = loadTex('./textures/stone.png');
 const logSide = loadTex('./textures/oak_log.png');
 const logTop = loadTex('./textures/oak_log_top.png');
 const leaves = loadTex('./textures/oak_leaves.png');
+// Add to the end of Section 2
+const destroyTextures = [];
+// Make sure these match your actual file names!
+for (let i = 0; i < 10; i++) {
+    destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
+}
 
+
+});
+const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
+destroyMesh.visible = false; 
+scene.add(destroyMesh);
 // 3. Materials
 const grass_color = 0x8db753;
 
@@ -64,10 +75,19 @@ const log_mat = [
 const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
 const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 });
-
+const destroyGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
+const destroyMat = new THREE.MeshBasicMaterial({ 
+    map: destroyTextures[0], // Start with phase 0
+    transparent: true, 
+    depthWrite: false, 
+    opacity: 0.8
+});
+const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
+destroyMesh.visible = false; 
+scene.add(destroyMesh);
 // 4. World Variables, Master Seed & Memory System
 const chunkSize = 16;
-const renderDistance = 4;
+const renderDistance = 8;
 const worldDepth = -64;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -283,29 +303,61 @@ function startMining(hit) {
         active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId,
         requiredTime: (hit.object.name === 'stone') ? 1000 : (hit.object.name === 'log') ? 700 : 300
     };
+
+    // Reset to phase 0 when we start hitting a new block
+    destroyMat.map = destroyTextures[0];
+    destroyMat.needsUpdate = true;
+
+    const blockMatrix = new THREE.Matrix4();
+    hit.object.getMatrixAt(hit.instanceId, blockMatrix);
+    const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
+    
+    destroyMesh.position.copy(pos);
+    destroyMesh.visible = true; 
 }
 
 function updateMining() {
-    if (!mining.active) return;
+    if (!mining.active) {
+        destroyMesh.visible = false;
+        return;
+    }
+    
     const hit = getTarget();
     if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
-        if (hit) startMining(hit); else mining.active = false;
+        mining.active = false;
+        destroyMesh.visible = false;
+        if (hit) startMining(hit); 
         return;
     }
 
-    if (Date.now() - mining.startTime >= mining.requiredTime) {
+    // --- NEW: Calculate Mining Progress & Update Texture Phase ---
+    const elapsed = Date.now() - mining.startTime;
+    const progress = Math.min(elapsed / mining.requiredTime, 1.0); // 0.0 to 1.0
+    
+    // Multiply progress by 9.99 to get a number from 0 to 9, then floor it to get the index.
+    const phaseIndex = Math.floor(progress * 9.99); 
+
+    // Only update the material if the phase has actually changed to save performance
+    if (destroyMat.map !== destroyTextures[phaseIndex]) {
+        destroyMat.map = destroyTextures[phaseIndex];
+        destroyMat.needsUpdate = true; // Tell Three.js the texture changed
+    }
+    // -------------------------------------------------------------
+
+    if (elapsed >= mining.requiredTime) {
+        // Block is broken!
         const mesh = mining.targetMesh;
         const targetIdx = mining.targetId;
 
-        // Find exact coordinates of the broken block
+        destroyMesh.visible = false; 
+
+        // [Keep the rest of your exact chunk regeneration/memory code here...]
         const blockMatrix = new THREE.Matrix4();
         mesh.getMatrixAt(targetIdx, blockMatrix);
         const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
         
-        // Save to memory bank
         brokenBlocks.add(`${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`);
-
-        // Destroy and instantly rebuild the chunk to reveal the blocks underneath!
+        
         const chunkId = mesh.chunkId;
         const meshes = activeChunks[chunkId];
         
@@ -317,16 +369,13 @@ function updateMining() {
         }
         delete activeChunks[chunkId];
         
-        // Extract X and Z from the ID and regenerate
         const [cX, cZ] = chunkId.split(',').map(Number);
         generateChunk(cX, cZ);
 
-        // Reset mining raycaster
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
     }
 }
-
 // 9. Listeners & Loop
 document.addEventListener('mousedown', (e) => {
     if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
