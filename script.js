@@ -10,6 +10,7 @@ document.body.appendChild(renderer.domElement);
 let stonehardness = 7500
 let loghardness = 3000
 let dirthardness = 750
+let leafhardness = 300
 const stats = new Stats();
 stats.showPanel(0);
 renderer.shadowMap.enabled = true;
@@ -318,7 +319,7 @@ function getTarget() {
 function startMining(hit) {
     mining = {
         active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId,
-        requiredTime: (hit.object.name === 'stone') ? stonebreaktime : (hit.object.name === 'log') ? logbreaktime : (hit.object.name === 'dirt') ? dirtbreaktime : (hit.object.name === 'grass') ? dirtbreaktime :
+        requiredTime: (hit.object.name === 'stone') ? stonehardness : (hit.object.name === 'log') ? loghardness : (hit.object.name === 'dirt') ? dirthardness : (hit.object.name === 'grass') ? dirthardness : (hit.object.name === 'leaf') ? leafhardness : 1
     };
 
     // Reset to phase 0 when we start hitting a new block
