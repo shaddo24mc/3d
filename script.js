@@ -65,33 +65,34 @@ const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
 const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 });
 
-// 4. World Variables & Memory System
+// 4. World Variables, Master Seed & Memory System
 const chunkSize = 16;
 const renderDistance = 4;
 const worldDepth = -64;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-noise.seed(Math.random());
+
+// MASTER SEED: Change this number to get a completely different, but permanent world!
+const worldSeed = 0.12345; 
+noise.seed(worldSeed);
 
 const activeChunks = {};
 const interactableMeshes = [];
+const brokenBlocks = new Set(); // The Memory Bank
 
-// NEW: The Memory Bank for broken blocks
-const brokenBlocks = new Set(); 
-
-// NEW: Deterministic Math for stable generation
+// Deterministic Math powered by the World Seed
 function getDeterministicRandom(x, y, z) {
-    let n = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453;
+    let n = Math.sin((x + worldSeed) * 12.9898 + (y + worldSeed) * 78.233 + (z + worldSeed) * 37.719) * 43758.5453;
     return n - Math.floor(n);
 }
 
-// 5. Tree Logic (Updated for Persistence)
+// 5. Tree Logic (With Master Seed & Persistence)
 function spawnTree(x, y, z, chunkMeshes, indices) {
     const trunkH = 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
     const treeMatrix = new THREE.Matrix4();
     
     for (let i = 0; i < trunkH; i++) {
-        if (brokenBlocks.has(`${x},${y + i},${z}`)) continue; // Skip if mined!
+        if (brokenBlocks.has(`${x},${y + i},${z}`)) continue;
         
         treeMatrix.setPosition(x, y + i, z);
         chunkMeshes.log.setMatrixAt(indices.l++, treeMatrix);
@@ -110,7 +111,7 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
                 const blockX = x + lx;
                 const blockY = y + ly;
                 const blockZ = z + lz;
-                if (brokenBlocks.has(`${blockX},${blockY},${blockZ}`)) continue; // Skip if mined!
+                if (brokenBlocks.has(`${blockX},${blockY},${blockZ}`)) continue;
 
                 treeMatrix.setPosition(blockX, blockY, blockZ);
                 chunkMeshes.leaf.setMatrixAt(indices.lf++, treeMatrix);
@@ -170,7 +171,6 @@ function generateChunk(chunkX, chunkZ) {
                 );
                 
                 if (!isHidden) {
-                    // NEW: Check memory bank. If mined, skip entirely!
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
                     matrix.setPosition(globalX, y, globalZ);
@@ -276,7 +276,6 @@ function updateMining() {
         const mesh = mining.targetMesh;
         const targetIdx = mining.targetId;
 
-        // NEW: Figure out exact X,Y,Z of broken block and save to memory
         const blockMatrix = new THREE.Matrix4();
         mesh.getMatrixAt(targetIdx, blockMatrix);
         const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
