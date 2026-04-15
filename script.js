@@ -171,8 +171,16 @@ function generateChunk(chunkX, chunkZ) {
         mesh.name = key;
         mesh.chunkId = chunkId;
         mesh.frustumCulled = true;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
+        
+        // Only surface blocks and trees need shadows!
+        if (key === 'grass' || key === 'log' || key === 'leaf') {
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+        } else {
+            // Dirt and stone don't need to cast shadows
+            mesh.castShadow = false;
+            mesh.receiveShadow = true; 
+        }
     }
 
     const indices = { g: 0, d: 0, s: 0, l: 0, lf: 0 };
@@ -382,27 +390,40 @@ function updateMining() {
         const chunkId = mesh.chunkId;
         const [cX, cZ] = chunkId.split(',').map(Number);
         
-        // 3x3 CHUNK REFRESH FIX
-        for (let dx = -1; dx <= 1; dx++) {
-            for (let dz = -1; dz <= 1; dz++) {
-                const nx = cX + dx;
-                const nz = cZ + dz;
-                const id = `${nx},${nz}`;
+        // --- OPTIMIZED CHUNK REFRESH ---
+        const targetX = Math.round(pos.x);
+        const targetZ = Math.round(pos.z);
+        
+        // Always update the chunk the broken block is in
+        const chunksToUpdate = new Set([`${cX},${cZ}`]);
+        
+        // Calculate the block's local coordinate within the chunk (0 to 15)
+        const mod = (n, m) => ((n % m) + m) % m;
+        const localX = mod(targetX, chunkSize);
+        const localZ = mod(targetZ, chunkSize);
 
-                if (activeChunks[id]) {
-                    const meshes = activeChunks[id];
-                    for (const m of Object.values(meshes)) {
-                        scene.remove(m);
-                        const index = interactableMeshes.indexOf(m);
-                        if (index > -1) interactableMeshes.splice(index, 1);
-                        m.dispose();
-                    }
-                    delete activeChunks[id];
-                    
-                    generateChunk(nx, nz);
+        // ONLY add neighboring chunks if the block is exactly on the border
+        if (localX === 0) chunksToUpdate.add(`${cX - 1},${cZ}`);
+        if (localX === chunkSize - 1) chunksToUpdate.add(`${cX + 1},${cZ}`);
+        if (localZ === 0) chunksToUpdate.add(`${cX},${cZ - 1}`);
+        if (localZ === chunkSize - 1) chunksToUpdate.add(`${cX},${cZ + 1}`);
+
+        for (const id of chunksToUpdate) {
+            if (activeChunks[id]) {
+                const meshes = activeChunks[id];
+                for (const m of Object.values(meshes)) {
+                    scene.remove(m);
+                    const index = interactableMeshes.indexOf(m);
+                    if (index > -1) interactableMeshes.splice(index, 1);
+                    m.dispose();
                 }
+                delete activeChunks[id];
+                
+                const [nx, nz] = id.split(',').map(Number);
+                generateChunk(nx, nz);
             }
         }
+        // --------------------------------
 
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
