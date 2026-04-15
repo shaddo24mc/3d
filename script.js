@@ -202,46 +202,38 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
+    // Only ONE set of x and z loops here!
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x;
             let globalZ = startZ + z;
             let h = terrain[x + 1][z + 1];
-            
-            for (let x = 0; x < chunkSize; x++) {
-                for (let z = 0; z < chunkSize; z++) {
 
-                    let globalX = startX + x;
-                    let globalZ = startZ + z;
-                    let h = terrain[x + 1][z + 1];
+            for (let y = worldDepth; y <= h; y++) {
+                if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue;
 
-                    for (let y = worldDepth; y <= h; y++) {
+                matrix.setPosition(globalX, y, globalZ);
 
-                        if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue;
+                if (y === h) {
+                    meshes.grass.setMatrixAt(indices.g, matrix);
 
-                        matrix.setPosition(globalX, y, globalZ);
+                    const overlayMat = new THREE.Matrix4()
+                        .makeScale(1.002, 1.002, 1.002)
+                        .setPosition(globalX, y, globalZ);
 
-                        if (y === h) {
+                    meshes.overlay.setMatrixAt(indices.g, overlayMat);
+                    indices.g++;
 
-                            meshes.grass.setMatrixAt(indices.g, matrix);
-
-                            const overlayMat = new THREE.Matrix4()
-                                .makeScale(1.002, 1.002, 1.002)
-                                .setPosition(globalX, y, globalZ);
-
-                            meshes.overlay.setMatrixAt(indices.g, overlayMat);
-
-                            indices.g++;
-
-                        } else if (y > h - 3) {
-
-                            meshes.dirt.setMatrixAt(indices.d++, matrix);
-
-                        } else {
-
-                            meshes.stone.setMatrixAt(indices.s++, matrix);
-                        }
+                    // Spawn trees on the surface
+                    // There is a 2% chance per surface block to spawn a tree
+                    if (getDeterministicRandom(globalX, h + 1, globalZ) < 0.02) {
+                        spawnTree(globalX, h + 1, globalZ, meshes, indices);
                     }
+
+                } else if (y > h - 3) {
+                    meshes.dirt.setMatrixAt(indices.d++, matrix);
+                } else {
+                    meshes.stone.setMatrixAt(indices.s++, matrix);
                 }
             }
         }
