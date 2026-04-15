@@ -196,12 +196,19 @@ function generateChunk(chunkX, chunkZ) {
             let h = terrain[x + 1][z + 1];
             
             for (let y = worldDepth; y <= h; y++) {
-                let isHidden = (
-                    terrain[x + 2][z + 1] >= y && terrain[x][z + 1] >= y &&
-                    terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
-                );
-                
-                // Smart Culling: Check the Memory Bank to reveal hidden blocks!
+                let isHidden =
+                    !brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) &&
+                    !brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) &&
+                    !brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) &&
+                    !brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) &&
+                    !brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) &&
+                    !brokenBlocks.has(`${globalX},${y},${globalZ - 1}`) &&
+
+                    terrain[x + 2][z + 1] >= y &&
+                    terrain[x][z + 1] >= y &&
+                    terrain[x + 1][z + 2] >= y &&
+                    terrain[x + 1][z] >= y &&
+                    y < h;
                 if (isHidden) {
                     if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
                         brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
@@ -215,16 +222,11 @@ function generateChunk(chunkX, chunkZ) {
                 }
 
                 if (!isHidden) {
-                    // 1. ✅ INDEPENDENT TREE LOGIC
-                    // Check if a tree belongs here BEFORE we check if the dirt is broken
                     if (y === h) {
                         if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) {
                             spawnTree(globalX, y + 1, globalZ, meshes, indices);
                         }
                     }
-
-                    // 2. ✅ GROUND BLOCK LOGIC
-                    // Now, if this specific ground block is broken, skip drawing it
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
                     matrix.setPosition(globalX, y, globalZ);
@@ -359,14 +361,9 @@ function updateMining() {
         return;
     }
 
-    // --- NEW: Calculate Mining Progress & Update Texture Phase ---
     const elapsed = Date.now() - mining.startTime;
     const progress = Math.min(elapsed / mining.requiredTime, 1.0); // 0.0 to 1.0
-    
-    // Multiply progress by 9.99 to get a number from 0 to 9, then floor it to get the index.
     const phaseIndex = Math.floor(progress * 9.99); 
-
-    // Only update the material if the phase has actually changed to save performance
     if (destroyMat.map !== destroyTextures[phaseIndex]) {
         destroyMat.map = destroyTextures[phaseIndex];
         destroyMat.needsUpdate = true; // Tell Three.js the texture changed
@@ -374,13 +371,9 @@ function updateMining() {
     // -------------------------------------------------------------
 
     if (elapsed >= mining.requiredTime) {
-        // Block is broken!
         const mesh = mining.targetMesh;
         const targetIdx = mining.targetId;
-
         destroyMesh.visible = false; 
-
-        // [Keep the rest of your exact chunk regeneration/memory code here...]
         const blockMatrix = new THREE.Matrix4();
         mesh.getMatrixAt(targetIdx, blockMatrix);
         const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
@@ -398,8 +391,24 @@ function updateMining() {
         }
         delete activeChunks[chunkId];
         
-        const [cX, cZ] = chunkId.split(',').map(Number);
-        generateChunk(cX, cZ);
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                const nx = cX + dx;
+                const nz = cZ + dz;
+
+                const id = `${nx},${nz}`;
+                if (activeChunks[id]) {
+                    const meshes = activeChunks[id];
+                    for (const m of Object.values(meshes)) {
+                        scene.remove(m);
+                        m.dispose();
+                    }
+                    delete activeChunks[id];
+                }
+
+                generateChunk(nx, nz);
+            }
+        }
 
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
