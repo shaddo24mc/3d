@@ -226,7 +226,7 @@ function generateChunk(chunkX, chunkZ) {
 
                     // Spawn trees on the surface
                     // There is a 2% chance per surface block to spawn a tree
-                    if (getDeterministicRandom(globalX, h + 1, globalZ) < 0.02) {
+                    if (getDeterministicRandom(globalX, h + 1, globalZ) < 0.0002) {
                         spawnTree(globalX, h + 1, globalZ, meshes, indices);
                     }
 
