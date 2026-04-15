@@ -7,10 +7,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
-let stonehardness = 7500
-let loghardness = 3000
-let dirthardness = 750
-let leafhardness = 300
+
+let stonehardness = 7500;
+let loghardness = 3000;
+let dirthardness = 750;
+let leafhardness = 300;
+
 const stats = new Stats();
 stats.showPanel(0);
 renderer.shadowMap.enabled = true;
@@ -34,12 +36,12 @@ const stone = loadTex('./textures/stone.png');
 const logSide = loadTex('./textures/oak_log.png');
 const logTop = loadTex('./textures/oak_log_top.png');
 const leaves = loadTex('./textures/oak_leaves.png');
-// Add to the end of Section 2
+
 const destroyTextures = [];
-// Make sure these match your actual file names!
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
-};
+}
+
 // 3. Materials
 const grass_color = 0x8db753;
 
@@ -74,9 +76,10 @@ const log_mat = [
 const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
 const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
 const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 });
+
 const destroyGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
 const destroyMat = new THREE.MeshBasicMaterial({ 
-    map: destroyTextures[0], // Start with phase 0
+    map: destroyTextures[0], 
     transparent: true, 
     depthWrite: false, 
     color: 0x000000,
@@ -85,6 +88,7 @@ const destroyMat = new THREE.MeshBasicMaterial({
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
+
 // 4. World Variables, Master Seed & Memory System
 const chunkSize = 16;
 const renderDistance = 4;
@@ -92,15 +96,13 @@ const worldDepth = -64;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
-// MASTER SEED: Generates a completely new, random world every time you refresh!
 const worldSeed = Math.random(); 
 noise.seed(worldSeed);
 
 const activeChunks = {};
 const interactableMeshes = [];
-const brokenBlocks = new Set(); // The Memory Bank
+const brokenBlocks = new Set(); 
 
-// NEW: String-Based Avalanche Hash. 100% immune to JS 32-bit integer limits!
 function getDeterministicRandom(x, y, z) {
     let str = `${x},${y},${z},${worldSeed}`;
     let h = 2166136261; 
@@ -148,21 +150,7 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
     }
 }
 
-
-function blockExists(x, y, z, terrain, startX, startZ) {
-    if (brokenBlocks.has(`${x},${y},${z}`)) return false;
-
-    const localX = x - startX;
-    const localZ = z - startZ;
-
-    // outside chunk → assume solid
-    if (localX < 0 || localX >= chunkSize || localZ < 0 || localZ >= chunkSize) {
-        return true;
-    }
-
-    const h = terrain[localX + 1][localZ + 1];
-    return y <= h;
-}
+// 6. Chunk Generator
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
@@ -202,38 +190,54 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // Only ONE set of x and z loops here!
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x;
             let globalZ = startZ + z;
             let h = terrain[x + 1][z + 1];
-
+            
             for (let y = worldDepth; y <= h; y++) {
-                if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue;
+                let isHidden = (
+                    terrain[x + 2][z + 1] >= y && terrain[x][z + 1] >= y &&
+                    terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
+                );
+                
+                // Smart Culling: Check the Memory Bank to reveal hidden blocks!
+                if (isHidden) {
+                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))   
+                    {
+                        isHidden = false;
+                    }
+                }
 
-                matrix.setPosition(globalX, y, globalZ);
-
-                if (y === h) {
-                    meshes.grass.setMatrixAt(indices.g, matrix);
-
-                    const overlayMat = new THREE.Matrix4()
-                        .makeScale(1.002, 1.002, 1.002)
-                        .setPosition(globalX, y, globalZ);
-
-                    meshes.overlay.setMatrixAt(indices.g, overlayMat);
-                    indices.g++;
-
-                    // Spawn trees on the surface
-                    // There is a 2% chance per surface block to spawn a tree
-                    if (getDeterministicRandom(globalX, h + 1, globalZ) < 0.0002) {
-                        spawnTree(globalX, h + 1, globalZ, meshes, indices);
+                if (!isHidden) {
+                    // 1. INDEPENDENT TREE LOGIC
+                    if (y === h) {
+                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) {
+                            spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                        }
                     }
 
-                } else if (y > h - 3) {
-                    meshes.dirt.setMatrixAt(indices.d++, matrix);
-                } else {
-                    meshes.stone.setMatrixAt(indices.s++, matrix);
+                    // 2. GROUND BLOCK LOGIC
+                    if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
+
+                    matrix.setPosition(globalX, y, globalZ);
+                    
+                    if (y === h) {
+                        meshes.grass.setMatrixAt(indices.g, matrix);
+                        const overlayMat = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(globalX, y, globalZ);
+                        meshes.overlay.setMatrixAt(indices.g, overlayMat);
+                        indices.g++;
+                    } else if (y > h - 3) {
+                        meshes.dirt.setMatrixAt(indices.d++, matrix);
+                    } else {
+                        meshes.stone.setMatrixAt(indices.s++, matrix);
+                    }
                 }
             }
         }
@@ -253,10 +257,11 @@ function generateChunk(chunkX, chunkZ) {
     activeChunks[chunkId] = meshes;
 }
 
+// 7. Lighting
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
 scene.add(hemiLight);
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-sunLight.position.set(50, 100, 20); // Angled in the sky
+sunLight.position.set(50, 100, 20); 
 sunLight.castShadow = true;
 
 sunLight.shadow.mapSize.width = 2000;
@@ -265,7 +270,6 @@ sunLight.shadow.camera.near = 0.5;
 sunLight.shadow.camera.far = 150;
 sunLight.shadow.bias = -0.0005;
 sunLight.shadow.normalBias = 0.05;
-
 
 const d = 50; 
 sunLight.shadow.camera.left = -d;
@@ -328,7 +332,6 @@ function startMining(hit) {
         requiredTime: (hit.object.name === 'stone') ? stonehardness : (hit.object.name === 'log') ? loghardness : (hit.object.name === 'dirt' || hit.object.name === 'grass' || hit.object.name === 'overlay') ? dirthardness : (hit.object.name === 'leaf') ? leafhardness : 1
     };
 
-    // Reset to phase 0 when we start hitting a new block
     destroyMat.map = destroyTextures[0];
     destroyMat.needsUpdate = true;
 
@@ -355,18 +358,21 @@ function updateMining() {
     }
 
     const elapsed = Date.now() - mining.startTime;
-    const progress = Math.min(elapsed / mining.requiredTime, 1.0); // 0.0 to 1.0
+    const progress = Math.min(elapsed / mining.requiredTime, 1.0); 
+    
     const phaseIndex = Math.floor(progress * 9.99); 
+
     if (destroyMat.map !== destroyTextures[phaseIndex]) {
         destroyMat.map = destroyTextures[phaseIndex];
-        destroyMat.needsUpdate = true; // Tell Three.js the texture changed
+        destroyMat.needsUpdate = true; 
     }
-    // -------------------------------------------------------------
 
     if (elapsed >= mining.requiredTime) {
         const mesh = mining.targetMesh;
         const targetIdx = mining.targetId;
+
         destroyMesh.visible = false; 
+
         const blockMatrix = new THREE.Matrix4();
         mesh.getMatrixAt(targetIdx, blockMatrix);
         const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
@@ -374,32 +380,27 @@ function updateMining() {
         brokenBlocks.add(`${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`);
         
         const chunkId = mesh.chunkId;
-        const meshes = activeChunks[chunkId];
+        const [cX, cZ] = chunkId.split(',').map(Number);
         
-        for (const m of Object.values(meshes)) {
-            scene.remove(m);
-            const index = interactableMeshes.indexOf(m);
-            if (index > -1) interactableMeshes.splice(index, 1);
-            m.dispose();
-        }
-        delete activeChunks[chunkId];
-        
+        // 3x3 CHUNK REFRESH FIX
         for (let dx = -1; dx <= 1; dx++) {
             for (let dz = -1; dz <= 1; dz++) {
                 const nx = cX + dx;
                 const nz = cZ + dz;
-
                 const id = `${nx},${nz}`;
+
                 if (activeChunks[id]) {
                     const meshes = activeChunks[id];
                     for (const m of Object.values(meshes)) {
                         scene.remove(m);
+                        const index = interactableMeshes.indexOf(m);
+                        if (index > -1) interactableMeshes.splice(index, 1);
                         m.dispose();
                     }
                     delete activeChunks[id];
+                    
+                    generateChunk(nx, nz);
                 }
-
-                generateChunk(nx, nz);
             }
         }
 
@@ -407,6 +408,7 @@ function updateMining() {
         if (next) startMining(next); else mining.active = false;
     }
 }
+
 // 9. Listeners & Loop
 document.addEventListener('mousedown', (e) => {
     if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
