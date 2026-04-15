@@ -82,7 +82,7 @@ const destroyMat = new THREE.MeshBasicMaterial({
     map: destroyTextures[0], 
     transparent: true, 
     depthWrite: false, 
-    color: 0xD3D3D3,
+    color: 0x808080,
     opacity: 0.8
 });
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
