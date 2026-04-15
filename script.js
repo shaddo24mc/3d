@@ -330,7 +330,7 @@ function getTarget() {
 function startMining(hit) {
     mining = {
         active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId,
-        requiredTime: (hit.object.name === 'stone') ? stonehardness : (hit.object.name === 'log') ? loghardness : (hit.object.name === 'dirt') ? dirthardness : (hit.object.name === 'grass') ? dirthardness : (hit.object.name === 'leaf') ? leafhardness : 1
+        requiredTime: (hit.object.name === 'stone') ? stonehardness : (hit.object.name === 'log') ? loghardness : (hit.object.name === 'dirt' || hit.object.name === 'grass' || hit.object.name === 'overlay') ? dirthardness : (hit.object.name === 'leaf') ? leafhardness : 1
     };
 
     // Reset to phase 0 when we start hitting a new block
