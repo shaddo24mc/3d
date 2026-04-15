@@ -1,7 +1,7 @@
 // 1. Scene & Renderer Setup
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150);
-scene.fog = new THREE.Fog(0x87ceeb, 20, 128);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
+scene.fog = new THREE.Fog(0x87ceeb, 20, 60);
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
@@ -91,8 +91,8 @@ scene.add(destroyMesh);
 
 // 4. World Variables, Master Seed & Memory System
 const chunkSize = 16;
-const renderDistance = 4;
-const worldDepth = -64;
+const renderDistance = 3;
+const worldDepth = -32;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
@@ -172,12 +172,15 @@ function generateChunk(chunkX, chunkZ) {
         mesh.chunkId = chunkId;
         mesh.frustumCulled = true;
         
-        // Only surface blocks and trees need shadows!
+        // Optimize shadow casting dynamically
         if (key === 'grass' || key === 'log' || key === 'leaf') {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
+        } else if (key === 'overlay') {
+            // Fringe shouldn't process shadows (massive performance gain)
+            mesh.castShadow = false;
+            mesh.receiveShadow = false;
         } else {
-            // Dirt and stone don't need to cast shadows
             mesh.castShadow = false;
             mesh.receiveShadow = true; 
         }
@@ -185,6 +188,7 @@ function generateChunk(chunkX, chunkZ) {
 
     const indices = { g: 0, d: 0, s: 0, l: 0, lf: 0 };
     const matrix = new THREE.Matrix4();
+    const overlayMatrix = new THREE.Matrix4(); // Pre-allocated to prevent GC spikes
     
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
@@ -210,7 +214,6 @@ function generateChunk(chunkX, chunkZ) {
                     terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
                 );
                 
-                // Smart Culling: Check the Memory Bank to reveal hidden blocks!
                 if (isHidden) {
                     if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
                         brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
@@ -224,22 +227,23 @@ function generateChunk(chunkX, chunkZ) {
                 }
 
                 if (!isHidden) {
-                    // 1. INDEPENDENT TREE LOGIC
                     if (y === h) {
                         if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) {
                             spawnTree(globalX, y + 1, globalZ, meshes, indices);
                         }
                     }
 
-                    // 2. GROUND BLOCK LOGIC
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
                     matrix.setPosition(globalX, y, globalZ);
                     
                     if (y === h) {
                         meshes.grass.setMatrixAt(indices.g, matrix);
-                        const overlayMat = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(globalX, y, globalZ);
-                        meshes.overlay.setMatrixAt(indices.g, overlayMat);
+                        
+                        overlayMatrix.makeScale(1.002, 1.002, 1.002);
+                        overlayMatrix.setPosition(globalX, y, globalZ);
+                        meshes.overlay.setMatrixAt(indices.g, overlayMatrix);
+                        
                         indices.g++;
                     } else if (y > h - 3) {
                         meshes.dirt.setMatrixAt(indices.d++, matrix);
@@ -272,10 +276,10 @@ const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
 sunLight.position.set(50, 100, 20); 
 sunLight.castShadow = true;
 
-sunLight.shadow.mapSize.width = 2000;
-sunLight.shadow.mapSize.height = 2000;
+sunLight.shadow.mapSize.width = 1024;
+sunLight.shadow.mapSize.height = 1024;
 sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 150;
+sunLight.shadow.camera.far = 75;
 sunLight.shadow.bias = -0.0005;
 sunLight.shadow.normalBias = 0.05;
 
@@ -330,7 +334,18 @@ let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, re
 
 function getTarget() {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const hit = raycaster.intersectObjects(interactableMeshes);
+    
+    // CPU SAVER: Only raycast against chunks immediately near the player
+    const pX = Math.floor(camera.position.x / chunkSize);
+    const pZ = Math.floor(camera.position.z / chunkSize);
+    
+    const nearbyMeshes = interactableMeshes.filter(m => {
+        if (!m.chunkId) return false;
+        const [cx, cz] = m.chunkId.split(',').map(Number);
+        return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
+    });
+
+    const hit = raycaster.intersectObjects(nearbyMeshes);
     return hit.length > 0 ? hit[0] : null;
 }
 
@@ -390,19 +405,15 @@ function updateMining() {
         const chunkId = mesh.chunkId;
         const [cX, cZ] = chunkId.split(',').map(Number);
         
-        // --- OPTIMIZED CHUNK REFRESH ---
         const targetX = Math.round(pos.x);
         const targetZ = Math.round(pos.z);
         
-        // Always update the chunk the broken block is in
         const chunksToUpdate = new Set([`${cX},${cZ}`]);
         
-        // Calculate the block's local coordinate within the chunk (0 to 15)
         const mod = (n, m) => ((n % m) + m) % m;
         const localX = mod(targetX, chunkSize);
         const localZ = mod(targetZ, chunkSize);
 
-        // ONLY add neighboring chunks if the block is exactly on the border
         if (localX === 0) chunksToUpdate.add(`${cX - 1},${cZ}`);
         if (localX === chunkSize - 1) chunksToUpdate.add(`${cX + 1},${cZ}`);
         if (localZ === 0) chunksToUpdate.add(`${cX},${cZ - 1}`);
@@ -423,7 +434,6 @@ function updateMining() {
                 generateChunk(nx, nz);
             }
         }
-        // --------------------------------
 
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
