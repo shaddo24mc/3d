@@ -148,8 +148,21 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
     }
 }
 
-// 6. Chunk Generator
-// 6. Chunk Generator
+
+function blockExists(x, y, z, terrain, startX, startZ) {
+    if (brokenBlocks.has(`${x},${y},${z}`)) return false;
+
+    const localX = x - startX;
+    const localZ = z - startZ;
+
+    // outside chunk → assume solid
+    if (localX < 0 || localX >= chunkSize || localZ < 0 || localZ >= chunkSize) {
+        return true;
+    }
+
+    const h = terrain[localX + 1][localZ + 1];
+    return y <= h;
+}
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
@@ -195,51 +208,39 @@ function generateChunk(chunkX, chunkZ) {
             let globalZ = startZ + z;
             let h = terrain[x + 1][z + 1];
             
-            for (let y = worldDepth; y <= h; y++) {
-                let isHidden =
-                    !brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) &&
-                    !brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) &&
-                    !brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) &&
-                    !brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) &&
-                    !brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) &&
-                    !brokenBlocks.has(`${globalX},${y},${globalZ - 1}`) &&
+            for (let x = 0; x < chunkSize; x++) {
+                for (let z = 0; z < chunkSize; z++) {
 
-                    terrain[x + 2][z + 1] >= y &&
-                    terrain[x][z + 1] >= y &&
-                    terrain[x + 1][z + 2] >= y &&
-                    terrain[x + 1][z] >= y &&
-                    y < h;
-                if (isHidden) {
-                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || 
-                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))   
-                    {
-                        isHidden = false;
-                    }
-                }
+                    let globalX = startX + x;
+                    let globalZ = startZ + z;
+                    let h = terrain[x + 1][z + 1];
 
-                if (!isHidden) {
-                    if (y === h) {
-                        if (getDeterministicRandom(globalX, 0, globalZ) < 0.0002) {
-                            spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                    for (let y = worldDepth; y <= h; y++) {
+
+                        if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue;
+
+                        matrix.setPosition(globalX, y, globalZ);
+
+                        if (y === h) {
+
+                            meshes.grass.setMatrixAt(indices.g, matrix);
+
+                            const overlayMat = new THREE.Matrix4()
+                                .makeScale(1.002, 1.002, 1.002)
+                                .setPosition(globalX, y, globalZ);
+
+                            meshes.overlay.setMatrixAt(indices.g, overlayMat);
+
+                            indices.g++;
+
+                        } else if (y > h - 3) {
+
+                            meshes.dirt.setMatrixAt(indices.d++, matrix);
+
+                        } else {
+
+                            meshes.stone.setMatrixAt(indices.s++, matrix);
                         }
-                    }
-                    if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
-
-                    matrix.setPosition(globalX, y, globalZ);
-                    
-                    if (y === h) {
-                        meshes.grass.setMatrixAt(indices.g, matrix);
-                        const overlayMat = new THREE.Matrix4().makeScale(1.002, 1.002, 1.002).setPosition(globalX, y, globalZ);
-                        meshes.overlay.setMatrixAt(indices.g, overlayMat);
-                        indices.g++;
-                    } else if (y > h - 3) {
-                        meshes.dirt.setMatrixAt(indices.d++, matrix);
-                    } else {
-                        meshes.stone.setMatrixAt(indices.s++, matrix);
                     }
                 }
             }
