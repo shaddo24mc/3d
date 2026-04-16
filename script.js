@@ -483,6 +483,17 @@ function animate() {
     updateChunks();
     updateMining();
     
+    // --- COMPLETELY REPLACE THE OLD HAND LOGIC WITH THIS ---
+    if (mining.active) {
+        const swingSpeed = Date.now() * 0.025;
+        // We use Math.abs to ensure the swing always "punches" downward from the resting angle
+        playerHand.rotation.x = (-Math.PI / 3) - Math.abs(Math.sin(swingSpeed)) * 0.4;
+    } else {
+        // Return to the new flat resting position
+        playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, -Math.PI / 3, 0.2);
+    }
+    // -------------------------------------------------------
+
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
     if (keys.w) camera.position.addScaledVector(fwd, -0.15);
@@ -493,19 +504,6 @@ function animate() {
     if (keys.shift) camera.position.y -= 0.15;
     
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
-    // --- Hand Animation Logic ---
-    if (mining.active) {
-    // Swing the arm rapidly using the current time
-        const swingSpeed = Date.now() * 0.025;
-        playerHand.rotation.x = (Math.PI / 16) + Math.sin(swingSpeed) * 0.4;
-        playerHand.position.z = -1.2 + Math.sin(swingSpeed) * 0.15;
-        playerHand.position.y = -0.7 + Math.cos(swingSpeed) * 0.1;
-    } else {
-        // Smoothly return to the resting position when not mining
-        playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, Math.PI / 16, 0.2);
-        playerHand.position.z = THREE.MathUtils.lerp(playerHand.position.z, -1.2, 0.2);
-        playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.7, 0.2);
-    }
     renderer.render(scene, camera);
     stats.update();
 }
