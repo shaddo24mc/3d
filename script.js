@@ -335,7 +335,7 @@ const handMat = new THREE.MeshStandardMaterial({
 });
 const playerHand = new THREE.Mesh(handGeo, handMat);
 
-playerHand.position.set(0.4, -0.4, -0.75);
+playerHand.position.set(0.4, -0.4, -0.9);
 playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
 
 camera.add(playerHand);
@@ -497,7 +497,7 @@ function animate() {
     } else {
         // Return EVERYTHING back to the resting point smoothly
         playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, -Math.PI / 3, 0.2);
-        playerHand.position.z = THREE.MathUtils.lerp(playerHand.position.z, -0.75, 0.2);
+        playerHand.position.z = THREE.MathUtils.lerp(playerHand.position.z, -0.9, 0.2);
         playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.4, 0.2);
     }
     // ----------------------------
