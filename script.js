@@ -103,21 +103,24 @@ const activeChunks = {};
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
 // --- First Person Hand Setup ---
-const handGeo = new THREE.BoxGeometry(0.35, 1.2, 0.35); // Blocky arm proportions
+const handGeo = new THREE.BoxGeometry(0.35, 1.2, 0.35); 
+handGeo.translate(0, 0.6, 0); // Keeps the pivot at the bottom (elbow/shoulder)
+
 const handMat = new THREE.MeshStandardMaterial({ 
-    color: 0xd2a77d, // A basic Steve-like skin tone
+    color: 0xd2a77d, 
     roughness: 0.8 
 });
 const playerHand = new THREE.Mesh(handGeo, handMat);
 
-playerHand.position.set(0.65, -0.7, -1.2);
-playerHand.rotation.set(Math.PI / 16, -Math.PI / 16, 0); 
+// THE FIX: Push it to the right (0.5), down (-0.5), and forward (-0.3)
+playerHand.position.set(0.5, -0.5, -0.3);
 
-// CRITICAL STEP: Attach the hand to the camera, and add the camera to the scene.
-// If you don't add the camera to the scene, the hand won't receive lighting properly.
+// TILT IT FORWARD: -Math.PI / 3 pitches it down so it lays flat into the screen
+// -Math.PI / 16 yaws it slightly inward toward the center crosshair
+playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
+
 camera.add(playerHand);
-scene.add(camera);
-function getDeterministicRandom(x, y, z) {
+scene.add(camera);sticRandom(x, y, z) {
     let str = `${x},${y},${z},${worldSeed}`;
     let h = 2166136261; 
     for (let i = 0; i < str.length; i++) {
