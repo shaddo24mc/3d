@@ -102,7 +102,21 @@ noise.seed(worldSeed);
 const activeChunks = {};
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
+// --- First Person Hand Setup ---
+const handGeo = new THREE.BoxGeometry(0.35, 1.2, 0.35); // Blocky arm proportions
+const handMat = new THREE.MeshStandardMaterial({ 
+    color: 0xd2a77d, // A basic Steve-like skin tone
+    roughness: 0.8 
+});
+const playerHand = new THREE.Mesh(handGeo, handMat);
 
+playerHand.position.set(0.65, -0.7, -1.2);
+playerHand.rotation.set(Math.PI / 16, -Math.PI / 16, 0); 
+
+// CRITICAL STEP: Attach the hand to the camera, and add the camera to the scene.
+// If you don't add the camera to the scene, the hand won't receive lighting properly.
+camera.add(playerHand);
+scene.add(camera);
 function getDeterministicRandom(x, y, z) {
     let str = `${x},${y},${z},${worldSeed}`;
     let h = 2166136261; 
@@ -476,6 +490,19 @@ function animate() {
     if (keys.shift) camera.position.y -= 0.15;
     
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    // --- Hand Animation Logic ---
+    if (mining.active) {
+    // Swing the arm rapidly using the current time
+        const swingSpeed = Date.now() * 0.025;
+        playerHand.rotation.x = (Math.PI / 16) + Math.sin(swingSpeed) * 0.4;
+        playerHand.position.z = -1.2 + Math.sin(swingSpeed) * 0.15;
+        playerHand.position.y = -0.7 + Math.cos(swingSpeed) * 0.1;
+    } else {
+        // Smoothly return to the resting position when not mining
+        playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, Math.PI / 16, 0.2);
+        playerHand.position.z = THREE.MathUtils.lerp(playerHand.position.z, -1.2, 0.2);
+        playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.7, 0.2);
+    }
     renderer.render(scene, camera);
     stats.update();
 }
