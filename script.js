@@ -326,10 +326,10 @@ function updateChunks() {
 camera.position.set(0, 25, 0);
 
 // --- First Person Hand Setup ---
-const handGeo = new THREE.BoxGeometry(0.35, 1.2, 0.35); 
+const handGeo = new THREE.BoxGeometry(0.2, 0.5, 0.2); 
 handGeo.translate(0, 0.6, 0); // Keeps the pivot at the bottom (elbow/shoulder)
 
-const handMat = new THREE.MeshStandardMaterial({ 
+const handMat = new THREE.MeshStandardMaterial({
     color: 0xd2a77d, 
     roughness: 0.8 
 });
