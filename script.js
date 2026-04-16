@@ -102,25 +102,8 @@ noise.seed(worldSeed);
 const activeChunks = {};
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
-// --- First Person Hand Setup ---
-const handGeo = new THREE.BoxGeometry(0.35, 1.2, 0.35); 
-handGeo.translate(0, 0.6, 0); // Keeps the pivot at the bottom (elbow/shoulder)
 
-const handMat = new THREE.MeshStandardMaterial({ 
-    color: 0xd2a77d, 
-    roughness: 0.8 
-});
-const playerHand = new THREE.Mesh(handGeo, handMat);
-
-// THE FIX: Push it to the right (0.5), down (-0.5), and forward (-0.3)
-playerHand.position.set(0.5, -0.5, -0.3);
-
-// TILT IT FORWARD: -Math.PI / 3 pitches it down so it lays flat into the screen
-// -Math.PI / 16 yaws it slightly inward toward the center crosshair
-playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
-
-camera.add(playerHand);
-scene.add(camera);sticRandom(x, y, z) {
+function getDeterministicRandom(x, y, z) {
     let str = `${x},${y},${z},${worldSeed}`;
     let h = 2166136261; 
     for (let i = 0; i < str.length; i++) {
@@ -189,12 +172,10 @@ function generateChunk(chunkX, chunkZ) {
         mesh.chunkId = chunkId;
         mesh.frustumCulled = true;
         
-        // Optimize shadow casting dynamically
         if (key === 'grass' || key === 'log' || key === 'leaf') {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
         } else if (key === 'overlay') {
-            // Fringe shouldn't process shadows (massive performance gain)
             mesh.castShadow = false;
             mesh.receiveShadow = false;
         } else {
@@ -205,7 +186,7 @@ function generateChunk(chunkX, chunkZ) {
 
     const indices = { g: 0, d: 0, s: 0, l: 0, lf: 0 };
     const matrix = new THREE.Matrix4();
-    const overlayMatrix = new THREE.Matrix4(); // Pre-allocated to prevent GC spikes
+    const overlayMatrix = new THREE.Matrix4();
     
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
@@ -341,8 +322,29 @@ function updateChunks() {
     }
 }
 
-// 8. Controls & Memory Mining
+// 8. Controls, Hand Setup & Memory Mining
 camera.position.set(0, 25, 0);
+
+// --- First Person Hand Setup ---
+const handGeo = new THREE.BoxGeometry(0.35, 1.2, 0.35); 
+handGeo.translate(0, 0.6, 0); // Keeps the pivot at the bottom (elbow/shoulder)
+
+const handMat = new THREE.MeshStandardMaterial({ 
+    color: 0xd2a77d, 
+    roughness: 0.8 
+});
+const playerHand = new THREE.Mesh(handGeo, handMat);
+
+// Position it to the right, down, and slightly forward
+playerHand.position.set(0.5, -0.5, -0.3);
+
+// Pitch it down so it lays flat into the screen, yaw slightly toward crosshair
+playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
+
+camera.add(playerHand);
+scene.add(camera);
+// -------------------------------
+
 let yaw = 0, pitch = 0, keys = {};
 const raycaster = new THREE.Raycaster();
 raycaster.far = 6;
@@ -352,7 +354,6 @@ let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, re
 function getTarget() {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     
-    // CPU SAVER: Only raycast against chunks immediately near the player
     const pX = Math.floor(camera.position.x / chunkSize);
     const pZ = Math.floor(camera.position.z / chunkSize);
     
@@ -483,16 +484,16 @@ function animate() {
     updateChunks();
     updateMining();
     
-    // --- COMPLETELY REPLACE THE OLD HAND LOGIC WITH THIS ---
+    // --- Hand Animation Logic ---
     if (mining.active) {
         const swingSpeed = Date.now() * 0.025;
-        // We use Math.abs to ensure the swing always "punches" downward from the resting angle
+        // Punch downward from the resting angle
         playerHand.rotation.x = (-Math.PI / 3) - Math.abs(Math.sin(swingSpeed)) * 0.4;
     } else {
-        // Return to the new flat resting position
+        // Return to the flat resting position
         playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, -Math.PI / 3, 0.2);
     }
-    // -------------------------------------------------------
+    // ----------------------------
 
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
