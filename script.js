@@ -105,7 +105,7 @@ const interactableMeshes = [];
 const brokenBlocks = new Set(); 
 
 function getDeterministicRandom(x, y, z) {
-    let str = `${x},${y},${z},${wordlSeed}`;
+    let str = `${x},${y},${z},${worldSeed}`;
     let h = 2166136261; 
     for (let i = 0; i < str.length; i++) {
         h ^= str.charCodeAt(i);
