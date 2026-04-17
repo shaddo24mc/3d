@@ -96,7 +96,7 @@ const renderDistance = 3;
 const worldDepth = -32;
 const heightScale = 12;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-let indices = { d: 0, g: 0, s: 0, i: 0, c: 0, lf: 0, l: 0 };
+let indicies = { d: 0, g: 0, s: 0, i: 0, c: 0, lf: 0, l: 0 };
 const worldSeed = Math.random(); 
 noise.seed(worldSeed);
 
