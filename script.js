@@ -7,12 +7,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
-
+let ironhardness = 15000
 let stonehardness = 7500;
 let loghardness = 3000;
 let dirthardness = 750;
 let leafhardness = 300;
-
+let coalhardness = 15000
 const stats = new Stats();
 stats.showPanel(0);
 renderer.shadowMap.enabled = true;
@@ -36,7 +36,8 @@ const stone = loadTex('./textures/stone.png');
 const logSide = loadTex('./textures/oak_log.png');
 const logTop = loadTex('./textures/oak_log_top.png');
 const leaves = loadTex('./textures/oak_leaves.png');
-
+const coalore = loadTex('./textures/coal_ore.png');
+const ironore = loadTex('./textures/iron_ore.png');
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
@@ -53,7 +54,7 @@ const grass_mat = [
     new THREE.MeshStandardMaterial({ map: grassSide }),
     new THREE.MeshStandardMaterial({ map: grassSide })
 ];
-
+const iron_mat = new THREE.MeshStandardMaterial({ map: ironore });
 const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 const fringeMat = new THREE.MeshStandardMaterial({ 
     map: grassSideOverlay, 
@@ -63,7 +64,7 @@ const fringeMat = new THREE.MeshStandardMaterial({
 });
 
 const side_overlay_mat = [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat];
-
+const coal_mat = new THREE.MeshStandardMaterial({ map: coalore });
 const log_mat = [
     new THREE.MeshStandardMaterial({ map: logSide }),
     new THREE.MeshStandardMaterial({ map: logSide }),
@@ -163,6 +164,8 @@ function generateChunk(chunkX, chunkZ) {
         overlay: new THREE.InstancedMesh(geometry, side_overlay_mat, maxSurfaceBlocks),
         dirt: new THREE.InstancedMesh(geometry, dirt_mat, maxDeepBlocks),
         stone: new THREE.InstancedMesh(geometry, stone_mat, maxDeepBlocks),
+        coal: new THREE.InstancedMesh(geometry, coal_mat, maxDeepBlocks),
+        iron: new THREE.InstancedMesh(geometry, iron_mat, maxDeepBlocks),
         log: new THREE.InstancedMesh(geometry, log_mat, 500),
         leaf: new THREE.InstancedMesh(geometry, leaf_mat, 2000)
     };
@@ -184,7 +187,7 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    const indices = { g: 0, d: 0, s: 0, l: 0, lf: 0 };
+    const indices = { g: 0, d: 0, s: 0, l: 0, lf: 0, c: 0, i: 0 };
     const matrix = new THREE.Matrix4();
     const overlayMatrix = new THREE.Matrix4();
     
@@ -246,7 +249,16 @@ function generateChunk(chunkX, chunkZ) {
                     } else if (y > h - 3) {
                         meshes.dirt.setMatrixAt(indices.d++, matrix);
                     } else {
-                        meshes.stone.setMatrixAt(indices.s++, matrix);
+                        let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
+                        let ironNoise = noise.perlin3((globalX + 100) * 0.15, (y + 100) * 0.15, (globalZ + 100) * 0.15);                        // If the noise peaks high enough, we place coal.
+                        // (Usually ranges from -1 to 1. A threshold of 0.65 makes it rare and clumpy)
+                        if (oreNoise > 0.65) {
+                            meshes.coal.setMatrixAt(indices.c++, matrix);
+                        } else if (ironNoise > 0.70) {
+                            meshes.iron.setMatrixAt(indices.i++, matrix);
+                        } else {
+                            meshes.stone.setMatrixAt(indices.s++, matrix);
+                        }
                     }
                 }
             }
@@ -258,7 +270,8 @@ function generateChunk(chunkX, chunkZ) {
     meshes.stone.count = indices.s;
     meshes.log.count = indices.l;
     meshes.leaf.count = indices.lf;
-
+    meshes.coal.count = indices.c;
+    meshes.iron.count = indicies.i;
     for (const mesh of Object.values(meshes)) {
         mesh.instanceMatrix.needsUpdate = true;
         scene.add(mesh);
@@ -366,7 +379,11 @@ function getTarget() {
 function startMining(hit) {
     mining = {
         active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId,
-        requiredTime: (hit.object.name === 'stone') ? stonehardness : (hit.object.name === 'log') ? loghardness : (hit.object.name === 'dirt' || hit.object.name === 'grass' || hit.object.name === 'overlay') ? dirthardness : (hit.object.name === 'leaf') ? leafhardness : 1
+        requiredTime: (hit.object.name === 'stone') ? stonehardness : 
+                      (hit.object.name === 'coal') ? coalhardness : // <-- ADDED THIS LINE
+                      (hit.object.name === 'log') ? loghardness : 
+                      (hit.object.name === 'dirt' || hit.object.name === 'grass' || hit.object.name === 'overlay') ? dirthardness : 
+                      (hit.object.name === 'leaf') ? leafhardness : 1
     };
 
     destroyMat.map = destroyTextures[0];
