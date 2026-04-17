@@ -325,8 +325,7 @@ function updateChunks() {
 // 8. Controls, Hand Setup & Memory Mining
 camera.position.set(0, 25, 0);
 
-// --- First Person Hand Setup ---
-const handGeo = new THREE.BoxGeometry(0.2, 1, 0.2); 
+const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); 
 handGeo.translate(0, 0.4, 0); 
 
 const handMat = new THREE.MeshStandardMaterial({ 
@@ -492,7 +491,7 @@ function animate() {
         playerHand.position.z = -0.4 + Math.cos(t) * 0.15;
         
         // UP/DOWN: Exaggerated punch weight
-        playerHand.position.y = -0.4 + Math.sin(t) * 0.08;
+        playerHand.position.y = -0.5 + Math.sin(t) * 0.04;
         
     } else {
         // Return EVERYTHING back to the resting point smoothly
