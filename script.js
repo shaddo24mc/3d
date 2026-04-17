@@ -104,7 +104,7 @@ const activeChunks = {};
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
 
-function getdeterministicRanom(x, y, z) {
+function getDeterministicRandom(x, y, z) {
     let str = `${x},${y},${z},${worlSeed}`;
     let h = 2166136261; 
     for (let i = 0; i < str.length; i++) {
