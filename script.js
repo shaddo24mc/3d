@@ -514,10 +514,10 @@ function animate() {
         playerHand.rotation.x = (-Math.PI / 3) + Math.sin(t) * 0.25;
         
         // FORWARD/BACK: Depth of the circle
-        playerHand.position.z = -0.4 + Math.cos(t) * 0.15;
+        playerHand.position.z = -0.2 + Math.cos(t) * 0.15;
         
         // UP/DOWN: Exaggerated punch weight
-        playerHand.position.y = -0.5 + Math.sin(t) * 0.04;
+        playerHand.position.y = -0.25 + Math.sin(t) * 0.04;
         
     } else {
         // Return EVERYTHING back to the resting point smoothly
