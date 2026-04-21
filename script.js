@@ -419,4 +419,4 @@ function startMining(hit) {
         targetId: hit.instanceId,
         requiredTime: blockConfig ? blockConfig.hardness : 1500
     };
-};
+}
