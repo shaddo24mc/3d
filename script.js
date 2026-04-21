@@ -115,4 +115,365 @@ const BLOCKS = {
     coal:    { mat: coal_mat,         hardness: coalhardness, shadow: true },
     iron:    { mat: iron_mat,         hardness: ironhardness, shadow: true },
     copper:  { mat: copper_mat,       hardness: copperhardness, shadow: true },
-    log:     { mat: log
+    log:     { mat: log_mat,          hardness: loghardness,  shadow: true },
+    leaf:    { mat: leaf_mat,         hardness: leafhardness, shadow: true }
+};
+
+
+// ==========================================
+// 3.6. BIOME CONFIGURATION
+// ==========================================
+const BIOMES = {
+    plains: {
+        heightScale: 12, baseHeight: 10, surfaceBlock: 'grass', subSurfaceBlock: 'dirt',
+        subSurfaceDepth: 3, deepBlock: 'stone', treeChance: 0.002, 
+        ores: [
+            { type: 'coal', threshold: 0.65, scale: 0.15, offset: 0 },
+            { type: 'copper', threshold: 0.68, scale: 0.15, offset: 200 },
+            { type: 'iron', threshold: 0.72, scale: 0.15, offset: 100 }
+        ]
+    },
+    desert: {
+        heightScale: 4, baseHeight: 12, surfaceBlock: 'sand', subSurfaceBlock: 'sand',
+        subSurfaceDepth: 4, deepBlock: 'stone', treeChance: 0.0,    
+        ores: [ { type: 'coal', threshold: 0.70, scale: 0.15, offset: 0 } ]
+    },
+    mountains: {
+        heightScale: 35, baseHeight: 15, surfaceBlock: 'snow', subSurfaceBlock: 'stone', 
+        subSurfaceDepth: 1, deepBlock: 'stone', treeChance: 0.0005, 
+        ores: [
+            { type: 'iron', threshold: 0.60, scale: 0.15, offset: 100 }, 
+            { type: 'coal', threshold: 0.65, scale: 0.15, offset: 0 }
+        ]
+    }
+};
+
+
+// ==========================================
+// 4. WORLD VARIABLES & GENERATION
+// ==========================================
+const chunkSize = 16;
+const renderDistance = 3;
+const worldDepth = -32;
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const worldSeed = Math.random(); 
+if (typeof noise !== 'undefined') noise.seed(worldSeed); // Make sure your perlin noise script is loaded!
+
+const activeChunks = {};
+const interactableMeshes = [];
+const brokenBlocks = new Set(); 
+
+function getDeterministicRandom(x, y, z) {
+    let str = `${x},${y},${z},${worldSeed}`;
+    let h = 2166136261; 
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619); 
+    }
+    h ^= h >>> 13;
+    h = Math.imul(h, 2246822507);
+    h ^= h >>> 15;
+    return (h >>> 0) / 4294967296;
+}
+
+function getBiome(x, z) {
+    let temperature = noise.perlin2(x / 150, z / 150);
+    if (temperature < -0.2) return BIOMES.desert;
+    if (temperature > 0.3) return BIOMES.mountains;
+    return BIOMES.plains;
+}
+
+function spawnTree(x, y, z, chunkMeshes, indices) {
+    const trunkH = 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
+    const treeMatrix = new THREE.Matrix4();
+    
+    for (let i = 0; i < trunkH; i++) {
+        if (brokenBlocks.has(`${x},${y + i},${z}`)) continue;
+        treeMatrix.setPosition(x, y + i, z);
+        chunkMeshes.log.setMatrixAt(indices.log++, treeMatrix);
+    }
+    for (let ly = trunkH - 2; ly <= trunkH + 1; ly++) {
+        let radius = (ly > trunkH - 1) ? 1 : 2; 
+        for (let lx = -radius; lx <= radius; lx++) {
+            for (let lz = -radius; lz <= radius; lz++) {
+                const isCorner = Math.abs(lx) === radius && Math.abs(lz) === radius;
+                if (isCorner) {
+                    let trimChance = (ly === trunkH + 1) ? 1.0 : (ly === trunkH) ? 0.75 : (ly === trunkH - 1) ? 0.4 : 0.1;
+                    if (getDeterministicRandom(x + lx, y + ly, z + lz) < trimChance) continue;
+                }
+                if (lx === 0 && lz === 0 && ly < trunkH) continue;
+                
+                const blockX = x + lx;
+                const blockY = y + ly;
+                const blockZ = z + lz;
+                if (brokenBlocks.has(`${blockX},${blockY},${blockZ}`)) continue;
+
+                treeMatrix.setPosition(blockX, blockY, blockZ);
+                chunkMeshes.leaf.setMatrixAt(indices.leaf++, treeMatrix);
+            }
+        }
+    }
+}
+
+function generateChunk(chunkX, chunkZ) {
+    const chunkId = `${chunkX},${chunkZ}`;
+    if (activeChunks[chunkId]) return;
+
+    const meshes = {};
+    const indices = {};
+    
+    for (const [blockName, blockData] of Object.entries(BLOCKS)) {
+        let maxInstances = (blockName === 'leaf' || blockName === 'log') ? 2000 : chunkSize * chunkSize * 40;
+        meshes[blockName] = new THREE.InstancedMesh(geometry, blockData.mat, maxInstances);
+        meshes[blockName].name = blockName;
+        meshes[blockName].chunkId = chunkId;
+        meshes[blockName].frustumCulled = true;
+        meshes[blockName].castShadow = blockData.shadow;
+        meshes[blockName].receiveShadow = blockData.shadow;
+        indices[blockName] = 0; 
+    }
+
+    const matrix = new THREE.Matrix4();
+    const overlayMatrix = new THREE.Matrix4();
+    const startX = chunkX * chunkSize;
+    const startZ = chunkZ * chunkSize;
+
+    const terrain = [];
+    const chunkBiomes = [];
+    for (let x = -1; x <= chunkSize; x++) {
+        terrain[x + 1] = [];
+        chunkBiomes[x + 1] = [];
+        for (let z = -1; z <= chunkSize; z++) {
+            let globalX = startX + x;
+            let globalZ = startZ + z;
+            let biome = getBiome(globalX, globalZ);
+            let n = noise.perlin2(globalX / 25, globalZ / 25);
+            terrain[x + 1][z + 1] = Math.floor(((n + 1) / 2) * biome.heightScale) + biome.baseHeight;
+            chunkBiomes[x + 1][z + 1] = biome;
+        }
+    }
+
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            let globalX = startX + x;
+            let globalZ = startZ + z;
+            let h = terrain[x + 1][z + 1];
+            let biome = chunkBiomes[x + 1][z + 1];
+            
+            for (let y = worldDepth; y <= h; y++) {
+                let isHidden = (
+                    terrain[x + 2][z + 1] >= y && terrain[x][z + 1] >= y &&
+                    terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
+                );
+                
+                if (isHidden) {
+                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))   
+                    {
+                        isHidden = false;
+                    }
+                }
+
+                if (!isHidden) {
+                    if (y === h && getDeterministicRandom(globalX, 0, globalZ) < biome.treeChance) {
+                        spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                    }
+                    if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
+
+                    matrix.setPosition(globalX, y, globalZ);
+                    
+                    if (y === h) {
+                        meshes[biome.surfaceBlock].setMatrixAt(indices[biome.surfaceBlock]++, matrix);
+                        if (biome.surfaceBlock === 'grass') {
+                            overlayMatrix.makeScale(1.002, 1.002, 1.002);
+                            overlayMatrix.setPosition(globalX, y, globalZ);
+                            meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
+                        }
+                    } else if (y > h - biome.subSurfaceDepth) {
+                        meshes[biome.subSurfaceBlock].setMatrixAt(indices[biome.subSurfaceBlock]++, matrix);
+                    } else {
+                        let placedOre = false;
+                        for (let ore of biome.ores) {
+                            let oreNoise = noise.perlin3((globalX + ore.offset) * ore.scale, (y + ore.offset) * ore.scale, (globalZ + ore.offset) * ore.scale);
+                            if (oreNoise > ore.threshold) {
+                                meshes[ore.type].setMatrixAt(indices[ore.type]++, matrix);
+                                placedOre = true;
+                                break; 
+                            }
+                        }
+                        if (!placedOre) meshes[biome.deepBlock].setMatrixAt(indices[biome.deepBlock]++, matrix);
+                    }
+                }
+            }
+        }
+    }
+
+    for (const [blockName, mesh] of Object.entries(meshes)) {
+        mesh.count = indices[blockName];
+        if (mesh.count > 0) {
+            mesh.instanceMatrix.needsUpdate = true;
+            scene.add(mesh);
+            interactableMeshes.push(mesh);
+        }
+    }
+    activeChunks[chunkId] = meshes;
+}
+
+let lastPlayerChunkX = -999;
+let lastPlayerChunkZ = -999;
+
+function updateChunks() {
+    const playerChunkX = Math.floor(camera.position.x / chunkSize);
+    const playerChunkZ = Math.floor(camera.position.z / chunkSize);
+
+    if (playerChunkX === lastPlayerChunkX && playerChunkZ === lastPlayerChunkZ) return;
+    lastPlayerChunkX = playerChunkX;
+    lastPlayerChunkZ = playerChunkZ;
+
+    const chunksToKeep = new Set();
+    for (let x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
+        for (let z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
+            generateChunk(x, z);
+            chunksToKeep.add(`${x},${z}`);
+        }
+    }
+
+    for (const chunkId in activeChunks) {
+        if (!chunksToKeep.has(chunkId)) {
+            const meshes = activeChunks[chunkId];
+            for (const mesh of Object.values(meshes)) {
+                scene.remove(mesh);
+                const index = interactableMeshes.indexOf(mesh);
+                if (index > -1) interactableMeshes.splice(index, 1);
+                mesh.dispose();
+            }
+            delete activeChunks[chunkId];
+        }
+    }
+}
+
+
+// ==========================================
+// 5. LIGHTING
+// ==========================================
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+scene.add(hemiLight);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+sunLight.position.set(50, 100, 20); 
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 1024;
+sunLight.shadow.mapSize.height = 1024;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 75;
+sunLight.shadow.bias = -0.0005;
+const d = 50; 
+sunLight.shadow.camera.left = -d;
+sunLight.shadow.camera.right = d;
+sunLight.shadow.camera.top = d;
+sunLight.shadow.camera.bottom = -d;
+scene.add(sunLight);
+
+
+// ==========================================
+// 6. PLAYER, CONTROLS & MOVEMENT
+// ==========================================
+const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); 
+handGeo.translate(0, 0.4, 0); 
+const handMat = new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 });
+const playerHand = new THREE.Mesh(handGeo, handMat);
+playerHand.position.set(0.4, -0.4, -0.1);
+playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
+camera.add(playerHand);
+scene.add(camera);
+
+let yaw = 0, pitch = 0, keys = {};
+const raycaster = new THREE.Raycaster();
+raycaster.far = 6;
+
+// Pointer Lock (Click to look around)
+document.body.addEventListener('click', () => {
+    document.body.requestPointerLock();
+});
+
+document.addEventListener('mousemove', (event) => {
+    if (document.pointerLockElement === document.body) {
+        yaw -= event.movementX * 0.002;
+        pitch -= event.movementY * 0.002;
+        pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+        camera.rotation.order = 'YXZ'; 
+        camera.rotation.set(pitch, yaw, 0);
+    }
+});
+
+// Keyboard Listeners
+document.addEventListener('keydown', (e) => keys[e.code] = true);
+document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+const speed = 0.2;
+function updateMovement() {
+    const dir = new THREE.Vector3();
+    if (keys['KeyW']) dir.z -= 1;
+    if (keys['KeyS']) dir.z += 1;
+    if (keys['KeyA']) dir.x -= 1;
+    if (keys['KeyD']) dir.x += 1;
+
+    if (dir.lengthSq() > 0) dir.normalize();
+    
+    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    camera.position.addScaledVector(dir, speed);
+    
+    if (keys['Space']) camera.position.y += speed;
+    if (keys['ShiftLeft']) camera.position.y -= speed;
+}
+
+
+// ==========================================
+// 7. MINING LOGIC
+// ==========================================
+let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
+
+function getTarget() {
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const pX = Math.floor(camera.position.x / chunkSize);
+    const pZ = Math.floor(camera.position.z / chunkSize);
+    
+    const nearbyMeshes = interactableMeshes.filter(m => {
+        if (!m.chunkId) return false;
+        const [cx, cz] = m.chunkId.split(',').map(Number);
+        return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
+    });
+
+    const hit = raycaster.intersectObjects(nearbyMeshes);
+    return hit.length > 0 ? hit[0] : null;
+}
+
+function startMining(hit) {
+    const blockConfig = BLOCKS[hit.object.name];
+    mining = {
+        active: true, 
+        startTime: Date.now(), 
+        targetMesh: hit.object, 
+        targetId: hit.instanceId,
+        requiredTime: blockConfig ? blockConfig.hardness : 1500
+    };
+} 
+
+// Paste your exact updateMining() logic back in here if you have it!
+
+
+// ==========================================
+// 8. MAIN GAME LOOP
+// ==========================================
+function animate() {
+    requestAnimationFrame(animate);
+
+    updateChunks();
+    updateMovement();
+    
+    // updateMining(); // Uncomment this when you add your mining loop back in!
+
+    renderer.render(scene, camera);
+}
+
+animate();
