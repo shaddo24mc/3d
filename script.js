@@ -1,8 +1,63 @@
-// 3. Materials & Block Registry
+import * as THREE from 'three';
+// Make sure to import your noise library here if you haven't! 
+// e.g., import { noise } from './perlin.js';
+
+// ==========================================
+// 1. INITIALIZATION (Scene, Camera, Renderer)
+// ==========================================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 25, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// Handle window resizing
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+
+// ==========================================
+// 2. PLACEHOLDERS (Textures & Hardness)
+// ==========================================
+// Replace these with your actual texture loading logic!
+const loader = new THREE.TextureLoader();
+const grassSide = loader.load('path/to/grass_side.png');
+const grassTop = loader.load('path/to/grass_top.png');
+const dirt = loader.load('path/to/dirt.png');
+const stone = loader.load('path/to/stone.png');
+const ironore = loader.load('path/to/iron.png');
+const coalore = loader.load('path/to/coal.png');
+const copperore = loader.load('path/to/copper.png');
+const logSide = loader.load('path/to/log_side.png');
+const logTop = loader.load('path/to/log_top.png');
+const leaves = loader.load('path/to/leaves.png');
+const grassSideOverlay = loader.load('path/to/grass_overlay.png');
+const destroyTextures = [loader.load('path/to/destroy_stage_0.png')]; // Add all stages
+
+// Hardness values
+const dirthardness = 500;
+const stonehardness = 1500;
+const coalhardness = 2000;
+const ironhardness = 2500;
+const copperhardness = 2000;
+const loghardness = 1000;
+const leafhardness = 200;
+
+
+// ==========================================
+// 3. MATERIALS & BLOCK REGISTRY
+// ==========================================
 const grass_color = 0x8db753;
 
-// I've added a few basic colored materials for new biomes (sand/snow)
-// Feel free to swap these out with loadTex() later!
 const sand_mat = new THREE.MeshStandardMaterial({ color: 0xeed382 });
 const snow_mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
@@ -51,10 +106,10 @@ const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
 
-// --- THE NEW MODULAR SYSTEMS ---
 
-// 3.5 Block Registry
-// Defines every block in the game, its material, and mining hardness in one spot.
+// ==========================================
+// 3.5. BLOCK REGISTRY
+// ==========================================
 const BLOCKS = {
     grass:   { mat: grass_mat,        hardness: dirthardness, shadow: true },
     overlay: { mat: side_overlay_mat, hardness: dirthardness, shadow: false },
@@ -69,8 +124,10 @@ const BLOCKS = {
     leaf:    { mat: leaf_mat,         hardness: leafhardness, shadow: true }
 };
 
-// 3.6 Biome Configuration
-// Super easy to add new ones! Just copy/paste a block and tweak the numbers.
+
+// ==========================================
+// 3.6. BIOME CONFIGURATION
+// ==========================================
 const BIOMES = {
     plains: {
         heightScale: 12,
@@ -79,7 +136,7 @@ const BIOMES = {
         subSurfaceBlock: 'dirt',
         subSurfaceDepth: 3,
         deepBlock: 'stone',
-        treeChance: 0.002, // Normal trees
+        treeChance: 0.002, 
         ores: [
             { type: 'coal', threshold: 0.65, scale: 0.15, offset: 0 },
             { type: 'copper', threshold: 0.68, scale: 0.15, offset: 200 },
@@ -87,33 +144,36 @@ const BIOMES = {
         ]
     },
     desert: {
-        heightScale: 4,     // Flatter terrain
+        heightScale: 4,     
         baseHeight: 12,
         surfaceBlock: 'sand',
         subSurfaceBlock: 'sand',
-        subSurfaceDepth: 4, // Deeper sand before hitting stone
+        subSurfaceDepth: 4, 
         deepBlock: 'stone',
-        treeChance: 0.0,    // No trees in the desert!
+        treeChance: 0.0,    
         ores: [
-            { type: 'coal', threshold: 0.70, scale: 0.15, offset: 0 } // Less ore
+            { type: 'coal', threshold: 0.70, scale: 0.15, offset: 0 } 
         ]
     },
     mountains: {
-        heightScale: 35,    // Massive peaks
+        heightScale: 35,    
         baseHeight: 15,
         surfaceBlock: 'snow',
-        subSurfaceBlock: 'stone', // Stone right under the snow
+        subSurfaceBlock: 'stone', 
         subSurfaceDepth: 1,
         deepBlock: 'stone',
-        treeChance: 0.0005, // Rare trees
+        treeChance: 0.0005, 
         ores: [
-            { type: 'iron', threshold: 0.60, scale: 0.15, offset: 100 }, // Lots of iron!
+            { type: 'iron', threshold: 0.60, scale: 0.15, offset: 100 }, 
             { type: 'coal', threshold: 0.65, scale: 0.15, offset: 0 }
         ]
     }
 };
 
-// 4. World Variables, Master Seed & Memory System
+
+// ==========================================
+// 4. WORLD VARIABLES, SEED & MEMORY SYSTEM
+// ==========================================
 const chunkSize = 16;
 const renderDistance = 3;
 const worldDepth = -32;
@@ -138,17 +198,13 @@ function getDeterministicRandom(x, y, z) {
     return (h >>> 0) / 4294967296;
 }
 
-// 4.5 Biome Selector function
 function getBiome(x, z) {
-    // We use a wider noise scale (150) so biomes are large and sweeping
     let temperature = noise.perlin2(x / 150, z / 150);
-    
     if (temperature < -0.2) return BIOMES.desert;
     if (temperature > 0.3) return BIOMES.mountains;
     return BIOMES.plains;
 }
 
-// 5. Tree Logic (With Master Seed & Persistence)
 function spawnTree(x, y, z, chunkMeshes, indices) {
     const trunkH = 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
     const treeMatrix = new THREE.Matrix4();
@@ -181,17 +237,14 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
     }
 }
 
-// 6. Chunk Generator
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
 
-    // Dynamically create meshes based on our BLOCKS registry
     const meshes = {};
     const indices = {};
     
     for (const [blockName, blockData] of Object.entries(BLOCKS)) {
-        // Give trees less buffer space to save memory, ground blocks get a larger buffer
         let maxInstances = (blockName === 'leaf' || blockName === 'log') ? 2000 : chunkSize * chunkSize * 40;
         meshes[blockName] = new THREE.InstancedMesh(geometry, blockData.mat, maxInstances);
         meshes[blockName].name = blockName;
@@ -201,7 +254,7 @@ function generateChunk(chunkX, chunkZ) {
         meshes[blockName].castShadow = blockData.shadow;
         meshes[blockName].receiveShadow = blockData.shadow;
         
-        indices[blockName] = 0; // Setup our counting index
+        indices[blockName] = 0; 
     }
 
     const matrix = new THREE.Matrix4();
@@ -210,7 +263,6 @@ function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    // Pre-calculate heights AND biomes for visibility checking
     const terrain = [];
     const chunkBiomes = [];
     for (let x = -1; x <= chunkSize; x++) {
@@ -222,7 +274,6 @@ function generateChunk(chunkX, chunkZ) {
             let biome = getBiome(globalX, globalZ);
             let n = noise.perlin2(globalX / 25, globalZ / 25);
             
-            // Map the noise based on the specific biome's settings
             terrain[x + 1][z + 1] = Math.floor(((n + 1) / 2) * biome.heightScale) + biome.baseHeight;
             chunkBiomes[x + 1][z + 1] = biome;
         }
@@ -254,7 +305,6 @@ function generateChunk(chunkX, chunkZ) {
                 }
 
                 if (!isHidden) {
-                    // Tree Spawning
                     if (y === h && getDeterministicRandom(globalX, 0, globalZ) < biome.treeChance) {
                         spawnTree(globalX, y + 1, globalZ, meshes, indices);
                     }
@@ -263,33 +313,25 @@ function generateChunk(chunkX, chunkZ) {
 
                     matrix.setPosition(globalX, y, globalZ);
                     
-                    // --- THE DYNAMIC PLACEMENT LOGIC ---
                     if (y === h) {
-                        // Place Top Block (e.g. Grass, Sand, Snow)
                         meshes[biome.surfaceBlock].setMatrixAt(indices[biome.surfaceBlock]++, matrix);
-                        
-                        // Handle Grass Overlay Special Case
                         if (biome.surfaceBlock === 'grass') {
                             overlayMatrix.makeScale(1.002, 1.002, 1.002);
                             overlayMatrix.setPosition(globalX, y, globalZ);
                             meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
                         }
                     } else if (y > h - biome.subSurfaceDepth) {
-                        // Place Subsurface Block (e.g. Dirt)
                         meshes[biome.subSurfaceBlock].setMatrixAt(indices[biome.subSurfaceBlock]++, matrix);
                     } else {
-                        // Check Ores dynamically based on biome settings!
                         let placedOre = false;
                         for (let ore of biome.ores) {
                             let oreNoise = noise.perlin3((globalX + ore.offset) * ore.scale, (y + ore.offset) * ore.scale, (globalZ + ore.offset) * ore.scale);
                             if (oreNoise > ore.threshold) {
                                 meshes[ore.type].setMatrixAt(indices[ore.type]++, matrix);
                                 placedOre = true;
-                                break; // Don't spawn two ores in the same block
+                                break; 
                             }
                         }
-                        
-                        // Place Deep Block (e.g. Stone) if no ore was placed
                         if (!placedOre) {
                             meshes[biome.deepBlock].setMatrixAt(indices[biome.deepBlock]++, matrix);
                         }
@@ -299,7 +341,6 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // Update counts and add to scene
     for (const [blockName, mesh] of Object.entries(meshes)) {
         mesh.count = indices[blockName];
         if (mesh.count > 0) {
@@ -312,7 +353,10 @@ function generateChunk(chunkX, chunkZ) {
     activeChunks[chunkId] = meshes;
 }
 
-// 7. Lighting
+
+// ==========================================
+// 5. LIGHTING
+// ==========================================
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
 scene.add(hemiLight);
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -333,6 +377,11 @@ sunLight.shadow.camera.top = d;
 sunLight.shadow.camera.bottom = -d;
 
 scene.add(sunLight);
+
+
+// ==========================================
+// 6. CHUNK UPDATING SYSTEM
+// ==========================================
 let lastPlayerChunkX = -999;
 let lastPlayerChunkZ = -999;
 
@@ -367,9 +416,10 @@ function updateChunks() {
     }
 }
 
-// 8. Controls, Hand Setup & Memory Mining
-camera.position.set(0, 25, 0);
 
+// ==========================================
+// 7. PLAYER HAND & CONTROLS SETUP
+// ==========================================
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); 
 handGeo.translate(0, 0.4, 0); 
 
@@ -384,12 +434,15 @@ playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0);
 
 camera.add(playerHand);
 scene.add(camera);
-// -------------------------------
 
 let yaw = 0, pitch = 0, keys = {};
 const raycaster = new THREE.Raycaster();
 raycaster.far = 6;
 
+
+// ==========================================
+// 8. MINING LOGIC (With Fixed Brace!)
+// ==========================================
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
 
 function getTarget() {
@@ -409,7 +462,6 @@ function getTarget() {
 }
 
 function startMining(hit) {
-    // Because of our BLOCKS registry, finding mining time is now a single line!
     const blockConfig = BLOCKS[hit.object.name];
     
     mining = {
@@ -419,4 +471,26 @@ function startMining(hit) {
         targetId: hit.instanceId,
         requiredTime: blockConfig ? blockConfig.hardness : 1500
     };
+} // <-- The previously missing brace is safely in place!
+
+
+// ==========================================
+// 9. ANIMATION LOOP (The Engine)
+// ==========================================
+function animate() {
+    requestAnimationFrame(animate);
+
+    // Update chunks based on camera position
+    updateChunks();
+
+    // Call your movement/physics functions here
+    // e.g., updateMovement();
+    
+    // Call your mining tick here
+    // e.g., updateMining();
+
+    renderer.render(scene, camera);
 }
+
+// Start the game loop!
+animate();
