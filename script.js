@@ -1,163 +1,142 @@
-// ==========================================
-// 1. INITIALIZATION (Scene, Camera, Renderer)
-// ==========================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Sky blue background
-
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 25, 0);
-
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
+scene.fog = new THREE.Fog(0x87ceeb, 20, 60);
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x87ceeb);
+renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
 
-// Handle window resizing
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+const stats = new Stats();
+stats.showPanel(0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(stats.dom);
 
+// ----------------------------------------------------
+// 1. Centralized Block & Material System
+// ----------------------------------------------------
+const BLOCK_HARDNESS = {
+    stone: 7500, coal: 15000, iron: 15000, copper: 10000,
+    log: 3000, leaf: 300,
+    dirt: 750, grass: 750, overlay: 750,
+    sand: 600, snow: 500
+};
 
-// ==========================================
-// 2. TEXTURES & HARDNESS
-// ==========================================
 const loader = new THREE.TextureLoader();
-// Add your real image paths back here!
-const grassSide = loader.load('grass_side.png');
-const grassTop = loader.load('grass_top.png');
-const dirt = loader.load('dirt.png');
-const stone = loader.load('stone.png');
-const ironore = loader.load('iron.png');
-const coalore = loader.load('coal.png');
-const copperore = loader.load('copper.png');
-const logSide = loader.load('log_side.png');
-const logTop = loader.load('log_top.png');
-const leaves = loader.load('leaves.png');
-const grassSideOverlay = loader.load('grass_overlay.png');
-const destroyTextures = [loader.load('destroy_stage_0.png')]; 
+const loadTex = (url) => {
+    const t = loader.load(url);
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    return t;
+};
 
-const dirthardness = 500;
-const stonehardness = 1500;
-const coalhardness = 2000;
-const ironhardness = 2500;
-const copperhardness = 2000;
-const loghardness = 1000;
-const leafhardness = 200;
+// Textures
+const grassTop = loadTex('./textures/grass_block_top.png');
+const grassSide = loadTex('./textures/grass_block_side.png');
+const grassSideOverlay = loadTex('./textures/grass_block_side_overlay.png');
+const dirt = loadTex('./textures/dirt.png');
+const stone = loadTex('./textures/stone.png');
+const logSide = loadTex('./textures/oak_log.png');
+const logTop = loadTex('./textures/oak_log_top.png');
+const leaves = loadTex('./textures/oak_leaves.png');
+const coalore = loadTex('./textures/coal_ore.png');
+const ironore = loadTex('./textures/iron_ore.png');
+const copperore = loadTex('./textures/copper_ore.png');
 
+// Fallback colors added for new biome textures if you don't have images yet
+const sandTex = loadTex('./textures/sand.png'); 
+const snowTex = loadTex('./textures/snow.png'); 
 
-// ==========================================
-// 3. MATERIALS
-// ==========================================
+const destroyTextures = [];
+for (let i = 0; i < 10; i++) {
+    destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
+}
+
 const grass_color = 0x8db753;
-
-const sand_mat = new THREE.MeshStandardMaterial({ color: 0xeed382 });
-const snow_mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-
-const grass_mat = [
-    new THREE.MeshStandardMaterial({ map: grassSide }),
-    new THREE.MeshStandardMaterial({ map: grassSide }),
-    new THREE.MeshStandardMaterial({ map: grassTop, color: grass_color }),
-    new THREE.MeshStandardMaterial({ map: dirt }),
-    new THREE.MeshStandardMaterial({ map: grassSide }),
-    new THREE.MeshStandardMaterial({ map: grassSide })
-];
-const iron_mat = new THREE.MeshStandardMaterial({ map: ironore });
 const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 const fringeMat = new THREE.MeshStandardMaterial({ 
-    map: grassSideOverlay, 
-    color: grass_color,
-    transparent: true, 
-    alphaTest: 0.5 
+    map: grassSideOverlay, color: grass_color, transparent: true, alphaTest: 0.5 
 });
 
-const side_overlay_mat = [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat];
-const coal_mat = new THREE.MeshStandardMaterial({ map: coalore });
-const copper_mat = new THREE.MeshStandardMaterial({ map: copperore });
-const log_mat = [
-    new THREE.MeshStandardMaterial({ map: logSide }),
-    new THREE.MeshStandardMaterial({ map: logSide }),
-    new THREE.MeshStandardMaterial({ map: logTop }),
-    new THREE.MeshStandardMaterial({ map: logTop }),
-    new THREE.MeshStandardMaterial({ map: logSide }),
-    new THREE.MeshStandardMaterial({ map: logSide })
-];
-
-const dirt_mat = new THREE.MeshStandardMaterial({ map: dirt });
-const stone_mat = new THREE.MeshStandardMaterial({ map: stone });
-const leaf_mat = new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 });
+const materials = {
+    grass: [
+        new THREE.MeshStandardMaterial({ map: grassSide }),
+        new THREE.MeshStandardMaterial({ map: grassSide }),
+        new THREE.MeshStandardMaterial({ map: grassTop, color: grass_color }),
+        new THREE.MeshStandardMaterial({ map: dirt }),
+        new THREE.MeshStandardMaterial({ map: grassSide }),
+        new THREE.MeshStandardMaterial({ map: grassSide })
+    ],
+    overlay: [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat],
+    dirt: new THREE.MeshStandardMaterial({ map: dirt }),
+    stone: new THREE.MeshStandardMaterial({ map: stone }),
+    sand: new THREE.MeshStandardMaterial({ map: sandTex, color: 0xeedd82 }), // Added Sand Material
+    snow: new THREE.MeshStandardMaterial({ map: snowTex, color: 0xffffff }), // Added Snow Material
+    coal: new THREE.MeshStandardMaterial({ map: coalore }),
+    iron: new THREE.MeshStandardMaterial({ map: ironore }),
+    copper: new THREE.MeshStandardMaterial({ map: copperore }),
+    leaf: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
+    log: [
+        new THREE.MeshStandardMaterial({ map: logSide }),
+        new THREE.MeshStandardMaterial({ map: logSide }),
+        new THREE.MeshStandardMaterial({ map: logTop }),
+        new THREE.MeshStandardMaterial({ map: logTop }),
+        new THREE.MeshStandardMaterial({ map: logSide }),
+        new THREE.MeshStandardMaterial({ map: logSide })
+    ]
+};
 
 const destroyGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
 const destroyMat = new THREE.MeshBasicMaterial({ 
-    map: destroyTextures[0], 
-    transparent: true, 
-    depthWrite: false, 
-    color: 0xA9A9A9,
-    opacity: 0.8
+    map: destroyTextures[0], transparent: true, depthWrite: false, color: 0xA9A9A9, opacity: 0.8
 });
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
 
-
-// ==========================================
-// 3.5. BLOCK REGISTRY
-// ==========================================
-const BLOCKS = {
-    grass:   { mat: grass_mat,        hardness: dirthardness, shadow: true },
-    overlay: { mat: side_overlay_mat, hardness: dirthardness, shadow: false },
-    dirt:    { mat: dirt_mat,         hardness: dirthardness, shadow: true },
-    stone:   { mat: stone_mat,        hardness: stonehardness, shadow: true },
-    sand:    { mat: sand_mat,         hardness: dirthardness, shadow: true },
-    snow:    { mat: snow_mat,         hardness: dirthardness, shadow: true },
-    coal:    { mat: coal_mat,         hardness: coalhardness, shadow: true },
-    iron:    { mat: iron_mat,         hardness: ironhardness, shadow: true },
-    copper:  { mat: copper_mat,       hardness: copperhardness, shadow: true },
-    log:     { mat: log_mat,          hardness: loghardness,  shadow: true },
-    leaf:    { mat: leaf_mat,         hardness: leafhardness, shadow: true }
-};
-
-
-// ==========================================
-// 3.6. BIOME CONFIGURATION
-// ==========================================
-const BIOMES = {
-    plains: {
-        heightScale: 12, baseHeight: 10, surfaceBlock: 'grass', subSurfaceBlock: 'dirt',
-        subSurfaceDepth: 3, deepBlock: 'stone', treeChance: 0.002, 
-        ores: [
-            { type: 'coal', threshold: 0.65, scale: 0.15, offset: 0 },
-            { type: 'copper', threshold: 0.68, scale: 0.15, offset: 200 },
-            { type: 'iron', threshold: 0.72, scale: 0.15, offset: 100 }
-        ]
+// ----------------------------------------------------
+// 2. BIOME REGISTRY (Easily add biomes here!)
+// ----------------------------------------------------
+// Temp and Moisture ranges are from -1.0 to 1.0. 
+// The engine mathematically finds the closest match to generate smooth transitions.
+const BIOME_REGISTRY = [
+    { 
+        name: "Forest", 
+        temp: 0.2, moist: 0.6, 
+        topBlock: 'grass', subBlock: 'dirt', 
+        treeChance: 0.006 // Lots of trees
     },
-    desert: {
-        heightScale: 4, baseHeight: 12, surfaceBlock: 'sand', subSurfaceBlock: 'sand',
-        subSurfaceDepth: 4, deepBlock: 'stone', treeChance: 0.0,    
-        ores: [ { type: 'coal', threshold: 0.70, scale: 0.15, offset: 0 } ]
+    { 
+        name: "Plains", 
+        temp: 0.1, moist: -0.2, 
+        topBlock: 'grass', subBlock: 'dirt', 
+        treeChance: 0.0001 // Very rare trees
     },
-    mountains: {
-        heightScale: 35, baseHeight: 15, surfaceBlock: 'snow', subSurfaceBlock: 'stone', 
-        subSurfaceDepth: 1, deepBlock: 'stone', treeChance: 0.0005, 
-        ores: [
-            { type: 'iron', threshold: 0.60, scale: 0.15, offset: 100 }, 
-            { type: 'coal', threshold: 0.65, scale: 0.15, offset: 0 }
-        ]
+    { 
+        name: "Desert", 
+        temp: 0.8, moist: -0.8, 
+        topBlock: 'sand', subBlock: 'sand', 
+        treeChance: 0.0 // No trees
+    },
+    { 
+        name: "Snowy Tundra", 
+        temp: -0.8, moist: 0.2, 
+        topBlock: 'snow', subBlock: 'dirt', 
+        treeChance: 0.001 // Occasional trees
     }
-};
+];
 
-
-// ==========================================
-// 4. WORLD VARIABLES & GENERATION
-// ==========================================
+// ----------------------------------------------------
+// 3. World Variables & Generators
+// ----------------------------------------------------
 const chunkSize = 16;
 const renderDistance = 3;
 const worldDepth = -32;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
+
 const worldSeed = Math.random(); 
-if (typeof noise !== 'undefined') noise.seed(worldSeed); // Make sure your perlin noise script is loaded!
+noise.seed(worldSeed);
 
 const activeChunks = {};
 const interactableMeshes = [];
@@ -176,11 +155,24 @@ function getDeterministicRandom(x, y, z) {
     return (h >>> 0) / 4294967296;
 }
 
+// Determines the local biome based on the Temperature and Humidity noise maps
 function getBiome(x, z) {
-    let temperature = noise.perlin2(x / 150, z / 150);
-    if (temperature < -0.2) return BIOMES.desert;
-    if (temperature > 0.3) return BIOMES.mountains;
-    return BIOMES.plains;
+    // Large, sweeping noise ranges for gradual biome shifts (scale of 400 blocks)
+    let tempMap = noise.perlin2(x / 400, z / 400); 
+    let moistMap = noise.perlin2((x + 10000) / 400, (z + 10000) / 400); // Offset to avoid syncing
+
+    let closestBiome = BIOME_REGISTRY[0];
+    let minDist = Infinity;
+
+    // Distance formula mapping to find the biome that best fits the environment
+    for (let b of BIOME_REGISTRY) {
+        let dist = Math.pow(tempMap - b.temp, 2) + Math.pow(moistMap - b.moist, 2);
+        if (dist < minDist) {
+            minDist = dist;
+            closestBiome = b;
+        }
+    }
+    return closestBiome;
 }
 
 function spawnTree(x, y, z, chunkMeshes, indices) {
@@ -215,41 +207,57 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
     }
 }
 
+// ----------------------------------------------------
+// 4. Chunk Generator Core
+// ----------------------------------------------------
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
 
-    const meshes = {};
-    const indices = {};
+    const maxSurfaceBlocks = chunkSize * chunkSize;
+    const maxDeepBlocks = chunkSize * chunkSize * 40; 
     
-    for (const [blockName, blockData] of Object.entries(BLOCKS)) {
-        let maxInstances = (blockName === 'leaf' || blockName === 'log') ? 2000 : chunkSize * chunkSize * 40;
-        meshes[blockName] = new THREE.InstancedMesh(geometry, blockData.mat, maxInstances);
-        meshes[blockName].name = blockName;
-        meshes[blockName].chunkId = chunkId;
-        meshes[blockName].frustumCulled = true;
-        meshes[blockName].castShadow = blockData.shadow;
-        meshes[blockName].receiveShadow = blockData.shadow;
-        indices[blockName] = 0; 
+    // Dynamically build InstancedMeshes from the materials library
+    const meshes = {};
+    for (const [key, mat] of Object.entries(materials)) {
+        let count = (key === 'leaf' || key === 'log') ? 2000 : 
+                    (key === 'stone' || key === 'dirt' || key === 'coal' || key === 'copper' || key === 'iron') ? maxDeepBlocks : maxSurfaceBlocks;
+        
+        meshes[key] = new THREE.InstancedMesh(geometry, mat, count);
+        meshes[key].name = key;
+        meshes[key].chunkId = chunkId;
+        meshes[key].frustumCulled = true;
+
+        if (key === 'overlay' || key === 'coal' || key === 'iron' || key === 'copper') {
+            meshes[key].castShadow = false;
+        } else {
+            meshes[key].castShadow = true;
+        }
+        meshes[key].receiveShadow = (key !== 'overlay');
     }
+
+    // Dynamic indices to track block counts
+    const indices = {};
+    for (const key of Object.keys(meshes)) indices[key] = 0;
 
     const matrix = new THREE.Matrix4();
     const overlayMatrix = new THREE.Matrix4();
+    
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
+    // Global unified heightmap to prevent vertical cliffs between biomes
     const terrain = [];
-    const chunkBiomes = [];
     for (let x = -1; x <= chunkSize; x++) {
         terrain[x + 1] = [];
-        chunkBiomes[x + 1] = [];
         for (let z = -1; z <= chunkSize; z++) {
-            let globalX = startX + x;
-            let globalZ = startZ + z;
-            let biome = getBiome(globalX, globalZ);
-            let n = noise.perlin2(globalX / 25, globalZ / 25);
-            terrain[x + 1][z + 1] = Math.floor(((n + 1) / 2) * biome.heightScale) + biome.baseHeight;
-            chunkBiomes[x + 1][z + 1] = biome;
+            let pX = startX + x;
+            let pZ = startZ + z;
+            
+            // Combining broad elevation with fine roughness to make natural looking terrain
+            let elevation = noise.perlin2(pX / 100, pZ / 100) * 15;
+            let roughness = noise.perlin2(pX / 25, pZ / 25) * 4;
+            terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 10);
         }
     }
 
@@ -258,7 +266,9 @@ function generateChunk(chunkX, chunkZ) {
             let globalX = startX + x;
             let globalZ = startZ + z;
             let h = terrain[x + 1][z + 1];
-            let biome = chunkBiomes[x + 1][z + 1];
+            
+            // Check biome exactly at this x,z coordinate
+            const localBiome = getBiome(globalX, globalZ);
             
             for (let y = worldDepth; y <= h; y++) {
                 let isHidden = (
@@ -267,58 +277,93 @@ function generateChunk(chunkX, chunkZ) {
                 );
                 
                 if (isHidden) {
-                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))   
+                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))   
                     {
                         isHidden = false;
                     }
                 }
 
                 if (!isHidden) {
-                    if (y === h && getDeterministicRandom(globalX, 0, globalZ) < biome.treeChance) {
-                        spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                    if (y === h) {
+                        // Apply specific Biome tree density rules
+                        if (localBiome.treeChance > 0 && getDeterministicRandom(globalX, 0, globalZ) < localBiome.treeChance) {
+                            spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                        }
                     }
+
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
                     matrix.setPosition(globalX, y, globalZ);
                     
                     if (y === h) {
-                        meshes[biome.surfaceBlock].setMatrixAt(indices[biome.surfaceBlock]++, matrix);
-                        if (biome.surfaceBlock === 'grass') {
+                        // Place Biome's top block (e.g. Grass, Sand, Snow)
+                        meshes[localBiome.topBlock].setMatrixAt(indices[localBiome.topBlock]++, matrix);
+                        
+                        // Render fringe overlay ONLY if the block is grass
+                        if (localBiome.topBlock === 'grass') {
                             overlayMatrix.makeScale(1.002, 1.002, 1.002);
                             overlayMatrix.setPosition(globalX, y, globalZ);
                             meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
                         }
-                    } else if (y > h - biome.subSurfaceDepth) {
-                        meshes[biome.subSurfaceBlock].setMatrixAt(indices[biome.subSurfaceBlock]++, matrix);
+                    } else if (y > h - 3) {
+                        // Place Biome's sub block
+                        meshes[localBiome.subBlock].setMatrixAt(indices[localBiome.subBlock]++, matrix);
                     } else {
-                        let placedOre = false;
-                        for (let ore of biome.ores) {
-                            let oreNoise = noise.perlin3((globalX + ore.offset) * ore.scale, (y + ore.offset) * ore.scale, (globalZ + ore.offset) * ore.scale);
-                            if (oreNoise > ore.threshold) {
-                                meshes[ore.type].setMatrixAt(indices[ore.type]++, matrix);
-                                placedOre = true;
-                                break; 
-                            }
+                        // Underground ores & stone remain unchanged by surface biomes
+                        let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
+                        let ironNoise = noise.perlin3((globalX + 100) * 0.15, (y + 100) * 0.15, (globalZ + 100) * 0.15);
+                        let copperNoise = noise.perlin3((globalX + 200) * 0.15, (y + 200) * 0.15, (globalZ + 200) * 0.15);
+                        if (oreNoise > 0.65) {
+                            meshes.coal.setMatrixAt(indices.coal++, matrix);
+                        } else if (copperNoise > 0.68) {
+                            meshes.copper.setMatrixAt(indices.copper++, matrix);
+                        } else if (ironNoise > 0.72) {
+                            meshes.iron.setMatrixAt(indices.iron++, matrix);
+                        } else {
+                            meshes.stone.setMatrixAt(indices.stone++, matrix);
                         }
-                        if (!placedOre) meshes[biome.deepBlock].setMatrixAt(indices[biome.deepBlock]++, matrix);
                     }
                 }
             }
         }
     }
 
-    for (const [blockName, mesh] of Object.entries(meshes)) {
-        mesh.count = indices[blockName];
-        if (mesh.count > 0) {
-            mesh.instanceMatrix.needsUpdate = true;
-            scene.add(mesh);
-            interactableMeshes.push(mesh);
-        }
+    for (const [key, mesh] of Object.entries(meshes)) {
+        mesh.count = indices[key];
+        mesh.instanceMatrix.needsUpdate = true;
+        scene.add(mesh);
+        if (mesh.count > 0) interactableMeshes.push(mesh);
     }
     activeChunks[chunkId] = meshes;
 }
+
+// ----------------------------------------------------
+// 5. Rendering, Lighting, & Updates
+// ----------------------------------------------------
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+scene.add(hemiLight);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+sunLight.position.set(50, 100, 20); 
+sunLight.castShadow = true;
+
+sunLight.shadow.mapSize.width = 1024;
+sunLight.shadow.mapSize.height = 1024;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 75;
+sunLight.shadow.bias = -0.0005;
+sunLight.shadow.normalBias = 0.05;
+
+const d = 50; 
+sunLight.shadow.camera.left = -d;
+sunLight.shadow.camera.right = d;
+sunLight.shadow.camera.top = d;
+sunLight.shadow.camera.bottom = -d;
+scene.add(sunLight);
 
 let lastPlayerChunkX = -999;
 let lastPlayerChunkZ = -999;
@@ -332,6 +377,7 @@ function updateChunks() {
     lastPlayerChunkZ = playerChunkZ;
 
     const chunksToKeep = new Set();
+
     for (let x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
         for (let z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
             generateChunk(x, z);
@@ -353,37 +399,20 @@ function updateChunks() {
     }
 }
 
+// ----------------------------------------------------
+// 6. Mining & Controls
+// ----------------------------------------------------
+camera.position.set(0, 40, 0);
 
-// ==========================================
-// 5. LIGHTING
-// ==========================================
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-scene.add(hemiLight);
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-sunLight.position.set(50, 100, 20); 
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 1024;
-sunLight.shadow.mapSize.height = 1024;
-sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 75;
-sunLight.shadow.bias = -0.0005;
-const d = 50; 
-sunLight.shadow.camera.left = -d;
-sunLight.shadow.camera.right = d;
-sunLight.shadow.camera.top = d;
-sunLight.shadow.camera.bottom = -d;
-scene.add(sunLight);
-
-
-// ==========================================
-// 6. PLAYER, CONTROLS & MOVEMENT
-// ==========================================
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); 
 handGeo.translate(0, 0.4, 0); 
+
 const handMat = new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 });
 const playerHand = new THREE.Mesh(handGeo, handMat);
+
 playerHand.position.set(0.4, -0.4, -0.1);
 playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
+
 camera.add(playerHand);
 scene.add(camera);
 
@@ -391,50 +420,11 @@ let yaw = 0, pitch = 0, keys = {};
 const raycaster = new THREE.Raycaster();
 raycaster.far = 6;
 
-// Pointer Lock (Click to look around)
-document.body.addEventListener('click', () => {
-    document.body.requestPointerLock();
-});
-
-document.addEventListener('mousemove', (event) => {
-    if (document.pointerLockElement === document.body) {
-        yaw -= event.movementX * 0.002;
-        pitch -= event.movementY * 0.002;
-        pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
-        camera.rotation.order = 'YXZ'; 
-        camera.rotation.set(pitch, yaw, 0);
-    }
-});
-
-// Keyboard Listeners
-document.addEventListener('keydown', (e) => keys[e.code] = true);
-document.addEventListener('keyup', (e) => keys[e.code] = false);
-
-const speed = 0.2;
-function updateMovement() {
-    const dir = new THREE.Vector3();
-    if (keys['KeyW']) dir.z -= 1;
-    if (keys['KeyS']) dir.z += 1;
-    if (keys['KeyA']) dir.x -= 1;
-    if (keys['KeyD']) dir.x += 1;
-
-    if (dir.lengthSq() > 0) dir.normalize();
-    
-    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-    camera.position.addScaledVector(dir, speed);
-    
-    if (keys['Space']) camera.position.y += speed;
-    if (keys['ShiftLeft']) camera.position.y -= speed;
-}
-
-
-// ==========================================
-// 7. MINING LOGIC
-// ==========================================
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
 
 function getTarget() {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    
     const pX = Math.floor(camera.position.x / chunkSize);
     const pZ = Math.floor(camera.position.z / chunkSize);
     
@@ -449,31 +439,142 @@ function getTarget() {
 }
 
 function startMining(hit) {
-    const blockConfig = BLOCKS[hit.object.name];
+    // Dynamic hardness lookup mapped directly to block names
+    let blockHardness = BLOCK_HARDNESS[hit.object.name] || 1000;
+
     mining = {
-        active: true, 
-        startTime: Date.now(), 
-        targetMesh: hit.object, 
-        targetId: hit.instanceId,
-        requiredTime: blockConfig ? blockConfig.hardness : 1500
+        active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId, requiredTime: blockHardness
     };
-} 
 
-// Paste your exact updateMining() logic back in here if you have it!
+    destroyMat.map = destroyTextures[0];
+    destroyMat.needsUpdate = true;
 
-
-// ==========================================
-// 8. MAIN GAME LOOP
-// ==========================================
-function animate() {
-    requestAnimationFrame(animate);
-
-    updateChunks();
-    updateMovement();
+    const blockMatrix = new THREE.Matrix4();
+    hit.object.getMatrixAt(hit.instanceId, blockMatrix);
+    const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
     
-    // updateMining(); // Uncomment this when you add your mining loop back in!
-
-    renderer.render(scene, camera);
+    destroyMesh.position.copy(pos);
+    destroyMesh.visible = true; 
 }
 
+function updateMining() {
+    if (!mining.active) {
+        destroyMesh.visible = false;
+        return;
+    }
+    
+    const hit = getTarget();
+    if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
+        mining.active = false;
+        destroyMesh.visible = false;
+        if (hit) startMining(hit); 
+        return;
+    }
+
+    const elapsed = Date.now() - mining.startTime;
+    const progress = Math.min(elapsed / mining.requiredTime, 1.0); 
+    const phaseIndex = Math.floor(progress * 9.99); 
+
+    if (destroyMat.map !== destroyTextures[phaseIndex]) {
+        destroyMat.map = destroyTextures[phaseIndex];
+        destroyMat.needsUpdate = true; 
+    }
+
+    if (elapsed >= mining.requiredTime) {
+        const mesh = mining.targetMesh;
+        const targetIdx = mining.targetId;
+
+        destroyMesh.visible = false; 
+
+        const blockMatrix = new THREE.Matrix4();
+        mesh.getMatrixAt(targetIdx, blockMatrix);
+        const pos = new THREE.Vector3().setFromMatrixPosition(blockMatrix);
+        
+        brokenBlocks.add(`${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`);
+        
+        const chunkId = mesh.chunkId;
+        const [cX, cZ] = chunkId.split(',').map(Number);
+        
+        const targetX = Math.round(pos.x);
+        const targetZ = Math.round(pos.z);
+        
+        const chunksToUpdate = new Set([`${cX},${cZ}`]);
+        const mod = (n, m) => ((n % m) + m) % m;
+        const localX = mod(targetX, chunkSize);
+        const localZ = mod(targetZ, chunkSize);
+
+        if (localX === 0) chunksToUpdate.add(`${cX - 1},${cZ}`);
+        if (localX === chunkSize - 1) chunksToUpdate.add(`${cX + 1},${cZ}`);
+        if (localZ === 0) chunksToUpdate.add(`${cX},${cZ - 1}`);
+        if (localZ === chunkSize - 1) chunksToUpdate.add(`${cX},${cZ + 1}`);
+
+        for (const id of chunksToUpdate) {
+            if (activeChunks[id]) {
+                const meshes = activeChunks[id];
+                for (const m of Object.values(meshes)) {
+                    scene.remove(m);
+                    const index = interactableMeshes.indexOf(m);
+                    if (index > -1) interactableMeshes.splice(index, 1);
+                    m.dispose();
+                }
+                delete activeChunks[id];
+                const [nx, nz] = id.split(',').map(Number);
+                generateChunk(nx, nz);
+            }
+        }
+
+        const next = getTarget();
+        if (next) startMining(next); else mining.active = false;
+    }
+}
+
+document.addEventListener('mousedown', (e) => {
+    if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
+    else if (e.button === 0) { const hit = getTarget(); if (hit) startMining(hit); }
+});
+document.addEventListener('mouseup', () => mining.active = false);
+document.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement) {
+        yaw -= e.movementX * 0.002;
+        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - e.movementY * 0.002));
+    }
+});
+window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function animate() {
+    requestAnimationFrame(animate);
+    updateChunks();
+    updateMining();
+    
+    if (mining.active) {
+        const t = Date.now() * 0.025; 
+        playerHand.rotation.x = (-Math.PI / 3) + Math.sin(t) * 0.25;
+        playerHand.position.z = -0.2 + Math.cos(t) * 0.15;
+        playerHand.position.y = -0.25 + Math.sin(t) * 0.04;
+    } else {
+        playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, -Math.PI / 3, 0.2);
+        playerHand.position.z = THREE.MathUtils.lerp(playerHand.position.z, -0.1, 0.2);
+        playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.4, 0.2);
+    }
+
+    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+    const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+    if (keys.w) camera.position.addScaledVector(fwd, -0.15);
+    if (keys.s) camera.position.addScaledVector(fwd, 0.15);
+    if (keys.a) camera.position.addScaledVector(rgt, 0.15);
+    if (keys.d) camera.position.addScaledVector(rgt, -0.15);
+    if (keys[' ']) camera.position.y += 0.15;
+    if (keys.shift) camera.position.y -= 0.15;
+    
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    renderer.render(scene, camera);
+    stats.update();
+}
 animate();
