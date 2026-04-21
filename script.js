@@ -419,5 +419,4 @@ function startMining(hit) {
         targetId: hit.instanceId,
         requiredTime: blockConfig ? blockConfig.hardness : 1500
     };
-
-// ... (The rest of your code stays exactly the same!)
+};
