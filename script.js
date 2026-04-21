@@ -19,8 +19,8 @@ document.body.appendChild(stats.dom);
 const BLOCK_HARDNESS = {
     stone: 7500, coal: 15000, iron: 15000, copper: 10000,
     log: 3000, leaf: 300,
-    dirt: 750, grass: 750, overlay: 750,
-    sand: 600, snow: 500
+    dirt: 750, grass: 750, overlay: 750, snow_grass: 750, 
+    sand: 600, snow: 500, sandstone: 4000
 };
 
 const loader = new THREE.TextureLoader();
@@ -44,9 +44,11 @@ const coalore = loadTex('./textures/coal_ore.png');
 const ironore = loadTex('./textures/iron_ore.png');
 const copperore = loadTex('./textures/copper_ore.png');
 
-// Fallback colors added for new biome textures if you don't have images yet
+// Biome Textures
 const sandTex = loadTex('./textures/sand.png'); 
 const snowTex = loadTex('./textures/snow.png'); 
+const snowyGrassSide = loadTex('./textures/snowy_grass_side.png'); // <-- New Texture
+const sandstoneTex = loadTex('./textures/sandstone.png'); 
 
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
@@ -68,11 +70,20 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: grassSide }),
         new THREE.MeshStandardMaterial({ map: grassSide })
     ],
+    snow_grass: [ // <-- New Snowy Grass multi-sided material
+        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
+        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
+        new THREE.MeshStandardMaterial({ map: snowTex }), 
+        new THREE.MeshStandardMaterial({ map: dirt }),
+        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
+        new THREE.MeshStandardMaterial({ map: snowyGrassSide })
+    ],
     overlay: [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat],
     dirt: new THREE.MeshStandardMaterial({ map: dirt }),
     stone: new THREE.MeshStandardMaterial({ map: stone }),
-    sand: new THREE.MeshStandardMaterial({ map: sandTex, color: 0xeedd82 }), // Added Sand Material
-    snow: new THREE.MeshStandardMaterial({ map: snowTex, color: 0xffffff }), // Added Snow Material
+    sand: new THREE.MeshStandardMaterial({ map: sandTex, color: 0xeedd82 }), 
+    sandstone: new THREE.MeshStandardMaterial({ map: sandstoneTex, color: 0xdbd3a0 }), 
+    snow: new THREE.MeshStandardMaterial({ map: snowTex, color: 0xffffff }), 
     coal: new THREE.MeshStandardMaterial({ map: coalore }),
     iron: new THREE.MeshStandardMaterial({ map: ironore }),
     copper: new THREE.MeshStandardMaterial({ map: copperore }),
@@ -96,34 +107,32 @@ destroyMesh.visible = false;
 scene.add(destroyMesh);
 
 // ----------------------------------------------------
-// 2. BIOME REGISTRY (Easily add biomes here!)
+// 2. BIOME REGISTRY
 // ----------------------------------------------------
-// Temp and Moisture ranges are from -1.0 to 1.0. 
-// The engine mathematically finds the closest match to generate smooth transitions.
 const BIOME_REGISTRY = [
     { 
         name: "Forest", 
         temp: 0.2, moist: 0.6, 
         topBlock: 'grass', subBlock: 'dirt', 
-        treeChance: 0.006 // Lots of trees
+        treeChance: 0.006 
     },
     { 
         name: "Plains", 
         temp: 0.1, moist: -0.2, 
         topBlock: 'grass', subBlock: 'dirt', 
-        treeChance: 0.0001 // Very rare trees
+        treeChance: 0.0001 
     },
     { 
         name: "Desert", 
         temp: 0.8, moist: -0.8, 
-        topBlock: 'sand', subBlock: 'sand', 
-        treeChance: 0.0 // No trees
+        topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone',
+        treeChance: 0.0 
     },
     { 
         name: "Snowy Tundra", 
         temp: -0.8, moist: 0.2, 
-        topBlock: 'snow', subBlock: 'dirt', 
-        treeChance: 0.001 // Occasional trees
+        topBlock: 'snow_grass', subBlock: 'dirt', // <-- Uses snow_grass now
+        treeChance: 0.001 
     }
 ];
 
@@ -137,6 +146,10 @@ const geometry = new THREE.BoxGeometry(1, 1, 1);
 
 const worldSeed = Math.random(); 
 noise.seed(worldSeed);
+
+// Random offsets to prevent always spawning at 0,0 biome coordinates
+const mapOffsetX = Math.random() * 10000;
+const mapOffsetZ = Math.random() * 10000;
 
 const activeChunks = {};
 const interactableMeshes = [];
@@ -155,16 +168,13 @@ function getDeterministicRandom(x, y, z) {
     return (h >>> 0) / 4294967296;
 }
 
-// Determines the local biome based on the Temperature and Humidity noise maps
 function getBiome(x, z) {
-    // Large, sweeping noise ranges for gradual biome shifts (scale of 400 blocks)
-    let tempMap = noise.perlin2(x / 400, z / 400); 
-    let moistMap = noise.perlin2((x + 10000) / 400, (z + 10000) / 400); // Offset to avoid syncing
+    let tempMap = noise.perlin2((x + mapOffsetX) / 400, (z + mapOffsetZ) / 400); 
+    let moistMap = noise.perlin2((x + mapOffsetX + 10000) / 400, (z + mapOffsetZ + 10000) / 400); 
 
     let closestBiome = BIOME_REGISTRY[0];
     let minDist = Infinity;
 
-    // Distance formula mapping to find the biome that best fits the environment
     for (let b of BIOME_REGISTRY) {
         let dist = Math.pow(tempMap - b.temp, 2) + Math.pow(moistMap - b.moist, 2);
         if (dist < minDist) {
@@ -217,11 +227,11 @@ function generateChunk(chunkX, chunkZ) {
     const maxSurfaceBlocks = chunkSize * chunkSize;
     const maxDeepBlocks = chunkSize * chunkSize * 40; 
     
-    // Dynamically build InstancedMeshes from the materials library
     const meshes = {};
     for (const [key, mat] of Object.entries(materials)) {
         let count = (key === 'leaf' || key === 'log') ? 2000 : 
-                    (key === 'stone' || key === 'dirt' || key === 'coal' || key === 'copper' || key === 'iron') ? maxDeepBlocks : maxSurfaceBlocks;
+                    (key === 'grass' || key === 'snow_grass' || key === 'overlay' || key === 'snow' || key === 'sand') ? maxSurfaceBlocks : 
+                    maxDeepBlocks; 
         
         meshes[key] = new THREE.InstancedMesh(geometry, mat, count);
         meshes[key].name = key;
@@ -236,7 +246,6 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].receiveShadow = (key !== 'overlay');
     }
 
-    // Dynamic indices to track block counts
     const indices = {};
     for (const key of Object.keys(meshes)) indices[key] = 0;
 
@@ -246,7 +255,6 @@ function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    // Global unified heightmap to prevent vertical cliffs between biomes
     const terrain = [];
     for (let x = -1; x <= chunkSize; x++) {
         terrain[x + 1] = [];
@@ -254,9 +262,8 @@ function generateChunk(chunkX, chunkZ) {
             let pX = startX + x;
             let pZ = startZ + z;
             
-            // Combining broad elevation with fine roughness to make natural looking terrain
-            let elevation = noise.perlin2(pX / 100, pZ / 100) * 15;
-            let roughness = noise.perlin2(pX / 25, pZ / 25) * 4;
+            let elevation = noise.perlin2((pX + mapOffsetX) / 100, (pZ + mapOffsetZ) / 100) * 15;
+            let roughness = noise.perlin2((pX + mapOffsetX) / 25, (pZ + mapOffsetZ) / 25) * 4;
             terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 10);
         }
     }
@@ -267,7 +274,6 @@ function generateChunk(chunkX, chunkZ) {
             let globalZ = startZ + z;
             let h = terrain[x + 1][z + 1];
             
-            // Check biome exactly at this x,z coordinate
             const localBiome = getBiome(globalX, globalZ);
             
             for (let y = worldDepth; y <= h; y++) {
@@ -289,32 +295,28 @@ function generateChunk(chunkX, chunkZ) {
                 }
 
                 if (!isHidden) {
-                    if (y === h) {
-                        // Apply specific Biome tree density rules
-                        if (localBiome.treeChance > 0 && getDeterministicRandom(globalX, 0, globalZ) < localBiome.treeChance) {
-                            spawnTree(globalX, y + 1, globalZ, meshes, indices);
-                        }
+                    if (y === h && localBiome.treeChance > 0 && getDeterministicRandom(globalX, 0, globalZ) < localBiome.treeChance) {
+                        spawnTree(globalX, y + 1, globalZ, meshes, indices);
                     }
 
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
                     matrix.setPosition(globalX, y, globalZ);
                     
-                    if (y === h) {
-                        // Place Biome's top block (e.g. Grass, Sand, Snow)
+                    let depth = h - y; 
+
+                    if (depth === 0) {
                         meshes[localBiome.topBlock].setMatrixAt(indices[localBiome.topBlock]++, matrix);
-                        
-                        // Render fringe overlay ONLY if the block is grass
                         if (localBiome.topBlock === 'grass') {
                             overlayMatrix.makeScale(1.002, 1.002, 1.002);
                             overlayMatrix.setPosition(globalX, y, globalZ);
                             meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
                         }
-                    } else if (y > h - 3) {
-                        // Place Biome's sub block
+                    } else if (depth > 0 && depth <= 3) {
                         meshes[localBiome.subBlock].setMatrixAt(indices[localBiome.subBlock]++, matrix);
+                    } else if (depth > 3 && depth <= 6 && localBiome.deepSubBlock) {
+                        meshes[localBiome.deepSubBlock].setMatrixAt(indices[localBiome.deepSubBlock]++, matrix);
                     } else {
-                        // Underground ores & stone remain unchanged by surface biomes
                         let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
                         let ironNoise = noise.perlin3((globalX + 100) * 0.15, (y + 100) * 0.15, (globalZ + 100) * 0.15);
                         let copperNoise = noise.perlin3((globalX + 200) * 0.15, (y + 200) * 0.15, (globalZ + 200) * 0.15);
@@ -439,7 +441,6 @@ function getTarget() {
 }
 
 function startMining(hit) {
-    // Dynamic hardness lookup mapped directly to block names
     let blockHardness = BLOCK_HARDNESS[hit.object.name] || 1000;
 
     mining = {
