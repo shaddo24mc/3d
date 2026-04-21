@@ -1,6 +1,3 @@
-import * as THREE from 'three';
-// Make sure to import your noise library here if you haven't! 
-// e.g., import { noise } from './perlin.js';
 
 // ==========================================
 // 1. INITIALIZATION (Scene, Camera, Renderer)
