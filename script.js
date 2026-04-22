@@ -157,9 +157,9 @@ const geometry = new THREE.BoxGeometry(1, 1, 1);
 const worldSeed = Math.random(); 
 noise.seed(worldSeed);
 
-// Random offsets to prevent always spawning at 0,0 biome coordinates
-const mapOffsetX = Math.random() * 10000;
-const mapOffsetZ = Math.random() * 10000;
+console.log("Current World Seed:", worldSeed);
+const mapOffsetX = 0;
+const mapOffsetZ = 0;
 
 const activeChunks = {};
 const interactableMeshes = [];
