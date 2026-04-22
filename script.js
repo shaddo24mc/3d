@@ -151,7 +151,7 @@ const BIOME_REGISTRY = [
         treeChance: 0, heightScale: 120 // Massive peaks!
     },
     { 
-        name: "Snowy Peak", 
+        name: "Snowy Peaks", 
         temp: -0.5, moist: 0.5, 
         topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone',
         treeChance: 0, heightScale: 120 // Massive peaks!
@@ -383,7 +383,7 @@ function generateChunk(chunkX, chunkZ) {
         if (mesh.count > 0) interactableMeshes.push(mesh);
     }
     activeChunks[chunkId] = meshes;
-}
+};
 
 // ----------------------------------------------------
 // 5. Rendering, Lighting, & Updates
