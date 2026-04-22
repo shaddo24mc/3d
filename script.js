@@ -1,6 +1,6 @@
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
-scene.fog = new THREE.Fog(0x87ceeb, 60, 100);
+scene.fog = new THREE.Fog(0x87ceeb, 40, 80);
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
@@ -150,7 +150,7 @@ const BIOME_REGISTRY = [
 // 3. World Variables & Generators
 // ----------------------------------------------------
 const chunkSize = 16;
-const renderDistance = 8;
+const renderDistance = 4;
 const worldDepth = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
