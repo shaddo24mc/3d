@@ -381,9 +381,8 @@ function generateChunk(chunkX, chunkZ) {
         mesh.instanceMatrix.needsUpdate = true;
         scene.add(mesh);
         if (mesh.count > 0) interactableMeshes.push(mesh);
-    }
     activeChunks[chunkId] = meshes;
-};
+}// line 386
 
 // ----------------------------------------------------
 // 5. Rendering, Lighting, & Updates
