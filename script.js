@@ -143,6 +143,12 @@ const BIOME_REGISTRY = [
         temp: -0.8, moist: 0.2, 
         topBlock: 'snow_grass', subBlock: 'dirt',
         treeChance: 0.001 
+    },
+    { 
+        name: "Mountains", 
+        temp: 0.0, moist: 0.0, 
+        topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone',
+        treeChance: 0.002, heightScale: 120 // Massive peaks!
     }
 ];
 
@@ -164,7 +170,20 @@ const mapOffsetZ = 0;
 const activeChunks = {};
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
+function getInterpolatedHeightScale(x, z) {
+    const range = 8; // How many blocks to look around (higher = smoother borders)
+    const step = 4;  // Skip blocks to save performance
+    let totalScale = 0;
+    let samples = 0;
 
+    for (let offX = -range; offX <= range; offX += step) {
+        for (let offZ = -range; offZ <= range; offZ += step) {
+            totalScale += getBiome(x + offX, z + offZ).heightScale;
+            samples++;
+        }
+    }
+    return totalScale / samples; // The "blended" height scale
+}
 function getDeterministicRandom(x, y, z) {
     let str = `${x},${y},${z},${worldSeed}`;
     let h = 2166136261; 
@@ -234,8 +253,12 @@ function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
 
-    const maxSurfaceBlocks = chunkSize * chunkSize;
-    const maxDeepBlocks = chunkSize * chunkSize * 128; 
+    const startX = chunkX * chunkSize;
+    const startZ = chunkZ * chunkSize;
+
+    // 1. INCREASE LIMITS (To prevent the "Infinite Cliff" glitch)
+    const maxSurfaceBlocks = chunkSize * chunkSize * 10; 
+    const maxDeepBlocks = chunkSize * chunkSize * 300; 
     
     const meshes = {};
     for (const [key, mat] of Object.entries(materials)) {
@@ -247,12 +270,7 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
         meshes[key].frustumCulled = false;
-
-        if (key === 'overlay' || key === 'coal' || key === 'iron' || key === 'copper') {
-            meshes[key].castShadow = false;
-        } else {
-            meshes[key].castShadow = true;
-        }
+        meshes[key].castShadow = !(key === 'overlay' || key === 'coal' || key === 'iron' || key === 'copper');
         meshes[key].receiveShadow = (key !== 'overlay');
     }
 
@@ -262,22 +280,26 @@ function generateChunk(chunkX, chunkZ) {
     const matrix = new THREE.Matrix4();
     const overlayMatrix = new THREE.Matrix4();
     
-    const startX = chunkX * chunkSize;
-    const startZ = chunkZ * chunkSize;
-
+    // --- HEIGHTMAP GENERATION ---
     const terrain = [];
     for (let x = -1; x <= chunkSize; x++) {
         terrain[x + 1] = [];
         for (let z = -1; z <= chunkSize; z++) {
             let pX = startX + x;
             let pZ = startZ + z;
+
+            // Use the interpolation function for smooth biome borders
+            let blendedScale = getInterpolatedHeightScale(pX, pZ);
+
+            let rawElevation = noise.perlin2((pX + mapOffsetX) / 400, (pZ + mapOffsetZ) / 400);
+            let elevation = ((rawElevation + 1) / 2) * blendedScale;
+            let roughness = noise.perlin2((pX + mapOffsetX) / 20, (pZ + mapOffsetZ) / 20) * 3;
             
-            let elevation = noise.perlin2((pX + mapOffsetX) / 300, (pZ + mapOffsetZ) / 300) * 150;
-            let roughness = noise.perlin2((pX + mapOffsetX) / 25, (pZ + mapOffsetZ) / 25) * 4;
             terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 64);
         }
     }
 
+    // --- BLOCK PLACEMENT ---
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x;
@@ -287,6 +309,7 @@ function generateChunk(chunkX, chunkZ) {
             const localBiome = getBiome(globalX, globalZ);
             
             for (let y = worldDepth; y <= h; y++) {
+                // Simplified Occlusion Culling
                 let isHidden = (
                     terrain[x + 2][z + 1] >= y && terrain[x][z + 1] >= y &&
                     terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
@@ -298,10 +321,8 @@ function generateChunk(chunkX, chunkZ) {
                         brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || 
                         brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
                         brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || 
-                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))   
-                    {
-                        isHidden = false;
-                    }
+                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))    
+                    { isHidden = false; }
                 }
 
                 if (!isHidden) {
@@ -312,7 +333,6 @@ function generateChunk(chunkX, chunkZ) {
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
 
                     matrix.setPosition(globalX, y, globalZ);
-                    
                     let depth = h - y; 
 
                     if (depth === 0) {
@@ -324,18 +344,11 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     } else if (depth > 0 && depth <= 3) {
                         meshes[localBiome.subBlock].setMatrixAt(indices[localBiome.subBlock]++, matrix);
-                    } else if (depth > 3 && depth <= 6 && localBiome.deepSubBlock) {
-                        meshes[localBiome.deepSubBlock].setMatrixAt(indices[localBiome.deepSubBlock]++, matrix);
                     } else {
+                        // Underground ores and stone
                         let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
-                        let ironNoise = noise.perlin3((globalX + 100) * 0.15, (y + 100) * 0.15, (globalZ + 100) * 0.15);
-                        let copperNoise = noise.perlin3((globalX + 200) * 0.15, (y + 200) * 0.15, (globalZ + 200) * 0.15);
                         if (oreNoise > 0.65) {
                             meshes.coal.setMatrixAt(indices.coal++, matrix);
-                        } else if (copperNoise > 0.68) {
-                            meshes.copper.setMatrixAt(indices.copper++, matrix);
-                        } else if (ironNoise > 0.72) {
-                            meshes.iron.setMatrixAt(indices.iron++, matrix);
                         } else {
                             meshes.stone.setMatrixAt(indices.stone++, matrix);
                         }
@@ -417,11 +430,13 @@ function updateChunks() {
 const spawnX = 0;
 const spawnZ = 0;
 
-let spawnElevation = noise.perlin2((spawnX + mapOffsetX) / 300, (spawnZ + mapOffsetZ) / 300) * 150;
-let spawnRoughness = noise.perlin2((spawnX + mapOffsetX) / 25, (spawnZ + mapOffsetZ) / 25) * 4;
+let spawnBiome = getBiome(spawnX, spawnZ); // Get spawn biome
+let rawSpawnElev = noise.perlin2((spawnX + mapOffsetX) / 400, (spawnZ + mapOffsetZ) / 400);
+let spawnElevation = ((rawSpawnElev + 1) / 2) * spawnBiome.heightScale; // Use biome scale
+let spawnRoughness = noise.perlin2((spawnX + mapOffsetX) / 20, (spawnZ + mapOffsetZ) / 20) * 3;
 let surfaceHeight = Math.floor(spawnElevation + spawnRoughness + 64);
 
-const playerHeight = 2; // Sets the camera 2 blocks above the ground
+const playerHeight = 2;
 camera.position.set(spawnX, surfaceHeight + playerHeight, spawnZ);
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); 
 handGeo.translate(0, 0.4, 0); 
