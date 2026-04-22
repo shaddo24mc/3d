@@ -48,7 +48,7 @@ const copperore = loadTex('./textures/copper_ore.png');
 // Biome Textures
 const sand = loadTex('./textures/sand.png'); 
 const snow = loadTex('./textures/snow.png');
-const snowyGrassSide = loadTex('./textures/grass_block_snow.png'); // <-- New Texture
+const snowyGrassSide = loadTex('./textures/grass_block_snow.png');
 const sandstonetop = loadTex('./textures/sandstone_top.png');
 const sandstoneside = loadTex('./textures/sandstone.png')
 const sandstonebottom = loadTex('./textures/sandstone_bottom.png')
@@ -73,7 +73,7 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: grassSide }),
         new THREE.MeshStandardMaterial({ map: grassSide })
     ],
-    snow_grass: [ // <-- New Snowy Grass multi-sided material
+    snow_grass: [
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
         new THREE.MeshStandardMaterial({ map: snow }), 
@@ -141,7 +141,7 @@ const BIOME_REGISTRY = [
     { 
         name: "Snowy Tundra", 
         temp: -0.8, moist: 0.2, 
-        topBlock: 'snow_grass', subBlock: 'dirt', // <-- Uses snow_grass now
+        topBlock: 'snow_grass', subBlock: 'dirt',
         treeChance: 0.001 
     }
 ];
@@ -272,13 +272,8 @@ function generateChunk(chunkX, chunkZ) {
             let pX = startX + x;
             let pZ = startZ + z;
             
-            // 1. Generate the big mountain shapes (Stretches across 300 blocks)
             let elevation = noise.perlin2((pX + mapOffsetX) / 300, (pZ + mapOffsetZ) / 300) * 150;
-
-            // 2. Generate the small bumps/roughness (Stretches across 25 blocks)
             let roughness = noise.perlin2((pX + mapOffsetX) / 25, (pZ + mapOffsetZ) / 25) * 4;
-
-            // 3. Combine them with the baseline of 64
             terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 64);
         }
     }
@@ -551,7 +546,9 @@ function updateMining() {
     }
 }
 
+// Desktop Controls
 document.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.btn')) return; // Don't trigger pointer lock if clicking UI buttons
     if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
     else if (e.button === 0) { const hit = getTarget(); if (hit) startMining(hit); }
 });
@@ -571,10 +568,83 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// --- NEW MOBILE CONTROLS & TOUCH LOGIC ---
+
+// 1. Touch to look around
+let touchX, touchY;
+renderer.domElement.addEventListener('touchstart', (e) => {
+    touchX = e.touches[0].pageX;
+    touchY = e.touches[0].pageY;
+});
+
+renderer.domElement.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Stop scrolling
+    const dx = e.touches[0].pageX - touchX;
+    const dy = e.touches[0].pageY - touchY;
+    
+    yaw -= dx * 0.005;
+    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - dy * 0.005));
+    
+    touchX = e.touches[0].pageX;
+    touchY = e.touches[0].pageY;
+});
+
+// 2. On-Screen Buttons
+const debugConsole = document.getElementById('debug');
+const buttons = document.querySelectorAll('.btn');
+
+const handleMobileInput = (action, isPressed) => {
+    if(debugConsole) {
+        debugConsole.innerText = isPressed ? "Action: " + action + " (Pressed)" : "Action: None";
+    }
+
+    switch(action) {
+        // Map UI directly to your existing keyboard logic!
+        case "Move Forward": keys.w = isPressed; break;
+        case "Move Backward": keys.s = isPressed; break;
+        case "Move Left": keys.a = isPressed; break;
+        case "Move Right": keys.d = isPressed; break;
+        case "Jump": keys[' '] = isPressed; break;
+        case "Sneak": keys.shift = isPressed; break;
+        
+        // Map mining to your existing raycast logic!
+        case "Break/Attack": 
+            if (isPressed) {
+                const hit = getTarget();
+                if (hit) startMining(hit);
+            } else {
+                mining.active = false;
+            }
+            break;
+            
+        case "Place Block":
+            // Placeholder: Your current script doesn't have block placing logic yet.
+            break;
+    }
+};
+
+buttons.forEach(button => {
+    const action = button.getAttribute('data-action');
+
+    button.addEventListener('touchstart', function(e) {
+        e.preventDefault(); 
+        button.style.backgroundColor = "rgba(255, 255, 255, 0.7)"; 
+        handleMobileInput(action, true);
+    });
+
+    button.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        button.style.backgroundColor = ""; 
+        handleMobileInput(action, false);
+    });
+});
+
+// ----------------------------------------------------
+// 7. Main Game Loop
+// ----------------------------------------------------
 function animate() {
     requestAnimationFrame(animate);
     
-    // 2. Define delta INSIDE the animate function
     const delta = clock.getDelta(); 
 
     updateChunks();
@@ -594,7 +664,6 @@ function animate() {
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
     
-    // 3. Use delta here
     if (keys.w) camera.position.addScaledVector(fwd, -moveSpeed * delta);
     if (keys.s) camera.position.addScaledVector(fwd, moveSpeed * delta);
     if (keys.a) camera.position.addScaledVector(rgt, moveSpeed * delta);
