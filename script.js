@@ -1,6 +1,6 @@
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
-scene.fog = new THREE.Fog(0x87ceeb, 20, 60);
+scene.fog = new THREE.Fog(0x87ceeb, 60, 100);
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
@@ -150,8 +150,8 @@ const BIOME_REGISTRY = [
 // 3. World Variables & Generators
 // ----------------------------------------------------
 const chunkSize = 16;
-const renderDistance = 3;
-const worldDepth = -32;
+const renderDistance = 8;
+const worldDepth = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
 const worldSeed = Math.random(); 
@@ -235,7 +235,7 @@ function generateChunk(chunkX, chunkZ) {
     if (activeChunks[chunkId]) return;
 
     const maxSurfaceBlocks = chunkSize * chunkSize;
-    const maxDeepBlocks = chunkSize * chunkSize * 40; 
+    const maxDeepBlocks = chunkSize * chunkSize * 128; 
     
     const meshes = {};
     for (const [key, mat] of Object.entries(materials)) {
@@ -272,9 +272,14 @@ function generateChunk(chunkX, chunkZ) {
             let pX = startX + x;
             let pZ = startZ + z;
             
-            let elevation = noise.perlin2((pX + mapOffsetX) / 100, (pZ + mapOffsetZ) / 100) * 15;
+            // 1. Generate the big mountain shapes (Tall and wide)
+            let elevation = noise.perlin2((pX + mapOffsetX) / 300, (pZ + mapOffsetZ) / 300) * 150;
+
+            // 2. Generate the small bumps/roughness (Short and frequent)
             let roughness = noise.perlin2((pX + mapOffsetX) / 25, (pZ + mapOffsetZ) / 25) * 4;
-            terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 10);
+
+            // 3. Combine them with the baseline of 64
+            terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 64);
         }
     }
 
@@ -414,8 +419,15 @@ function updateChunks() {
 // ----------------------------------------------------
 // 6. Mining & Controls
 // ----------------------------------------------------
-camera.position.set(0, 40, 0);
+const spawnX = 0;
+const spawnZ = 0;
 
+let spawnElevation = noise.perlin2((spawnX + mapOffsetX) / 300, (spawnZ + mapOffsetZ) / 300) * 150;
+let spawnRoughness = noise.perlin2((spawnX + mapOffsetX) / 25, (spawnZ + mapOffsetZ) / 25) * 4;
+let surfaceHeight = Math.floor(spawnElevation + spawnRoughness + 64);
+
+const playerHeight = 2; // Sets the camera 2 blocks above the ground
+camera.position.set(spawnX, surfaceHeight + playerHeight, spawnZ);
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); 
 handGeo.translate(0, 0.4, 0); 
 
