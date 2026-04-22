@@ -255,134 +255,126 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
 // ----------------------------------------------------
 // 4. Chunk Generator Core
 // ----------------------------------------------------
+// ----------------------------------------------------
+// 4. Chunk Generator Core
+// ----------------------------------------------------
 function generateChunk(chunkX, chunkZ) {
-    const chunkId = `${chunkX},${chunkZ}`;
-    if (activeChunks[chunkId]) return;
+    const chunkId = `${chunkX},${chunkZ}`;
+    if (activeChunks[chunkId]) return;
 
-    const startX = chunkX * chunkSize;
-    const startZ = chunkZ * chunkSize;
+    const startX = chunkX * chunkSize;
+    const startZ = chunkZ * chunkSize;
 
-    // 1. INCREASE LIMITS (To prevent the "Infinite Cliff" glitch)
-    const maxSurfaceBlocks = chunkSize * chunkSize * 10; 
-    const maxDeepBlocks = chunkSize * chunkSize * 300; 
-    
-    const meshes = {};
-    for (const [key, mat] of Object.entries(materials)) {
-        let count = (key === 'leaf' || key === 'log') ? 2000 : 
-                    (key === 'grass' || key === 'snow_grass' || key === 'overlay' || key === 'snow' || key === 'sand') ? maxSurfaceBlocks : 
-                    maxDeepBlocks; 
-        
-        meshes[key] = new THREE.InstancedMesh(geometry, mat, count);
-        meshes[key].name = key;
-        meshes[key].chunkId = chunkId;
-        meshes[key].frustumCulled = false;
-        meshes[key].castShadow = !(key === 'overlay' || key === 'coal' || key === 'iron' || key === 'copper');
-        meshes[key].receiveShadow = (key !== 'overlay');
-    }
-
-    const indices = {};
-    for (const key of Object.keys(meshes)) indices[key] = 0;
-
-    const matrix = new THREE.Matrix4();
-    const overlayMatrix = new THREE.Matrix4();
-    
-    // --- HEIGHTMAP GENERATION ---
-    const terrain = [];
-    for (let x = -1; x <= chunkSize; x++) {
-        terrain[x + 1] = [];
-        for (let z = -1; z <= chunkSize; z++) {
-            let pX = startX + x;
-            let pZ = startZ + z;
-
-            // Use the interpolation function for smooth biome borders
-            let blendedScale = getInterpolatedHeightScale(pX, pZ);
-
-            let rawElevation = noise.perlin2((pX + mapOffsetX) / 400, (pZ + mapOffsetZ) / 400);
-            let elevation = ((rawElevation + 1) / 2) * blendedScale;
-            let roughness = noise.perlin2((pX + mapOffsetX) / 20, (pZ + mapOffsetZ) / 20) * 3;
-            
-            terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 64);
-        }
-    }
-
-    // --- BLOCK PLACEMENT ---
-    for (let x = 0; x < chunkSize; x++) {
-        for (let z = 0; z < chunkSize; z++) {
-            let globalX = startX + x;
-            let globalZ = startZ + z;
-            let h = terrain[x + 1][z + 1];
-            
-            const localBiome = getBiome(globalX, globalZ);
-            
-            for (let y = worldDepth; y <= h; y++) {
-                // Simplified Occlusion Culling
-                let isHidden = (
-                    terrain[x + 2][z + 1] >= y && terrain[x][z + 1] >= y &&
-                    terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
-                );
-                
-                if (isHidden) {
-                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
-                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || 
-                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))    
-                    { isHidden = false; }
-                }
-
-                if (!isHidden) {
-                    if (y === h && localBiome.treeChance > 0 && getDeterministicRandom(globalX, 0, globalZ) < localBiome.treeChance) {
-                        spawnTree(globalX, y + 1, globalZ, meshes, indices);
-                    }
-
-                    if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
-
-                    matrix.setPosition(globalX, y, globalZ);
-                    let depth = h - y; 
-
-                    if (depth === 0) {
-                        // Use a local variable to decide the block type
-                        let finalTopBlock = localBiome.topBlock;
-
-                        // NEW: Mountains over height 110 get snow caps
-                        if (localBiome.name === "Snowy Peaks" && y > 110) {
-                            finalTopBlock = 'snow'; 
-                        }
-                        
-                        // Set the matrix for the chosen block
-                        meshes[finalTopBlock].setMatrixAt(indices[finalTopBlock]++, matrix);
-                        
-                        // Only add grass overlay if the final block is actually grass
-                        if (finalTopBlock === 'grass') {
-                            overlayMatrix.makeScale(1.002, 1.002, 1.002);
-                            overlayMatrix.setPosition(globalX, y, globalZ);
-                            meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
-                        }
-                    }
-                    } else if (depth > 0 && depth <= 3) {
-                        meshes[localBiome.subBlock].setMatrixAt(indices[localBiome.subBlock]++, matrix);
-                    } else {
-                        // Underground ores and stone
-                        let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
-                        if (oreNoise > 0.65) {
-                            meshes.coal.setMatrixAt(indices.coal++, matrix);
-                        } else {
-                            meshes.stone.setMatrixAt(indices.stone++, matrix);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for (const [key, mesh] of Object.entries(meshes)) {
-        mesh.count = indices[key];
-        mesh.instanceMatrix.needsUpdate = true;
-        scene.add(mesh);
-        if (mesh.count > 0) interactableMeshes.push(mesh);
+    const maxSurfaceBlocks = chunkSize * chunkSize * 10; 
+    const maxDeepBlocks = chunkSize * chunkSize * 300; 
+    
+    const meshes = {};
+    for (const [key, mat] of Object.entries(materials)) {
+        let count = (key === 'leaf' || key === 'log') ? 2000 : 
+                    (key === 'grass' || key === 'snow_grass' || key === 'overlay' || key === 'snow' || key === 'sand') ? maxSurfaceBlocks : 
+                    maxDeepBlocks; 
+        
+        meshes[key] = new THREE.InstancedMesh(geometry, mat, count);
+        meshes[key].name = key;
+        meshes[key].chunkId = chunkId;
+        meshes[key].frustumCulled = false;
+        meshes[key].castShadow = !(key === 'overlay' || key === 'coal' || key === 'iron' || key === 'copper');
+        meshes[key].receiveShadow = (key !== 'overlay');
     }
-    activeChunks[chunkId] = meshes;
+
+    const indices = {};
+    for (const key of Object.keys(meshes)) indices[key] = 0;
+
+    const matrix = new THREE.Matrix4();
+    const overlayMatrix = new THREE.Matrix4();
+    
+    // --- HEIGHTMAP GENERATION ---
+    const terrain = [];
+    for (let x = -1; x <= chunkSize; x++) {
+        terrain[x + 1] = [];
+        for (let z = -1; z <= chunkSize; z++) {
+            let pX = startX + x;
+            let pZ = startZ + z;
+            let blendedScale = getInterpolatedHeightScale(pX, pZ);
+            let rawElevation = noise.perlin2((pX + mapOffsetX) / 400, (pZ + mapOffsetZ) / 400);
+            let elevation = ((rawElevation + 1) / 2) * blendedScale;
+            let roughness = noise.perlin2((pX + mapOffsetX) / 20, (pZ + mapOffsetZ) / 20) * 3;
+            terrain[x + 1][z + 1] = Math.floor(elevation + roughness + 64);
+        }
+    }
+
+    // --- BLOCK PLACEMENT ---
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            let globalX = startX + x;
+            let globalZ = startZ + z;
+            let h = terrain[x + 1][z + 1];
+            
+            const localBiome = getBiome(globalX, globalZ);
+            
+            for (let y = worldDepth; y <= h; y++) {
+                let isHidden = (
+                    terrain[x + 2][z + 1] >= y && terrain[x][z + 1] >= y &&
+                    terrain[x + 1][z + 2] >= y && terrain[x + 1][z] >= y && y < h
+                );
+                
+                if (isHidden) {
+                    if (brokenBlocks.has(`${globalX},${y + 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y - 1},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX + 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX - 1},${y},${globalZ}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ + 1}`) || 
+                        brokenBlocks.has(`${globalX},${y},${globalZ - 1}`))    
+                    { isHidden = false; }
+                }
+
+                if (!isHidden) {
+                    // Tree Spawning
+                    if (y === h && localBiome.treeChance > 0 && getDeterministicRandom(globalX, 0, globalZ) < localBiome.treeChance) {
+                        spawnTree(globalX, y + 1, globalZ, meshes, indices);
+                    }
+
+                    if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue; 
+
+                    matrix.setPosition(globalX, y, globalZ);
+                    let depth = h - y; 
+
+                    if (depth === 0) {
+                        let finalTopBlock = localBiome.topBlock;
+                        // Corrected check for "Snowy Peaks"
+                        if (localBiome.name === "Snowy Peaks" && y > 110) {
+                            finalTopBlock = 'snow'; 
+                        }
+                        
+                        meshes[finalTopBlock].setMatrixAt(indices[finalTopBlock]++, matrix);
+                        
+                        if (finalTopBlock === 'grass') {
+                            overlayMatrix.makeScale(1.002, 1.002, 1.002);
+                            overlayMatrix.setPosition(globalX, y, globalZ);
+                            meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
+                        }
+                    } else if (depth > 0 && depth <= 3) {
+                        meshes[localBiome.subBlock].setMatrixAt(indices[localBiome.subBlock]++, matrix);
+                    } else {
+                        let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
+                        if (oreNoise > 0.65) {
+                            meshes.coal.setMatrixAt(indices.coal++, matrix);
+                        } else {
+                            meshes.stone.setMatrixAt(indices.stone++, matrix);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (const [key, mesh] of Object.entries(meshes)) {
+        mesh.count = indices[key];
+        mesh.instanceMatrix.needsUpdate = true;
+        scene.add(mesh);
+        if (mesh.count > 0) interactableMeshes.push(mesh);
+    }
+    activeChunks[chunkId] = meshes;
 }
 
 // ----------------------------------------------------
