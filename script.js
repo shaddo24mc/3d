@@ -272,10 +272,10 @@ function generateChunk(chunkX, chunkZ) {
             let pX = startX + x;
             let pZ = startZ + z;
             
-            // 1. Generate the big mountain shapes (Tall and wide)
+            // 1. Generate the big mountain shapes (Stretches across 300 blocks)
             let elevation = noise.perlin2((pX + mapOffsetX) / 300, (pZ + mapOffsetZ) / 300) * 150;
 
-            // 2. Generate the small bumps/roughness (Short and frequent)
+            // 2. Generate the small bumps/roughness (Stretches across 25 blocks)
             let roughness = noise.perlin2((pX + mapOffsetX) / 25, (pZ + mapOffsetZ) / 25) * 4;
 
             // 3. Combine them with the baseline of 64
