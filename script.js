@@ -561,6 +561,10 @@ window.addEventListener('resize', () => {
 
 function animate() {
     requestAnimationFrame(animate);
+    
+    // 2. Define delta INSIDE the animate function
+    const delta = clock.getDelta(); 
+
     updateChunks();
     updateMining();
     
@@ -577,6 +581,8 @@ function animate() {
 
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+    
+    // 3. Use delta here
     if (keys.w) camera.position.addScaledVector(fwd, -moveSpeed * delta);
     if (keys.s) camera.position.addScaledVector(fwd, moveSpeed * delta);
     if (keys.a) camera.position.addScaledVector(rgt, moveSpeed * delta);
@@ -588,4 +594,5 @@ function animate() {
     renderer.render(scene, camera);
     stats.update();
 }
+
 animate();
