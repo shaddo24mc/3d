@@ -6,7 +6,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
-
+const clock = new THREE.Clock();
+const moveSpeed = 10;
 const stats = new Stats();
 stats.showPanel(0);
 renderer.shadowMap.enabled = true;
@@ -45,10 +46,12 @@ const ironore = loadTex('./textures/iron_ore.png');
 const copperore = loadTex('./textures/copper_ore.png');
 
 // Biome Textures
-const sandTex = loadTex('./textures/sand.png'); 
-const snowTex = loadTex('./textures/snow.png'); 
+const sand = loadTex('./textures/sand.png'); 
+const snow = loadTex('./textures/snow.png');
 const snowyGrassSide = loadTex('./textures/snowy_grass_side.png'); // <-- New Texture
-const sandstoneTex = loadTex('./textures/sandstone.png'); 
+const sandstonetop = loadTex('./textures/sandstone_top.png');
+const sandstoneside = loadTex('./textures/sandstone_side.png')
+const sandstonebottom = loadTex('./textures/sandstone_bottom.png')
 
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
@@ -73,7 +76,7 @@ const materials = {
     snow_grass: [ // <-- New Snowy Grass multi-sided material
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
-        new THREE.MeshStandardMaterial({ map: snowTex }), 
+        new THREE.MeshStandardMaterial({ map: snow }), 
         new THREE.MeshStandardMaterial({ map: dirt }),
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
         new THREE.MeshStandardMaterial({ map: snowyGrassSide })
@@ -81,9 +84,16 @@ const materials = {
     overlay: [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat],
     dirt: new THREE.MeshStandardMaterial({ map: dirt }),
     stone: new THREE.MeshStandardMaterial({ map: stone }),
-    sand: new THREE.MeshStandardMaterial({ map: sandTex, color: 0xeedd82 }), 
-    sandstone: new THREE.MeshStandardMaterial({ map: sandstoneTex, color: 0xdbd3a0 }), 
-    snow: new THREE.MeshStandardMaterial({ map: snowTex, color: 0xffffff }), 
+    sand: new THREE.MeshStandardMaterial({ map: sand }),
+    sandstone: [
+        new THREE.MeshStandardMaterial({ map: sandstoneside}),
+        new THREE.MeshStandardMaterial({ map: sandstoneside}),
+        new THREE.MeshStandardMaterial({ map: sandstonetop}),
+        new THREE.MeshStandardMaterial({ map: sandstonebottom}),
+        new THREE.MeshStandardMaterial({ map: sandstoneside}),
+        new THREE.MeshStandardMaterial({ map: sandstoneside})
+    ],
+    snow: new THREE.MeshStandardMaterial({ map: snow}), 
     coal: new THREE.MeshStandardMaterial({ map: coalore }),
     iron: new THREE.MeshStandardMaterial({ map: ironore }),
     copper: new THREE.MeshStandardMaterial({ map: copperore }),
@@ -236,7 +246,7 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key] = new THREE.InstancedMesh(geometry, mat, count);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
-        meshes[key].frustumCulled = true;
+        meshes[key].frustumCulled = false;
 
         if (key === 'overlay' || key === 'coal' || key === 'iron' || key === 'copper') {
             meshes[key].castShadow = false;
@@ -567,12 +577,12 @@ function animate() {
 
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
-    if (keys.w) camera.position.addScaledVector(fwd, -0.15);
-    if (keys.s) camera.position.addScaledVector(fwd, 0.15);
-    if (keys.a) camera.position.addScaledVector(rgt, 0.15);
-    if (keys.d) camera.position.addScaledVector(rgt, -0.15);
-    if (keys[' ']) camera.position.y += 0.15;
-    if (keys.shift) camera.position.y -= 0.15;
+    if (keys.w) camera.position.addScaledVector(fwd, -moveSpeed * delta);
+    if (keys.s) camera.position.addScaledVector(fwd, moveSpeed * delta);
+    if (keys.a) camera.position.addScaledVector(rgt, moveSpeed * delta);
+    if (keys.d) camera.position.addScaledVector(rgt, -moveSpeed * delta);
+    if (keys[' ']) camera.position.y += moveSpeed * delta;
+    if (keys.shift) camera.position.y -= moveSpeed * delta;
     
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
     renderer.render(scene, camera);
