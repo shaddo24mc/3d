@@ -130,7 +130,7 @@ const BIOME_REGISTRY = [
         name: "Plains", 
         temp: 0.1, moist: -0.2, 
         topBlock: 'grass', subBlock: 'dirt', 
-        treeChance: 0.0001 
+        treeChance: 0.0002
     },
     { 
         name: "Desert", 
@@ -142,13 +142,19 @@ const BIOME_REGISTRY = [
         name: "Snowy Tundra", 
         temp: -0.8, moist: 0.2, 
         topBlock: 'snow_grass', subBlock: 'dirt',
-        treeChance: 0.001 
+        treeChance: 0.001
     },
     { 
         name: "Mountains", 
-        temp: 0.0, moist: 0.0, 
+        temp: 0.5, moist: 0.5, 
         topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone',
-        treeChance: 0.002, heightScale: 120 // Massive peaks!
+        treeChance: 0, heightScale: 120 // Massive peaks!
+    },
+    { 
+        name: "Snowy Peak", 
+        temp: -0.5, moist: 0.5, 
+        topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone',
+        treeChance: 0, heightScale: 120 // Massive peaks!
     }
 ];
 
@@ -336,12 +342,24 @@ function generateChunk(chunkX, chunkZ) {
                     let depth = h - y; 
 
                     if (depth === 0) {
-                        meshes[localBiome.topBlock].setMatrixAt(indices[localBiome.topBlock]++, matrix);
-                        if (localBiome.topBlock === 'grass') {
+                        // Use a local variable to decide the block type
+                        let finalTopBlock = localBiome.topBlock;
+
+                        // NEW: Mountains over height 110 get snow caps
+                        if (localBiome.name === "Snowy Peaks" && y > 110) {
+                            finalTopBlock = 'snow'; 
+                        }
+                        
+                        // Set the matrix for the chosen block
+                        meshes[finalTopBlock].setMatrixAt(indices[finalTopBlock]++, matrix);
+                        
+                        // Only add grass overlay if the final block is actually grass
+                        if (finalTopBlock === 'grass') {
                             overlayMatrix.makeScale(1.002, 1.002, 1.002);
                             overlayMatrix.setPosition(globalX, y, globalZ);
                             meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
                         }
+                    }
                     } else if (depth > 0 && depth <= 3) {
                         meshes[localBiome.subBlock].setMatrixAt(indices[localBiome.subBlock]++, matrix);
                     } else {
