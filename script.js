@@ -48,9 +48,9 @@ const copperore = loadTex('./textures/copper_ore.png');
 // Biome Textures
 const sand = loadTex('./textures/sand.png'); 
 const snow = loadTex('./textures/snow.png');
-const snowyGrassSide = loadTex('./textures/snowy_grass_side.png'); // <-- New Texture
+const snowyGrassSide = loadTex('./textures/grass_block_snow.png'); // <-- New Texture
 const sandstonetop = loadTex('./textures/sandstone_top.png');
-const sandstoneside = loadTex('./textures/sandstone_side.png')
+const sandstoneside = loadTex('./textures/sandstone.png')
 const sandstonebottom = loadTex('./textures/sandstone_bottom.png')
 
 const destroyTextures = [];
