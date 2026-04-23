@@ -1,17 +1,19 @@
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
-scene.fog = new THREE.Fog(0x87ceeb, 40, 80);
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+scene.fog = new THREE.Fog(0x87ceeb, 30, 60);
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
 document.body.appendChild(renderer.domElement);
 const clock = new THREE.Clock();
 const moveSpeed = 10;
 const stats = new Stats();
 stats.showPanel(0);
+
+// Optimize shadows
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap; // Cheaper than PCFSoftShadowMap
 document.body.appendChild(stats.dom);
 
 // ----------------------------------------------------
@@ -29,6 +31,7 @@ const loadTex = (url) => {
     const t = loader.load(url);
     t.magFilter = THREE.NearestFilter;
     t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false; // Performance boost for pixel art
     return t;
 };
 
@@ -119,82 +122,40 @@ scene.add(destroyMesh);
 // ----------------------------------------------------
 // 2. 3D MULTI-NOISE BIOME REGISTRY
 // ----------------------------------------------------
-// Parameters: temp (Temp), moist (Humidity), depth (0.0 is Surface, 1.0 is Underground)
 const BIOME_REGISTRY = [
-    // --- SURFACE BIOMES ---
-    { 
-        name: "Forest", 
-        temp: 0.2, moist: 0.6, depth: 0.0,
-        topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone',
-        treeChance: 0.008, heightScale: 35 
-    },
-    { 
-        name: "Plains", 
-        temp: 0.1, moist: -0.2, depth: 0.0,
-        topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone',
-        treeChance: 0.0002, heightScale: 15
-    },
-    { 
-        name: "Desert", 
-        temp: 0.8, moist: -0.8, depth: 0.0,
-        topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone',
-        treeChance: 0.0, heightScale: 20 
-    },
-    { 
-        name: "Snowy Tundra", 
-        temp: -0.8, moist: 0.2, depth: 0.0,
-        topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone',
-        treeChance: 0.001, heightScale: 25
-    },
-    { 
-        name: "Mountains", 
-        temp: 0.5, moist: 0.5, depth: 0.0,
-        topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone',
-        treeChance: 0, heightScale: 120 
-    },
-    
-    // --- UNDERGROUND BIOMES (New 3D Depth capability!) ---
-    {
-        name: "Deep Sandy Caves", // A pocket of sand/sandstone deep underground below deserts
-        temp: 0.8, moist: -0.8, depth: 1.0,
-        topBlock: 'sand', subBlock: 'sandstone', deepSubBlock: 'sandstone',
-        treeChance: 0, heightScale: 0 // Height scale doesn't matter underground
-    },
-    {
-        name: "Standard Caves", // Default rocky underground
-        temp: 0.0, moist: 0.0, depth: 1.0,
-        topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone',
-        treeChance: 0, heightScale: 0 
-    }
+    { name: "Forest", temp: 0.2, moist: 0.6, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.008, heightScale: 35 },
+    { name: "Plains", temp: 0.1, moist: -0.2, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0002, heightScale: 15 },
+    { name: "Desert", temp: 0.8, moist: -0.8, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 20 },
+    { name: "Snowy Tundra", temp: -0.8, moist: 0.2, depth: 0.0, topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.001, heightScale: 25 },
+    { name: "Mountains", temp: 0.5, moist: 0.5, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0, heightScale: 120 },
+    { name: "Deep Sandy Caves", temp: 0.8, moist: -0.8, depth: 1.0, topBlock: 'sand', subBlock: 'sandstone', deepSubBlock: 'sandstone', treeChance: 0, heightScale: 0 },
+    { name: "Standard Caves", temp: 0.0, moist: 0.0, depth: 1.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0, heightScale: 0 }
 ];
 
 // ----------------------------------------------------
 // 3. World Variables & Generators
 // ----------------------------------------------------
 const chunkSize = 16;
-const renderDistance = 4;
+const renderDistance = 3; // Reduced slightly for stable FPS
 const worldDepth = -64;
-const worldHeight = 128; // Added max build height limit
+const worldHeight = 128;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
 const worldSeed = Math.random(); 
 noise.seed(worldSeed);
 
-console.log("Current World Seed:", worldSeed);
 const mapOffsetX = Math.floor(Math.random() * 1000000);
 const mapOffsetZ = Math.floor(Math.random() * 1000000);
 
 const activeChunks = {};
+const chunkQueue = []; // Queue to prevent main thread freezing
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
 
-// Evaluate biomes using 3D Distance (Minecraft 1.18+ approach)
 function getBiome(temp, moist, depth) {
     let closestBiome = BIOME_REGISTRY[0];
     let minDist = Infinity;
-
     for (let b of BIOME_REGISTRY) {
-        // Euclidean distance in 3D multi-noise space
         let dist = Math.pow(temp - b.temp, 2) + Math.pow(moist - b.moist, 2) + Math.pow(depth - b.depth, 2);
         if (dist < minDist) {
             minDist = dist;
@@ -205,7 +166,8 @@ function getBiome(temp, moist, depth) {
 }
 
 function getInterpolatedHeightScale(x, z) {
-    const range = 8; 
+    // OPTIMIZATION: Reduced sample points from 25 to 9
+    const range = 4; 
     const step = 4;  
     let totalScale = 0;
     let samples = 0;
@@ -214,7 +176,6 @@ function getInterpolatedHeightScale(x, z) {
         for (let offZ = -range; offZ <= range; offZ += step) {
             let temp = noise.perlin2((x + offX + mapOffsetX) / 400, (z + offZ + mapOffsetZ) / 400);
             let moist = noise.perlin2((x + offX + mapOffsetX + 10000) / 400, (z + offZ + mapOffsetZ + 10000) / 400);
-            // Always pass depth = 0.0 when checking surface biomes for height scaling
             totalScale += getBiome(temp, moist, 0.0).heightScale;
             samples++;
         }
@@ -268,7 +229,7 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
 }
 
 // ----------------------------------------------------
-// 4. Chunk Generator Core (3D DENSITY EDITION)
+// 4. Chunk Generator Core
 // ----------------------------------------------------
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
@@ -277,21 +238,25 @@ function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    const maxSurfaceBlocks = chunkSize * chunkSize * 25; // Increased buffer for 3D overhangs
-    const maxDeepBlocks = chunkSize * chunkSize * 200; 
+    // Reduced buffers to save memory
+    const maxSurfaceBlocks = chunkSize * chunkSize * 10; 
+    const maxDeepBlocks = chunkSize * chunkSize * 80; 
     
     const meshes = {};
     for (const [key, mat] of Object.entries(materials)) {
-        let count = (key === 'leaf' || key === 'log') ? 2000 : 
+        let count = (key === 'leaf' || key === 'log') ? 1000 : 
                     (key === 'grass' || key === 'snow_grass' || key === 'overlay' || key === 'snow' || key === 'sand') ? maxSurfaceBlocks : 
                     maxDeepBlocks; 
         
         meshes[key] = new THREE.InstancedMesh(geometry, mat, count);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
-        meshes[key].frustumCulled = false;
-        meshes[key].castShadow = !(key === 'overlay' || key === 'coal' || key === 'iron' || key === 'copper');
-        meshes[key].receiveShadow = (key !== 'overlay');
+        meshes[key].frustumCulled = true; // Enabled for performance
+        
+        // Optimize Shadows: Only surface blocks cast shadows
+        const isSurfaceType = ['grass', 'snow_grass', 'sand', 'snow', 'leaf', 'log'].includes(key);
+        meshes[key].castShadow = isSurfaceType;
+        meshes[key].receiveShadow = true;
     }
 
     const indices = {};
@@ -305,7 +270,6 @@ function generateChunk(chunkX, chunkZ) {
             let globalX = startX + x;
             let globalZ = startZ + z;
             
-            // 2D Maps for the column
             let tempMap = noise.perlin2((globalX + mapOffsetX) / 400, (globalZ + mapOffsetZ) / 400);
             let moistMap = noise.perlin2((globalX + mapOffsetX + 10000) / 400, (globalZ + mapOffsetZ + 10000) / 400);
             
@@ -313,36 +277,26 @@ function generateChunk(chunkX, chunkZ) {
             let rawElevation = noise.perlin2((globalX + mapOffsetX) / 400, (globalZ + mapOffsetZ) / 400);
             let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 64; 
 
-            // Optimization: We don't need to check 3D noise at Y=128 if the base height is Y=64.
-            // We give it a +25 buffer to allow for floating islands/overhangs to generate above the ground.
             let columnMaxY = Math.min(worldHeight, Math.floor(baseHeight + 25));
 
             for (let y = worldDepth; y <= columnMaxY; y++) {
-                
-                // 3D Density Noise
                 let noise3D = noise.perlin3(globalX / 40, y / 40, globalZ / 40) * 20; 
                 let density = (baseHeight - y) + noise3D;
 
-                // Cave Carving Noise
                 let caveNoise = noise.perlin3(globalX / 30, y / 30, globalZ / 30);
                 let isCave = caveNoise > 0.4; 
 
                 if (density > 0 && !isCave) {
-                    
-                    // Multi-Noise Biome mapping (Depth logic)
-                    // DepthParam maps Y=64 (Surface) to 0.0, and Y=-64 (Deep) to 1.0
                     let depthParam = Math.max(0, Math.min(1.0, (64 - y) / 128));
                     const localBiome = getBiome(tempMap, moistMap, depthParam);
 
-                    // Check if block is surface exposed
                     let densityAbove = (baseHeight - (y + 1)) + (noise.perlin3(globalX / 40, (y + 1) / 40, globalZ / 40) * 20);
                     let isSurface = densityAbove <= 0;
 
-                    let blockType = 'stone'; // Failsafe
+                    let blockType = 'stone'; 
 
                     if (isSurface) {
                         blockType = localBiome.topBlock;
-                        // Snowy Peaks exception overriding regular biomes at high altitudes
                         if (y > 110) blockType = 'snow'; 
 
                         if (localBiome.treeChance > 0 && getDeterministicRandom(globalX, y, globalZ) < localBiome.treeChance) {
@@ -351,7 +305,6 @@ function generateChunk(chunkX, chunkZ) {
                     } else if (densityAbove <= 3) {
                         blockType = localBiome.subBlock;
                     } else {
-                        // Deep ore generation
                         let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
                         if (oreNoise > 0.65) {
                             blockType = 'coal';
@@ -363,11 +316,14 @@ function generateChunk(chunkX, chunkZ) {
                     }
 
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) continue;
+                    
+                    // Safety check to prevent exceeding instance limits
+                    if (indices[blockType] >= meshes[blockType].count) continue;
 
                     matrix.setPosition(globalX, y, globalZ);
                     meshes[blockType].setMatrixAt(indices[blockType]++, matrix);
                     
-                    if (blockType === 'grass' && isSurface) {
+                    if (blockType === 'grass' && isSurface && indices.overlay < meshes.overlay.count) {
                         overlayMatrix.makeScale(1.002, 1.002, 1.002);
                         overlayMatrix.setPosition(globalX, y, globalZ);
                         meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
@@ -395,14 +351,13 @@ const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
 sunLight.position.set(50, 100, 20); 
 sunLight.castShadow = true;
 
-sunLight.shadow.mapSize.width = 1024;
-sunLight.shadow.mapSize.height = 1024;
+sunLight.shadow.mapSize.width = 512; // Reduced for performance
+sunLight.shadow.mapSize.height = 512;
 sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 75;
-sunLight.shadow.bias = -0.0005;
-sunLight.shadow.normalBias = 0.05;
+sunLight.shadow.camera.far = 150;
+sunLight.shadow.bias = -0.001;
 
-const d = 50; 
+const d = 60; 
 sunLight.shadow.camera.left = -d;
 sunLight.shadow.camera.right = d;
 sunLight.shadow.camera.top = d;
@@ -422,13 +377,18 @@ function updateChunks() {
 
     const chunksToKeep = new Set();
 
+    // Queue up missing chunks instead of generating all at once
     for (let x = playerChunkX - renderDistance; x <= playerChunkX + renderDistance; x++) {
         for (let z = playerChunkZ - renderDistance; z <= playerChunkZ + renderDistance; z++) {
-            generateChunk(x, z);
-            chunksToKeep.add(`${x},${z}`);
+            const chunkId = `${x},${z}`;
+            chunksToKeep.add(chunkId);
+            if (!activeChunks[chunkId] && !chunkQueue.includes(chunkId)) {
+                chunkQueue.push(chunkId);
+            }
         }
     }
 
+    // Unload distant chunks
     for (const chunkId in activeChunks) {
         if (!chunksToKeep.has(chunkId)) {
             const meshes = activeChunks[chunkId];
@@ -444,13 +404,12 @@ function updateChunks() {
 }
 
 // ----------------------------------------------------
-// 6. Mining & Controls (With safe 3D Spawn)
+// 6. Mining & Controls
 // ----------------------------------------------------
 const spawnX = 0;
 const spawnZ = 0;
-let safeSpawnY = 128; // Start at max height and search down
+let safeSpawnY = 128; 
 
-// Find the highest solid block to prevent spawning inside a 3D cave/mountain
 for (let y = worldHeight; y >= worldDepth; y--) {
     let blendedScale = getInterpolatedHeightScale(spawnX, spawnZ);
     let rawElevation = noise.perlin2((spawnX + mapOffsetX) / 400, (spawnZ + mapOffsetZ) / 400);
@@ -471,7 +430,6 @@ handGeo.translate(0, 0.4, 0);
 
 const handMat = new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 });
 const playerHand = new THREE.Mesh(handGeo, handMat);
-
 playerHand.position.set(0.4, -0.4, -0.1);
 playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
 
@@ -553,43 +511,18 @@ function updateMining() {
         
         brokenBlocks.add(`${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`);
         
-        const chunkId = mesh.chunkId;
-        const [cX, cZ] = chunkId.split(',').map(Number);
-        
-        const targetX = Math.round(pos.x);
-        const targetZ = Math.round(pos.z);
-        
-        const chunksToUpdate = new Set([`${cX},${cZ}`]);
-        const mod = (n, m) => ((n % m) + m) % m;
-        const localX = mod(targetX, chunkSize);
-        const localZ = mod(targetZ, chunkSize);
-
-        if (localX === 0) chunksToUpdate.add(`${cX - 1},${cZ}`);
-        if (localX === chunkSize - 1) chunksToUpdate.add(`${cX + 1},${cZ}`);
-        if (localZ === 0) chunksToUpdate.add(`${cX},${cZ - 1}`);
-        if (localZ === chunkSize - 1) chunksToUpdate.add(`${cX},${cZ + 1}`);
-
-        for (const id of chunksToUpdate) {
-            if (activeChunks[id]) {
-                const meshes = activeChunks[id];
-                for (const m of Object.values(meshes)) {
-                    scene.remove(m);
-                    const index = interactableMeshes.indexOf(m);
-                    if (index > -1) interactableMeshes.splice(index, 1);
-                    m.dispose();
-                }
-                delete activeChunks[id];
-                const [nx, nz] = id.split(',').map(Number);
-                generateChunk(nx, nz);
-            }
-        }
+        // OPTIMIZATION: Instead of rebuilding the chunk, instantly hide the block
+        // by moving its matrix far out of the map bounds and updating.
+        blockMatrix.setPosition(0, -9999, 0); 
+        mesh.setMatrixAt(targetIdx, blockMatrix);
+        mesh.instanceMatrix.needsUpdate = true;
 
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
     }
 }
 
-// Desktop Controls
+// Controls
 document.addEventListener('mousedown', (e) => {
     if (e.target.closest('.btn')) return; 
     if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
@@ -611,77 +544,22 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Mobile Controls
-let touchX, touchY;
-renderer.domElement.addEventListener('touchstart', (e) => {
-    touchX = e.touches[0].pageX;
-    touchY = e.touches[0].pageY;
-});
-
-renderer.domElement.addEventListener('touchmove', (e) => {
-    e.preventDefault(); 
-    const dx = e.touches[0].pageX - touchX;
-    const dy = e.touches[0].pageY - touchY;
-    
-    yaw -= dx * 0.005;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - dy * 0.005));
-    
-    touchX = e.touches[0].pageX;
-    touchY = e.touches[0].pageY;
-});
-
-const debugConsole = document.getElementById('debug');
-const buttons = document.querySelectorAll('.btn');
-
-const handleMobileInput = (action, isPressed) => {
-    if(debugConsole) {
-        debugConsole.innerText = isPressed ? "Action: " + action + " (Pressed)" : "Action: None";
-    }
-
-    switch(action) {
-        case "Move Forward": keys.w = isPressed; break;
-        case "Move Backward": keys.s = isPressed; break;
-        case "Move Left": keys.a = isPressed; break;
-        case "Move Right": keys.d = isPressed; break;
-        case "Jump": keys[' '] = isPressed; break;
-        case "Sneak": keys.shift = isPressed; break;
-        
-        case "Break/Attack": 
-            if (isPressed) {
-                const hit = getTarget();
-                if (hit) startMining(hit);
-            } else {
-                mining.active = false;
-            }
-            break;
-    }
-};
-
-buttons.forEach(button => {
-    const action = button.getAttribute('data-action');
-
-    button.addEventListener('touchstart', function(e) {
-        e.preventDefault(); 
-        button.style.backgroundColor = "rgba(255, 255, 255, 0.7)"; 
-        handleMobileInput(action, true);
-    });
-
-    button.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        button.style.backgroundColor = ""; 
-        handleMobileInput(action, false);
-    });
-});
-
 // ----------------------------------------------------
 // 7. Main Game Loop
 // ----------------------------------------------------
 function animate() {
     requestAnimationFrame(animate);
-    
     const delta = clock.getDelta(); 
 
     updateChunks();
+
+    // Process chunk queue slowly to prevent freezing
+    if (chunkQueue.length > 0) {
+        const nextChunk = chunkQueue.shift();
+        const [cx, cz] = nextChunk.split(',').map(Number);
+        generateChunk(cx, cz);
+    }
+
     updateMining();
     
     if (mining.active) {
