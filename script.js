@@ -119,18 +119,13 @@ destroyMesh.visible = false;
 scene.add(destroyMesh);
 
 // ----------------------------------------------------
-// 2. BIOME REGISTRY
+// 2. BIOME REGISTRY (Vanilla Minecraft Tweaks)
 // ----------------------------------------------------
 const BIOME_REGISTRY = [
-    // Forest: Rolling hills, high tree density
     { name: "Forest", temp: 0.2, moist: 0.6, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20 },
-    // Plains: Very flat, extremely rare trees
     { name: "Plains", temp: 0.1, moist: -0.2, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8 },
-    // Desert: Gentle rolling dunes, no trees
     { name: "Desert", temp: 0.8, moist: -0.8, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 12 },
-    // Snowy Tundra: Flat/rolling terrain, sparse trees
     { name: "Snowy Tundra", temp: -0.8, moist: 0.2, depth: 0.0, topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15 },
-    // Mountains: High peaks, smooth bases
     { name: "Mountains", temp: 0.5, moist: 0.5, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0.0, heightScale: 55 }
 ];
 
@@ -138,8 +133,8 @@ const BIOME_REGISTRY = [
 // 3. World Variables
 // ----------------------------------------------------
 const chunkSize = 16;
-const renderDistance = 2; // Reduced slightly to keep chunk count at 25
-const worldHeight = 128; // World bounds shifted to 0-127 for memory efficiency
+const renderDistance = 2; // Keep at 2 to limit active chunks for JS
+const worldHeight = 128;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
 const worldSeed = Math.random(); 
@@ -217,7 +212,7 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
 }
 
 // ----------------------------------------------------
-// 4. Chunk Generator (2-Pass Culled Core)
+// 4. Chunk Generator
 // ----------------------------------------------------
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
@@ -226,7 +221,7 @@ function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    // Massively reduced max block count because hidden blocks are destroyed
+    // Max visible blocks kept low for performance
     const maxVisibleBlocks = 5000; 
     
     const meshes = {};
@@ -245,7 +240,7 @@ function generateChunk(chunkX, chunkZ) {
     const getIdx = (x, y, z) => x + z * 16 + y * 256;
     const treesToSpawn = [];
 
-    // PASS 1: Math & Data Generation (Top-Down to save CPU)
+    // PASS 1: Math & Data Generation
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x; let globalZ = startZ + z;
@@ -256,41 +251,62 @@ function generateChunk(chunkX, chunkZ) {
             let rawElevation = noise.perlin2((globalX + mapOffsetX) / 400, (globalZ + mapOffsetZ) / 400);
             let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 64; 
 
-            let columnMaxY = Math.min(127, Math.floor(baseHeight + 20));
-            let surfaceFound = false;
+            let isAbsoluteTop = true;
             let subBlockDepth = 0;
 
-            // Generate Top-Down. Stop checking air once we find ground!
-            for (let y = columnMaxY; y >= 0; y--) {
+            for (let y = 127; y >= 0; y--) {
                 let noise3D = noise.perlin3(globalX / 40, y / 40, globalZ / 40) * 20; 
                 let density = (baseHeight - y) + noise3D;
-                let caveNoise = noise.perlin3(globalX / 30, y / 30, globalZ / 30);
                 
-                if (density > 0 && caveNoise <= 0.4) {
+                if (density > 0) { 
+                    // Minecraft Cave Logic
+                    let n1 = noise.perlin3(globalX / 25, y / 25, globalZ / 25);
+                    let n2 = noise.perlin3((globalX + 1000) / 25, (y + 1000) / 25, (globalZ + 1000) / 25);
+                    let isTunnel = (n1 * n1 + n2 * n2) < 0.005; 
+                    
+                    let isChamber = noise.perlin3(globalX / 35, y / 35, globalZ / 35) > 0.55; 
+                    
+                    if (isTunnel || isChamber) {
+                        isAbsoluteTop = false; 
+                        continue;
+                    }
+
                     if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) {
-                        surfaceFound = false; // Breaking a block exposes blocks below it
+                        isAbsoluteTop = false; 
                         continue; 
                     }
 
+                    // Minecraft Layer Logic
                     let blockType;
                     const localBiome = getBiome(tempMap, moistMap, 0);
 
-                    if (!surfaceFound) {
-                        blockType = y > 110 ? 'snow' : localBiome.topBlock;
-                        surfaceFound = true; subBlockDepth = 0;
-                        if (localBiome.treeChance > 0 && getDeterministicRandom(globalX, y, globalZ) < localBiome.treeChance) {
+                    if (isAbsoluteTop) {
+                        let snowLine = 100 + (noise.perlin2(globalX / 30, globalZ / 30) * 8);
+                        blockType = y > snowLine ? 'snow' : localBiome.topBlock;
+                        
+                        isAbsoluteTop = false; 
+                        subBlockDepth = 0;
+                        
+                        if (blockType !== 'snow' && localBiome.treeChance > 0 && getDeterministicRandom(globalX, y, globalZ) < localBiome.treeChance) {
                             treesToSpawn.push({ x, y, z });
                         }
                     } else if (subBlockDepth < 3) {
                         blockType = localBiome.subBlock;
                         subBlockDepth++;
                     } else {
-                        let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
-                        blockType = oreNoise > 0.65 ? 'coal' : oreNoise < -0.65 ? 'iron' : localBiome.deepSubBlock;
+                        let baseDeepBlock = subBlockDepth < 6 && localBiome.name === "Desert" ? 'sandstone' : 'stone';
+                        subBlockDepth++;
+
+                        if (baseDeepBlock === 'stone') {
+                            let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
+                            blockType = oreNoise > 0.65 ? 'coal' : oreNoise < -0.65 ? 'iron' : 'stone';
+                        } else {
+                            blockType = baseDeepBlock;
+                        }
                     }
                     blocks[getIdx(x, y, z)] = TYPE[blockType];
                 } else {
-                    surfaceFound = false; // Reset if we hit a cave/air
+                    isAbsoluteTop = true;
                 }
             }
         }
@@ -320,7 +336,7 @@ function generateChunk(chunkX, chunkZ) {
 
                 if (visible) {
                     let bName = REVERSE_TYPE[typeId];
-                    if (indices[bName] >= meshes[bName].count) continue; // safety limit
+                    if (indices[bName] >= meshes[bName].count) continue; 
 
                     let gX = startX + x; let gZ = startZ + z;
                     matrix.setPosition(gX, y, gZ);
