@@ -163,11 +163,16 @@ function getBiome(temp, moist, depth) {
 }
 
 function getInterpolatedHeightScale(x, z) {
-    const range = 4; const step = 4; let totalScale = 0; let samples = 0;
+    const range = 8; // Widened range for smoother biome blending
+    const step = 4; 
+    let totalScale = 0; 
+    let samples = 0;
+    
     for (let offX = -range; offX <= range; offX += step) {
         for (let offZ = -range; offZ <= range; offZ += step) {
-            let temp = noise.perlin2((x + offX + mapOffsetX) / 400, (z + offZ + mapOffsetZ) / 400);
-            let moist = noise.perlin2((x + offX + mapOffsetX + 10000) / 400, (z + offZ + mapOffsetZ + 10000) / 400);
+            // Use FBM for temp/moist maps so biomes transition naturally
+            let temp = fbm2(x + offX + mapOffsetX, z + offZ + mapOffsetZ, 2, 800);
+            let moist = fbm2(x + offX + mapOffsetX + 10000, z + offZ + mapOffsetZ + 10000, 2, 800);
             totalScale += getBiome(temp, moist, 0).heightScale;
             samples++;
         }
@@ -214,6 +219,31 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
 // ----------------------------------------------------
 // 4. Chunk Generator
 // ----------------------------------------------------
+// Fractal Brownian Motion for natural 2D terrain (elevation, temp, moisture)
+function fbm2(x, z, octaves = 4, scale = 400) {
+    let total = 0;
+    let frequency = 1;
+    let amplitude = 1;
+    let maxValue = 0;
+    for(let i = 0; i < octaves; i++) {
+        total += noise.perlin2((x / scale) * frequency, (z / scale) * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+    return total / maxValue;
+}
+// Fractal Brownian Motion for natural 3D shapes (caves)
+function fbm3(x, y, z, octaves = 2, scale = 40) {
+    let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
+    for(let i = 0; i < octaves; i++) {
+        total += noise.perlin3((x / scale) * frequency, (y / scale) * frequency, (z / scale) * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+    return total / maxValue;
+}
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
@@ -239,33 +269,46 @@ function generateChunk(chunkX, chunkZ) {
     const blocks = new Uint8Array(32768);
     const getIdx = (x, y, z) => x + z * 16 + y * 256;
     const treesToSpawn = [];
-
-    // PASS 1: Math & Data Generation
+    
+    // PASS 1: Math & Data Generation (Inside generateChunk)
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x; let globalZ = startZ + z;
-            let tempMap = noise.perlin2((globalX + mapOffsetX) / 400, (globalZ + mapOffsetZ) / 400);
-            let moistMap = noise.perlin2((globalX + mapOffsetX + 10000) / 400, (globalZ + mapOffsetZ + 10000) / 400);
-            
+        
+        // Use smooth FBM for biomes
+            let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 800);
+            let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 800);
+        
             let blendedScale = getInterpolatedHeightScale(globalX, globalZ);
-            let rawElevation = noise.perlin2((globalX + mapOffsetX) / 400, (globalZ + mapOffsetZ) / 400);
+        
+        // Use 4-octave FBM for base elevation to get natural ridges and valleys
+            let rawElevation = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 4, 300);
             let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 64; 
 
             let isAbsoluteTop = true;
             let subBlockDepth = 0;
 
             for (let y = 127; y >= 0; y--) {
-                let noise3D = noise.perlin3(globalX / 40, y / 40, globalZ / 40) * 20; 
-                let density = (baseHeight - y) + noise3D;
-                
+            // Add a small amount of 3D noise to the surface for overhangs
+                let surfaceNoise3D = noise.perlin3(globalX / 30, y / 30, globalZ / 30) * 5; 
+                let density = (baseHeight - y) + surfaceNoise3D;
+            
                 if (density > 0) { 
-                    // Minecraft Cave Logic
-                    let n1 = noise.perlin3(globalX / 25, y / 25, globalZ / 25);
-                    let n2 = noise.perlin3((globalX + 1000) / 25, (y + 1000) / 25, (globalZ + 1000) / 25);
-                    let isTunnel = (n1 * n1 + n2 * n2) < 0.005; 
-                    
-                    let isChamber = noise.perlin3(globalX / 35, y / 35, globalZ / 35) > 0.55; 
-                    
+                // --- IMPROVED CAVE LOGIC ---
+                // Calculate a depth factor (0.0 at surface, 1.0 at bedrock)
+                    let depthFactor = Math.max(0, Math.min(1, (70 - y) / 70));
+                
+                // Spaghetti Caves (Winding Tunnels) - wider at the bottom
+                    let n1 = fbm3(globalX, y, globalZ, 2, 35);
+                    let n2 = fbm3(globalX + 1000, y + 1000, globalZ + 1000, 2, 35);
+                    let tunnelThickness = 0.002 + (depthFactor * 0.006);
+                    let isTunnel = (n1 * n1 + n2 * n2) < tunnelThickness; 
+                
+                // Cheese Caves (Large Chambers) - more common at the bottom
+                    let chamberNoise = fbm3(globalX, y, globalZ, 2, 50); 
+                    let chamberThreshold = 0.65 - (depthFactor * 0.3); // Drops to 0.35 deep down
+                    let isChamber = chamberNoise > chamberThreshold; 
+                
                     if (isTunnel || isChamber) {
                         isAbsoluteTop = false; 
                         continue;
@@ -276,19 +319,20 @@ function generateChunk(chunkX, chunkZ) {
                         continue; 
                     }
 
-                    // Minecraft Layer Logic
+                // --- MINECRAFT LAYER LOGIC ---
                     let blockType;
                     const localBiome = getBiome(tempMap, moistMap, 0);
 
                     if (isAbsoluteTop) {
-                        let snowLine = 100 + (noise.perlin2(globalX / 30, globalZ / 30) * 8);
+                        // Natural snowy mountain peaks
+                        let snowLine = 95 + (fbm2(globalX, globalZ, 2, 50) * 10);
                         blockType = y > snowLine ? 'snow' : localBiome.topBlock;
-                        
+                    
                         isAbsoluteTop = false; 
                         subBlockDepth = 0;
-                        
+                    
                         if (blockType !== 'snow' && localBiome.treeChance > 0 && getDeterministicRandom(globalX, y, globalZ) < localBiome.treeChance) {
-                            treesToSpawn.push({ x, y, z });
+                        treesToSpawn.push({ x, y, z });
                         }
                     } else if (subBlockDepth < 3) {
                         blockType = localBiome.subBlock;
@@ -298,8 +342,9 @@ function generateChunk(chunkX, chunkZ) {
                         subBlockDepth++;
 
                         if (baseDeepBlock === 'stone') {
+                            // Ores spawn slightly more frequently deeper down
                             let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
-                            blockType = oreNoise > 0.65 ? 'coal' : oreNoise < -0.65 ? 'iron' : 'stone';
+                            blockType = oreNoise > (0.75 - depthFactor*0.1) ? 'coal' : oreNoise < (-0.75 + depthFactor*0.1) ? 'iron' : 'stone';
                         } else {
                             blockType = baseDeepBlock;
                         }
