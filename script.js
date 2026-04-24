@@ -52,7 +52,31 @@ const leaves = loadTex('./textures/oak_leaves.png');
 const coalore = loadTex('./textures/coal_ore.png');
 const ironore = loadTex('./textures/iron_ore.png');
 const copperore = loadTex('./textures/copper_ore.png');
-const 
+const goldore = loadTex('./textures/gold_ore.png');
+const redstoneore = loadTex('./textures/redstone_ore.png');
+const emeraldore = loadTex('./textures/emerald_ore.png');
+const lapisore = loadTex('./textures/lapis_ore.png');
+const diamondore = loadTex('./textures/diamond_ore.png');
+const deepslatetop = loadTex('./textures/deepslate_top.png');
+const deepslate = loadTex('./textures/deepslate.png');
+const deepslateironore = loadTex('./textures/deepslate_iron_ore');
+const deepslatecoalore = loadTex('./textures/deepslate_coal_ore');
+const deepslatecopperore = loadTex('./textures/deepslate_copper_ore');
+const deepslategoldore = loadTex('./textures/deepslate_gold_ore');
+const deepslateredstoneore = loadTex('./textures/deepslate_redstone_ore');
+const deepslateemeraldore = loadTex('./textures/deepslate_emerald_ore');
+const deepslatelapisore = loadTex('./textures/deepslate_lapis_ore');
+const deepslatediamondore = loadTex('./textures/deepslate_diamond_ore');
+const bedrock = loadTex('./textures/bedrock.png');
+
+
+
+
+
+
+
+
+
 
 
 
@@ -104,9 +128,34 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: sandstoneside})
     ],
     snow: new THREE.MeshStandardMaterial({ map: snow}), 
+
+
+    
     coal: new THREE.MeshStandardMaterial({ map: coalore }),
     iron: new THREE.MeshStandardMaterial({ map: ironore }),
     copper: new THREE.MeshStandardMaterial({ map: copperore }),
+    gold: new THREE.MeshStandardMaterial({map: goldore}),
+    redstone: new THREE.MeshStandardMaterial({map: redstoneore}),
+    emerald: new THREE.MeshStandardMaterial({map: emeraldore}),
+    lapis: new THREE.MeshStandardMaterial({map: lapisore}),
+    diamond: new THREE.MeshStandardMaterial({map: diamondore}),
+    deepslate: [
+        new THREE.MeshStandardMaterial({ map: deepslate }),
+        new THREE.MeshStandardMaterial({ map: deepslate }),
+        new THREE.MeshStandardMaterial({ map: deepslatetop}),
+        new THREE.MeshStandardMaterial({ map: deepslatetop}),
+        new THREE.MeshStandardMaterial({ map: deepslate }),
+        new THREE.MeshStandardMaterial({ map: deepslate })
+    ],
+    deepslatecoal: new THREE.MeshStandardMaterial({ map: deepslatecoalore}),
+    deepslatecopper: new THREE.MeshStandardMaterial({ map: deepslatecopperore}),
+    deepslateiron: new THREE.MeshStandardMaterial({ map: deepslateironore}),
+    deepslategold: new THREE.MeshStandardMaterial({ map: deepslategoldore}),
+    deepslateredstone: new THREE.MeshStandardMaterial({ map: deepslateredstoneore}),
+    deepslateemerald: new THREE.MeshStandardMaterial({ map: deepslateemeraldore}),
+    deepslatelapis: new THREE.MeshStandardMaterial({ map: deepslatelapisore}),
+    deepslatediamond: new THREE.MeshStandardMaterial({ map: deepslatediamondore}),
+    bedrock: new THREE.MeshStandardMaterial({ map: bedrock}),
     leaf: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
     log: [
         new THREE.MeshStandardMaterial({ map: logSide }),
@@ -157,7 +206,7 @@ const interactableMeshes = [];
 const brokenBlocks = new Set(); 
 
 // Fast lookup arrays for Culling memory
-const TYPE = { stone: 1, dirt: 2, grass: 3, sand: 4, sandstone: 5, snow: 6, snow_grass: 7, coal: 8, iron: 9, copper: 10 };
+const TYPE = { stone: 1, dirt: 2, grass: 3, sand: 4, sandstone: 5, snow: 6, snow_grass: 7, coal: 8, iron: 9, copper: 10, gold: 11, redstone: 12, emerald: 13, lapis: 14, diamond: 15, deepslate: 16, bedrock: 17, deepslatecoal: 18, deepslateiron: 19, deepslatecopper: 20, deepslategold: 21, deepslateredstone: 22, deepslateemerald: 23, deepslatelapis: 24, deepslatediamond: 25};
 const REVERSE_TYPE = [null, 'stone', 'dirt', 'grass', 'sand', 'sandstone', 'snow', 'snow_grass', 'coal', 'iron', 'copper'];
 
 function getBiome(temp, moist, depth) {
