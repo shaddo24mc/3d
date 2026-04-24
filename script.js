@@ -22,9 +22,11 @@ renderer.shadowMap.enabled = false;
 // 1. Centralized Block & Material System
 // ----------------------------------------------------
 const BLOCK_HARDNESS = {
-    stone: 7500, coal: 15000, iron: 15000, copper: 10000,
+    stone: 7500, coal: 15000, iron: 15000, copper: 10000, gold: 15000, emerald: 15000, redstone: 15000, lapis: 15000, diamond: 15000,
     log: 3000, leaf: 300, dirt: 750, grass: 750, overlay: 750, 
-    snow_grass: 750, sand: 600, snow: 500, sandstone: 4000
+    snow_grass: 750, sand: 600, snow: 500, sandstone: 4000,
+    deepslate: deepslatecoal: 22500, deepslateiron: 22500, deepslatecopper: 15000, deepslategold, 22500: deepslateemerald: 22500, deepslateredstone: 22500, deepslatelapis: 22500, deepslatediamond: 22500,
+    bedrock: 999999999999999999999999999999999999999999999999999
 };
 
 const loader = new THREE.TextureLoader();
@@ -45,9 +47,15 @@ const stone = loadTex('./textures/stone.png');
 const logSide = loadTex('./textures/oak_log.png');
 const logTop = loadTex('./textures/oak_log_top.png');
 const leaves = loadTex('./textures/oak_leaves.png');
+
+
 const coalore = loadTex('./textures/coal_ore.png');
 const ironore = loadTex('./textures/iron_ore.png');
 const copperore = loadTex('./textures/copper_ore.png');
+const 
+
+
+
 const sand = loadTex('./textures/sand.png'); 
 const snow = loadTex('./textures/snow.png');
 const snowyGrassSide = loadTex('./textures/grass_block_snow.png');
