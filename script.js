@@ -252,7 +252,7 @@ function generateChunk(chunkX, chunkZ) {
     const startZ = chunkZ * chunkSize;
 
     // Max visible blocks kept low for performance
-    const maxVisibleBlocks = 5000; 
+    const maxVisibleBlocks = 15000; 
     
     const meshes = {};
     for (const [key, mat] of Object.entries(materials)) {
@@ -367,11 +367,21 @@ function generateChunk(chunkX, chunkZ) {
                 let typeId = blocks[getIdx(x, y, z)];
                 if (typeId === 0) continue;
 
+                // Replace the 'visible = false;' logic in Pass 2 with this:
+
                 let visible = false;
-                // Instantly show boundaries of chunks to prevent gaps, otherwise check neighbors
-                if (x === 0 || x === 15 || z === 0 || z === 15 || y === 0 || y === 127) {
+
+// If we are at the absolute edge of the chunk, only render if we are near the surface or caves
+                if (x === 0 || x === 15 || z === 0 || z === 15) {
+    // Only force render if it's high enough, preventing massive underground walls from rendering
+                    if (y > 40) visible = true; 
+                } 
+                if (y === 0 || y === 127) {
                     visible = true; 
-                } else {
+                } 
+
+                // Normal neighbor culling for everything else
+                if (!visible) {
                     if (blocks[getIdx(x-1, y, z)] === 0 || blocks[getIdx(x+1, y, z)] === 0 || 
                         blocks[getIdx(x, y-1, z)] === 0 || blocks[getIdx(x, y+1, z)] === 0 ||
                         blocks[getIdx(x, y, z-1)] === 0 || blocks[getIdx(x, y, z+1)] === 0) {
