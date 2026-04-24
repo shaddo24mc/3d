@@ -283,15 +283,23 @@ function generateChunk(chunkX, chunkZ) {
         
         // Use 4-octave FBM for base elevation to get natural ridges and valleys
             let rawElevation = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 4, 300);
-            let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 64; 
+            let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 64;
+            baseHeight = Math.floor(baseHeight / 5) * 5 + (baseHeight % 5) * 0.4;
 
             let isAbsoluteTop = true;
             let subBlockDepth = 0;
 
             for (let y = 127; y >= 0; y--) {
-            // Add a small amount of 3D noise to the surface for overhangs
-                let surfaceNoise3D = noise.perlin3(globalX / 30, y / 30, globalZ / 30) * 5; 
-                let density = (baseHeight - y) + surfaceNoise3D;
+            // --- MINECRAFT 3D DENSITY ---
+            let cliffNoise = noise.perlin3(globalX / 50, y / 40, globalZ / 50) * 18; 
+
+            // Small noise breaks up straight lines and makes the surface look organic
+            let detailNoise = noise.perlin3(globalX / 15, y / 15, globalZ / 15) * 5;
+
+            // The deeper you go, the more solid it is. Near the surface, 3D noise takes over.
+            let depthSolidifier = Math.max(0, (60 - y) * 0.5); 
+
+            let density = (baseHeight - y) + cliffNoise + detailNoise + depthSolidifier;
             
                 if (density > 0) { 
                 // --- IMPROVED CAVE LOGIC ---
