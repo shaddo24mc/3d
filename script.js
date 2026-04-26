@@ -189,7 +189,7 @@ const BIOME_REGISTRY = [
 ];
 
 // ----------------------------------------------------
-// 3. World Variables
+// 3. World Variables & Global Systems
 // ----------------------------------------------------
 const chunkSize = 16;
 const renderDistance = 2; // Keep at 2 to limit active chunks for JS
@@ -207,6 +207,7 @@ const activeChunks = {};
 const chunkQueue = []; 
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
+const chunksToRebuild = new Set(); // Fix: Tracks chunks that need visual updates
 
 // Fast lookup arrays for Culling memory
 const TYPE = { 
@@ -247,6 +248,101 @@ const REVERSE_TYPE = [
     'oaklog',               // 26
     'oakleaves'               // 27
 ];
+
+// Helper to access block data safely across chunk boundaries
+function getGlobalBlock(gx, gy, gz) {
+    if (gy < minworldY || gy >= minworldY + worldHeight) return null;
+    let cx = Math.floor(gx / chunkSize);
+    let cz = Math.floor(gz / chunkSize);
+    let chunkId = `${cx},${cz}`;
+    let chunk = activeChunks[chunkId];
+    if (!chunk) return null; // Chunk not generated yet
+    
+    let lx = gx - (cx * chunkSize);
+    let lz = gz - (cz * chunkSize);
+    let ly = gy - minworldY;
+    
+    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+    return chunk.blocks[idx];
+}
+
+// Safely modify blocks across boundaries and notify engine to rebuild visuals
+function setGlobalBlock(gx, gy, gz, type) {
+    if (gy < minworldY || gy >= minworldY + worldHeight) return;
+    let cx = Math.floor(gx / chunkSize);
+    let cz = Math.floor(gz / chunkSize);
+    let chunkId = `${cx},${cz}`;
+    let chunk = activeChunks[chunkId];
+    if (!chunk) return;
+    
+    let lx = gx - (cx * chunkSize);
+    let lz = gz - (cz * chunkSize);
+    let ly = gy - minworldY;
+    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+    
+    // Always track broken blocks (important for "ghost" tree meshes)
+    if (type === 0) brokenBlocks.add(`${gx},${gy},${gz}`);
+    else brokenBlocks.delete(`${gx},${gy},${gz}`);
+
+    if (chunk.blocks[idx] !== type) {
+        chunk.blocks[idx] = type;
+    }
+    
+    // Queue chunks for a visual rebuild (Batched for performance)
+    chunksToRebuild.add(chunkId);
+    if (lx === 0) chunksToRebuild.add(`${cx - 1},${cz}`);
+    if (lx === chunkSize - 1) chunksToRebuild.add(`${cx + 1},${cz}`);
+    if (lz === 0) chunksToRebuild.add(`${cx},${cz - 1}`);
+    if (lz === chunkSize - 1) chunksToRebuild.add(`${cx},${cz + 1}`);
+}
+
+// Ticks random blocks each frame to handle grass spreading naturally
+function doRandomTicks() {
+    for (const chunkId in activeChunks) {
+        const chunk = activeChunks[chunkId];
+        if (!chunk || !chunk.blocks) continue;
+
+        const [cx, cz] = chunkId.split(',').map(Number);
+        
+        for (let i = 0; i < 250; i++) {
+            let lx = Math.floor(Math.random() * chunkSize);
+            let lz = Math.floor(Math.random() * chunkSize);
+            let ly = Math.floor(Math.random() * worldHeight);
+            
+            let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+            let blockType = chunk.blocks[idx];
+
+            if (blockType === TYPE.grass || blockType === TYPE.snow_grass) {
+                let gx = (cx * chunkSize) + lx;
+                let gy = ly + minworldY;
+                let gz = (cz * chunkSize) + lz;
+
+                let above = getGlobalBlock(gx, gy + 1, gz);
+                
+                if (above !== null && above !== 0 && above !== TYPE.oakleaves && above !== TYPE.snow) {
+                    setGlobalBlock(gx, gy, gz, TYPE.dirt);
+                } 
+                else if (above === 0 || above === TYPE.oakleaves || above === TYPE.snow) {
+                    let ox = Math.floor(Math.random() * 3) - 1; 
+                    let oz = Math.floor(Math.random() * 3) - 1;
+                    let oy = Math.floor(Math.random() * 5) - 3; 
+                    
+                    let tx = gx + ox;
+                    let ty = gy + oy;
+                    let tz = gz + oz;
+                    
+                    let target = getGlobalBlock(tx, ty, tz);
+                    if (target === TYPE.dirt) {
+                        let targetAbove = getGlobalBlock(tx, ty + 1, tz);
+                        if (targetAbove === 0 || targetAbove === TYPE.oakleaves || targetAbove === TYPE.snow) {
+                            setGlobalBlock(tx, ty, tz, blockType);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 function getBiome(temp, moist, depth) {
     let closestBiome = BIOME_REGISTRY[0];
@@ -296,7 +392,7 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
     }
 
     // LEAVES
-    for (let ly = y + trunkH - 2; ly <= y + trunkH + 1; ly++) {
+    for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
         let radius = (ly > y + trunkH - 1) ? 1 : 2; 
         for (let lx = -radius; lx <= radius; lx++) {
             for (let lz = -radius; lz <= radius; lz++) {
@@ -319,7 +415,6 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
 // ----------------------------------------------------
 // 4. Chunk Generator
 // ----------------------------------------------------
-// Fractal Brownian Motion for natural 2D terrain (elevation, temp, moisture)
 function fbm2(x, z, octaves = 4, scale = 400) {
     let total = 0;
     let frequency = 1;
@@ -333,7 +428,7 @@ function fbm2(x, z, octaves = 4, scale = 400) {
     }
     return total / maxValue;
 }
-// Fractal Brownian Motion for natural 3D shapes (caves)
+
 function fbm3(x, y, z, octaves = 2, scale = 40) {
     let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
     for(let i = 0; i < octaves; i++) {
@@ -344,6 +439,7 @@ function fbm3(x, y, z, octaves = 2, scale = 40) {
     }
     return total / maxValue;
 }
+
 function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
@@ -359,7 +455,7 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key] = new THREE.InstancedMesh(geometry, mat, (key === 'oakleaves' || key === 'oaklog') ? 2000 : maxVisibleBlocks);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
-        meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage); // Allows for real-time hiding
+        meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         indices[key] = 0;
     }
 
@@ -383,26 +479,22 @@ function generateChunk(chunkX, chunkZ) {
                 let actualY = y + minworldY;
                 let blockIdx = getIdx(x, y, z);
 
-                // Density Check
                 let cliffNoise = noise.perlin3(globalX / 50, actualY / 40, globalZ / 50) * 18;
                 let detailNoise = noise.perlin3(globalX / 15, actualY / 15, globalZ / 15) * 5;
                 let density = (baseHeight - actualY) + cliffNoise + detailNoise;
 
                 if (density > 0) {
-                    // Bedrock
                     if (actualY <= minworldY + 4) {
                         if (getDeterministicRandom(globalX, actualY, globalZ) < ((minworldY + 5) - actualY) / 5) {
                             blocks[blockIdx] = TYPE.bedrock; continue;
                         }
                     }
 
-                    // Stone & Caves
                     let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
                     let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
 
                     if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
 
-                    // Ore Pass
                     let blockType = stoneType;
                     let foundOre = false;
                     for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
@@ -418,24 +510,22 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
-                    // SURFACE LOGIC 
                     let actualYAbove = actualY + 1;
                     let densityAbove = (baseHeight - actualYAbove) + 
                                        (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
                                        (noise.perlin3(globalX / 15, actualYAbove / 15, globalZ / 15) * 5);
 
-                    if (densityAbove <= 0) { // TRUE TOP BLOCK
+                    if (densityAbove <= 0) { 
                         const localBiome = getBiome(tempMap, moistMap, 0);
                         blockType = actualY > 100 ? 'snow' : localBiome.topBlock;
                         
-                        // FIX: Ensure we are actually near surface to spawn trees, not in caves
                         const isNearSurface = actualY >= baseHeight - 10;
                         if (isNearSurface && blockType !== 'snow' && localBiome.treeChance > 0) {
                             if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
                                  treesToSpawn.push({ x, y, z, actualY });
                             }
                         }
-                    } else if (densityAbove < 3) { // DIRT CRUST
+                    } else if (densityAbove < 3) {
                         blockType = getBiome(tempMap, moistMap, 0).subBlock;
                     }
 
@@ -453,12 +543,24 @@ function generateChunk(chunkX, chunkZ) {
                 let typeId = blocks[getIdx(x, y, z)];
                 if (typeId === 0) continue;
 
-                // Neighbor Culling (Make neighbors visible logic)
-                // We render a block if any of its 6 neighbors are AIR (0)
-                let isVisible = (x === 0 || x === 15 || z === 0 || z === 15 || y === 0 || y === worldHeight - 1) ||
-                                (blocks[getIdx(x-1, y, z)] === 0 || blocks[getIdx(x+1, y, z)] === 0 ||
-                                 blocks[getIdx(x, y-1, z)] === 0 || blocks[getIdx(x, y+1, z)] === 0 ||
-                                 blocks[getIdx(x, y, z-1)] === 0 || blocks[getIdx(x, y, z+1)] === 0);
+                // Smart local/global check to remove giant grid walls between chunks
+                const isOpen = (nx, ny, nz) => {
+                    if (ny < 0 || ny >= worldHeight) return true;
+                    // Check local array first for massive performance boost
+                    if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
+                        let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
+                        return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
+                    }
+                    // Outside chunk boundary check
+                    let gx = startX + nx; let gy = ny + minworldY; let gz = startZ + nz;
+                    let b = getGlobalBlock(gx, gy, gz);
+                    if (b === null) return true; // Draw edge if neighbor chunk hasn't loaded
+                    return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
+                };
+
+                let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
+                                isOpen(x, y-1, z) || isOpen(x, y+1, z) ||
+                                isOpen(x, y, z-1) || isOpen(x, y, z+1);
 
                 if (isVisible) {
                     let bName = REVERSE_TYPE[typeId];
@@ -466,7 +568,6 @@ function generateChunk(chunkX, chunkZ) {
                         matrix.setPosition(startX + x, y + minworldY, startZ + z);
                         meshes[bName].setMatrixAt(indices[bName]++, matrix);
 
-                        // GRASS OVERLAY logic
                         if (bName === 'grass' && meshes['overlay']) {
                             meshes['overlay'].setMatrixAt(indices['overlay']++, matrix);
                         }
@@ -476,10 +577,8 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // Pass 3: Trees
     for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices);
 
-    // Finalize
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
@@ -487,7 +586,6 @@ function generateChunk(chunkX, chunkZ) {
         if (meshes[key].count > 0) interactableMeshes.push(meshes[key]);
     }
     
-    // FIX: Save blocks and trees for future unculling
     activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
 }
 
@@ -521,11 +619,15 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
 
                 if (brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
 
-                // Culling helper: Check if neighbor is air, broken, or outside the chunk
                 const isOpen = (nx, ny, nz) => {
-                    if (nx < 0 || nx >= chunkSize || nz < 0 || nz >= chunkSize || ny < 0 || ny >= worldHeight) return true;
-                    if (blocks[getIdx(nx, ny, nz)] === 0) return true;
-                    return brokenBlocks.has(`${startX + nx},${ny + minworldY},${startZ + nz}`);
+                    if (ny < 0 || ny >= worldHeight) return true;
+                    if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
+                        let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
+                        return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
+                    }
+                    let b = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
+                    if (b === null) return true; 
+                    return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
@@ -547,10 +649,8 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
         }
     }
 
-    // Re-add trees for this chunk
     for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices);
 
-    // Tell GPU to update the visible counts
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
@@ -586,7 +686,6 @@ function updateChunks() {
 
     for (const id in activeChunks) {
         if (!chunksToKeep.has(id)) {
-            // FIX: Point to .meshes to avoid memory leaks
             for (const mesh of Object.values(activeChunks[id].meshes)) {
                 scene.remove(mesh);
                 const i = interactableMeshes.indexOf(mesh);
@@ -621,24 +720,18 @@ const raycaster = new THREE.Raycaster(); raycaster.far = 6;
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
 
 function getTarget() {
-    // 1. Point ray at the center of the screen
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     
-    // 2. Optimization: Find which chunk the player is in
     const pX = Math.floor(camera.position.x / chunkSize);
     const pZ = Math.floor(camera.position.z / chunkSize);
     
-    // 3. Only intersect meshes from the chunk the player is standing in 
-    //    and the 8 chunks surrounding them.
     const nearbyMeshes = interactableMeshes.filter(m => {
         if (!m.chunkId) return false;
         const [cx, cz] = m.chunkId.split(',').map(Number);
         return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
     });
 
-    // 4. Run the intersection only on those nearby meshes
     const hit = raycaster.intersectObjects(nearbyMeshes);
-    
     return hit.length > 0 ? hit[0] : null;
 }
 
@@ -667,25 +760,12 @@ function updateMining() {
         const mat = new THREE.Matrix4(); mining.targetMesh.getMatrixAt(mining.targetId, mat);
         const p = new THREE.Vector3().setFromMatrixPosition(mat);
         
-        // Add to broken blocks
-        brokenBlocks.add(`${Math.round(p.x)},${Math.round(p.y)},${Math.round(p.z)}`);
+        setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
         
-        // FIX: Calculate chunk and rebuild to un-cull hidden neighbors
-        const bX = Math.round(p.x);
-        const bZ = Math.round(p.z);
-        const cX = Math.floor(bX / chunkSize);
-        const cZ = Math.floor(bZ / chunkSize);
-
-        // Rebuild the main chunk
-        rebuildChunkGeometry(cX, cZ);
-
-        // If block is on the edge of a chunk, update the neighbor chunk too
-        const localX = bX - (cX * chunkSize);
-        const localZ = bZ - (cZ * chunkSize);
-        if (localX === 0) rebuildChunkGeometry(cX - 1, cZ);
-        if (localX === chunkSize - 1) rebuildChunkGeometry(cX + 1, cZ);
-        if (localZ === 0) rebuildChunkGeometry(cX, cZ - 1);
-        if (localZ === chunkSize - 1) rebuildChunkGeometry(cX, cZ + 1);
+        // Also queue up the specific owner mesh to update properly in case it was a floating tree
+        if (mining.targetMesh && mining.targetMesh.chunkId) {
+            chunksToRebuild.add(mining.targetMesh.chunkId);
+        }
 
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
@@ -730,7 +810,6 @@ function animate() {
     updateMining();
     doRandomTicks();
 
-    // Batch process all visual chunk updates at once
     for (let chunkId of chunksToRebuild) {
         let [cx, cz] = chunkId.split(',').map(Number);
         rebuildChunkGeometry(cx, cz);
