@@ -32,8 +32,7 @@ const BLOCK_HARDNESS = {
     bedrock: 999999999
 };
 
-// MINECRAFT 1.18+ ORE CONFIGURATION (Matched exactly to the distribution chart)
-// Thresholds lowered to account for realistic noise generator outputs.
+// MINECRAFT 1.18+ ORE CONFIGURATION
 const ORE_CONFIG = {
     emerald: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
     diamond: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
@@ -191,9 +190,8 @@ destroyMesh.visible = false;
 scene.add(destroyMesh);
 
 // ----------------------------------------------------
-// 2. BIOME REGISTRY (Vanilla Minecraft Tweaks)
+// 2. BIOME REGISTRY 
 // ----------------------------------------------------
-// Fixed temp/moist ranges so the generated noise values can actually reach them!
 const BIOME_REGISTRY = [
     { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20 },
     { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8 },
@@ -206,7 +204,7 @@ const BIOME_REGISTRY = [
 // 3. World Variables & Global Systems
 // ----------------------------------------------------
 const chunkSize = 16;
-const renderDistance = 2; // Keep at 2 to limit active chunks for JS
+const renderDistance = 2; 
 const worldHeight = 384;
 const minworldY = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -221,9 +219,8 @@ const activeChunks = {};
 const chunkQueue = []; 
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
-const chunksToRebuild = new Set(); // Fix: Tracks chunks that need visual updates
+const chunksToRebuild = new Set(); 
 
-// Fast lookup arrays for Culling memory
 const TYPE = { 
     stone: 1, dirt: 2, grass: 3, sand: 4, sandstone: 5, snow: 6, snow_grass: 7, 
     coal: 8, iron: 9, copper: 10, gold: 11, redstone: 12, emerald: 13, lapis: 14, 
@@ -233,44 +230,20 @@ const TYPE = {
     oaklog: 26, oakleaves: 27
 };
 const REVERSE_TYPE = [
-    null,                // 0 (Air/Empty)
-    'stone',             // 1
-    'dirt',              // 2
-    'grass',             // 3
-    'sand',              // 4
-    'sandstone',         // 5
-    'snow',              // 6
-    'snow_grass',        // 7
-    'coal',              // 8
-    'iron',              // 9
-    'copper',            // 10
-    'gold',              // 11
-    'redstone',          // 12
-    'emerald',           // 13
-    'lapis',             // 14
-    'diamond',           // 15
-    'deepslate',         // 16
-    'bedrock',           // 17
-    'deepslatecoal',     // 18
-    'deepslateiron',     // 19
-    'deepslatecopper',   // 20
-    'deepslategold',     // 21
-    'deepslateredstone', // 22
-    'deepslateemerald',  // 23
-    'deepslatelapis',    // 24
-    'deepslatediamond',  // 25
-    'oaklog',               // 26
-    'oakleaves'               // 27
+    null, 'stone', 'dirt', 'grass', 'sand', 'sandstone', 'snow', 'snow_grass', 
+    'coal', 'iron', 'copper', 'gold', 'redstone', 'emerald', 'lapis', 'diamond', 
+    'deepslate', 'bedrock', 'deepslatecoal', 'deepslateiron', 'deepslatecopper', 
+    'deepslategold', 'deepslateredstone', 'deepslateemerald', 'deepslatelapis', 
+    'deepslatediamond', 'oaklog', 'oakleaves'
 ];
 
-// Helper to access block data safely across chunk boundaries
 function getGlobalBlock(gx, gy, gz) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return null;
     let cx = Math.floor(gx / chunkSize);
     let cz = Math.floor(gz / chunkSize);
     let chunkId = `${cx},${cz}`;
     let chunk = activeChunks[chunkId];
-    if (!chunk) return null; // Chunk not generated yet
+    if (!chunk) return null; 
     
     let lx = gx - (cx * chunkSize);
     let lz = gz - (cz * chunkSize);
@@ -280,7 +253,6 @@ function getGlobalBlock(gx, gy, gz) {
     return chunk.blocks[idx];
 }
 
-// Safely modify blocks across boundaries and notify engine to rebuild visuals
 function setGlobalBlock(gx, gy, gz, type) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return;
     let cx = Math.floor(gx / chunkSize);
@@ -294,7 +266,6 @@ function setGlobalBlock(gx, gy, gz, type) {
     let ly = gy - minworldY;
     let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
     
-    // Always track broken blocks (important for "ghost" tree meshes)
     if (type === 0) brokenBlocks.add(`${gx},${gy},${gz}`);
     else brokenBlocks.delete(`${gx},${gy},${gz}`);
 
@@ -302,7 +273,6 @@ function setGlobalBlock(gx, gy, gz, type) {
         chunk.blocks[idx] = type;
     }
     
-    // Queue chunks for a visual rebuild (Batched for performance)
     chunksToRebuild.add(chunkId);
     if (lx === 0) chunksToRebuild.add(`${cx - 1},${cz}`);
     if (lx === chunkSize - 1) chunksToRebuild.add(`${cx + 1},${cz}`);
@@ -310,7 +280,6 @@ function setGlobalBlock(gx, gy, gz, type) {
     if (lz === chunkSize - 1) chunksToRebuild.add(`${cx},${cz + 1}`);
 }
 
-// Ticks random blocks each frame to handle grass spreading naturally
 function doRandomTicks() {
     for (const chunkId in activeChunks) {
         const chunk = activeChunks[chunkId];
@@ -369,14 +338,13 @@ function getBiome(temp, moist, depth) {
 }
 
 function getInterpolatedHeightScale(x, z) {
-    const range = 8; // Widened range for smoother biome blending
+    const range = 8; 
     const step = 4; 
     let totalScale = 0; 
     let samples = 0;
     
     for (let offX = -range; offX <= range; offX += step) {
         for (let offZ = -range; offZ <= range; offZ += step) {
-            // Use FBM for temp/moist maps so biomes transition naturally
             let temp = fbm2(x + offX + mapOffsetX, z + offZ + mapOffsetZ, 2, 800);
             let moist = fbm2(x + offX + mapOffsetX + 10000, z + offZ + mapOffsetZ + 10000, 2, 800);
             totalScale += getBiome(temp, moist, 0).heightScale;
@@ -462,11 +430,11 @@ function generateChunk(chunkX, chunkZ) {
     const startZ = chunkZ * chunkSize;
     const maxVisibleBlocks = 25000; 
 
-    // 1. Initialize Meshes
+    // 1. Initialize Meshes (FIX: Removed the 2000 instance limit to prevent sheared trees)
     const meshes = {};
     const indices = {};
     for (const [key, mat] of Object.entries(materials)) {
-        meshes[key] = new THREE.InstancedMesh(geometry, mat, (key === 'oakleaves' || key === 'oaklog') ? 2000 : maxVisibleBlocks);
+        meshes[key] = new THREE.InstancedMesh(geometry, mat, maxVisibleBlocks);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
         meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -483,8 +451,11 @@ function generateChunk(chunkX, chunkZ) {
             let globalX = startX + x;
             let globalZ = startZ + z;
 
+            // FIX: We precalculate the biome once for the whole Y column to properly assign deep SubBlocks!
             let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 800);
             let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 800);
+            let localBiome = getBiome(tempMap, moistMap, 0); 
+            
             let blendedScale = getInterpolatedHeightScale(globalX, globalZ);
             let rawElevation = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 4, 300);
             let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 62;
@@ -504,34 +475,30 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
-                    let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
+                    // FIX: This pulls sandstone from the Desert biome registry instead of defaulting to stone!
+                    let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : (localBiome.deepSubBlock || 'stone');
                     let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
 
                     if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
 
                     let blockType = stoneType;
                     let foundOre = false;
-                    let oreIndex = 0; // ADDED: A unique counter for our noise offset
+                    let oreIndex = 0; 
                     
-                    // MINECRAFT 1.18 ORE LOGIC: Rarest first, matching chart curves
                     for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
                         if (foundOre) break;
-                        oreIndex++; // ADDED: Increases by 1 for every ore type
+                        oreIndex++; 
                         
                         for (const conf of rules) {
                             if (actualY >= conf.min && actualY <= conf.max) {
-                                // FIXED: Use the unique oreIndex so they never overlap!
                                 let offset = (oreIndex * 1000); 
-                                // Lowered scale to 0.25 to make the veins slightly thicker (3-8 blocks)
                                 let veinNoise = noise.perlin3((globalX + offset) * 0.25, (actualY + offset) * 0.25, (globalZ + offset) * 0.25);
                                 
                                 let currentThreshold = conf.threshold;
                                 
-                                // Emulate the "Triangles" on the chart: ore gets rarer further from its peak
                                 if (conf.peak !== undefined) {
                                     let maxDist = Math.max(Math.abs(conf.max - conf.peak), Math.abs(conf.min - conf.peak));
                                     let dist = Math.abs(actualY - conf.peak);
-                                    // Penalty makes the threshold harder to hit at the edges of the triangle
                                     let penalty = (dist / maxDist) * 0.15; 
                                     currentThreshold += penalty;
                                 }
@@ -550,7 +517,6 @@ function generateChunk(chunkX, chunkZ) {
                                        (noise.perlin3(globalX / 15, actualYAbove / 15, globalZ / 15) * 5);
 
                     if (densityAbove <= 0) { 
-                        const localBiome = getBiome(tempMap, moistMap, 0);
                         blockType = actualY > 100 ? 'snow' : localBiome.topBlock;
                         
                         const isNearSurface = actualY >= baseHeight - 10;
@@ -560,7 +526,7 @@ function generateChunk(chunkX, chunkZ) {
                             }
                         }
                     } else if (densityAbove < 3) {
-                        blockType = getBiome(tempMap, moistMap, 0).subBlock;
+                        blockType = localBiome.subBlock;
                     }
 
                     blocks[blockIdx] = TYPE[blockType] || TYPE.stone;
@@ -577,18 +543,15 @@ function generateChunk(chunkX, chunkZ) {
                 let typeId = blocks[getIdx(x, y, z)];
                 if (typeId === 0) continue;
 
-                // Smart local/global check to remove giant grid walls between chunks
                 const isOpen = (nx, ny, nz) => {
                     if (ny < 0 || ny >= worldHeight) return true;
-                    // Check local array first for massive performance boost
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
                         return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
                     }
-                    // Outside chunk boundary check
                     let gx = startX + nx; let gy = ny + minworldY; let gz = startZ + nz;
                     let b = getGlobalBlock(gx, gy, gz);
-                    if (b === null) return true; // Draw edge if neighbor chunk hasn't loaded
+                    if (b === null) return true; 
                     return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
                 };
 
@@ -732,7 +695,7 @@ function updateChunks() {
 }
 
 // ----------------------------------------------------
-// 6. Player, Controls & Mining
+// 6. Player, Controls & Mining (Reverted to Fly Mode)
 // ----------------------------------------------------
 const spawnX = 0; const spawnZ = 0; let safeSpawnY = 127; 
 for (let y = 127; y >= 0; y--) {
@@ -743,6 +706,7 @@ for (let y = 127; y >= 0; y--) {
 
 camera.position.set(spawnX, safeSpawnY + 2, spawnZ);
 
+// Custom hand reverted for easier viewing
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); handGeo.translate(0, 0.4, 0); 
 const playerHand = new THREE.Mesh(handGeo, new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 }));
 playerHand.position.set(0.4, -0.4, -0.1);
@@ -796,7 +760,6 @@ function updateMining() {
         
         setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
         
-        // Also queue up the specific owner mesh to update properly in case it was a floating tree
         if (mining.targetMesh && mining.targetMesh.chunkId) {
             chunksToRebuild.add(mining.targetMesh.chunkId);
         }
@@ -850,6 +813,7 @@ function animate() {
     }
     chunksToRebuild.clear();
     
+    // Animate Hand
     if (mining.active) {
         const t = Date.now() * 0.025; 
         playerHand.rotation.x = (-Math.PI / 3) + Math.sin(t) * 0.25;
@@ -861,6 +825,7 @@ function animate() {
         playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.4, 0.2);
     }
 
+    // --- Fly Mode Movement ---
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
     
@@ -870,7 +835,7 @@ function animate() {
     if (keys.d) camera.position.addScaledVector(rgt, -moveSpeed * delta);
     if (keys[' ']) camera.position.y += moveSpeed * delta;
     if (keys.shift) camera.position.y -= moveSpeed * delta;
-    
+
     camera.rotation.set(pitch, yaw, 0, 'YXZ');
     renderer.render(scene, camera);
     stats.update();
