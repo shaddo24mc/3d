@@ -1,6 +1,6 @@
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
-scene.fog = new THREE.Fog(0x87ceeb, 20, 50);
+scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 
 // Performance: Limit pixel ratio to 1 (prevents massive slowdowns on Retina/mobile screens)
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
@@ -23,12 +23,28 @@ renderer.shadowMap.enabled = false;
 // ----------------------------------------------------
 const BLOCK_HARDNESS = {
     stone: 7500, coal: 15000, iron: 15000, copper: 10000, gold: 15000, emerald: 15000, redstone: 15000, lapis: 15000, diamond: 15000,
-    log: 3000, leaf: 300, dirt: 750, grass: 750, overlay: 750, 
+    oaklog: 3000, oakleaves: 300, dirt: 750, grass: 750, overlay: 750, 
     snow_grass: 750, sand: 600, snow: 500, sandstone: 4000,
-    deepslate: deepslatecoal: 22500, deepslateiron: 22500, deepslatecopper: 15000, deepslategold, 22500: deepslateemerald: 22500, deepslateredstone: 22500, deepslatelapis: 22500, deepslatediamond: 22500,
-    bedrock: 999999999999999999999999999999999999999999999999999
+    deepslate: 20000, 
+    deepslatecoal: 22500, deepslateiron: 22500, deepslatecopper: 15000, 
+    deepslategold: 22500, deepslateemerald: 22500, deepslateredstone: 22500, 
+    deepslatelapis: 22500, deepslatediamond: 22500,
+    bedrock: 999999999
 };
-
+const ORE_CONFIG = {
+    coal:    [{ min: 0,   max: 128, peak: 95,  threshold: 0.58, reduceAir: false }],
+    // Iron: One peaks at Y=16 (underground), one peaks at Y=128+ (mountains)
+    iron:    [
+        { min: -16, max: 80,  peak: 16,  threshold: 0.62, reduceAir: false },
+        { min: 64,  max: 128, peak: 128, threshold: 0.55, reduceAir: false } 
+    ],
+    copper:  [{ min: 0,   max: 96,  peak: 48,  threshold: 0.60, reduceAir: false }],
+    gold:    [{ min: 0,   max: 32,  peak: 5,   threshold: 0.78, reduceAir: true }],
+    redstone:[{ min: 0,   max: 15,  peak: 0,   threshold: 0.80, reduceAir: true }],
+    lapis:   [{ min: 0,   max: 64,  peak: 0,   threshold: 0.82, reduceAir: true }],
+    diamond: [{ min: 0,   max: 16,  peak: 0,   threshold: 0.82, reduceAir: true }],
+    emerald: [{ min: 64,  max: 128, peak: 128, threshold: 0.85, reduceAir: false }]
+};
 const loader = new THREE.TextureLoader();
 const loadTex = (url) => {
     const t = loader.load(url);
@@ -59,14 +75,14 @@ const lapisore = loadTex('./textures/lapis_ore.png');
 const diamondore = loadTex('./textures/diamond_ore.png');
 const deepslatetop = loadTex('./textures/deepslate_top.png');
 const deepslate = loadTex('./textures/deepslate.png');
-const deepslateironore = loadTex('./textures/deepslate_iron_ore');
-const deepslatecoalore = loadTex('./textures/deepslate_coal_ore');
-const deepslatecopperore = loadTex('./textures/deepslate_copper_ore');
-const deepslategoldore = loadTex('./textures/deepslate_gold_ore');
-const deepslateredstoneore = loadTex('./textures/deepslate_redstone_ore');
-const deepslateemeraldore = loadTex('./textures/deepslate_emerald_ore');
-const deepslatelapisore = loadTex('./textures/deepslate_lapis_ore');
-const deepslatediamondore = loadTex('./textures/deepslate_diamond_ore');
+const deepslateironore = loadTex('./textures/deepslate_iron_ore.png');
+const deepslatecoalore = loadTex('./textures/deepslate_coal_ore.png');
+const deepslatecopperore = loadTex('./textures/deepslate_copper_ore.png');
+const deepslategoldore = loadTex('./textures/deepslate_gold_ore.png');
+const deepslateredstoneore = loadTex('./textures/deepslate_redstone_ore.png');
+const deepslateemeraldore = loadTex('./textures/deepslate_emerald_ore.png');
+const deepslatelapisore = loadTex('./textures/deepslate_lapis_ore.png');
+const deepslatediamondore = loadTex('./textures/deepslate_diamond_ore.png');
 const bedrock = loadTex('./textures/bedrock.png');
 
 
@@ -156,8 +172,8 @@ const materials = {
     deepslatelapis: new THREE.MeshStandardMaterial({ map: deepslatelapisore}),
     deepslatediamond: new THREE.MeshStandardMaterial({ map: deepslatediamondore}),
     bedrock: new THREE.MeshStandardMaterial({ map: bedrock}),
-    leaf: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
-    log: [
+    oakleaves: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
+    oaklog: [
         new THREE.MeshStandardMaterial({ map: logSide }),
         new THREE.MeshStandardMaterial({ map: logSide }),
         new THREE.MeshStandardMaterial({ map: logTop }),
@@ -191,7 +207,8 @@ const BIOME_REGISTRY = [
 // ----------------------------------------------------
 const chunkSize = 16;
 const renderDistance = 2; // Keep at 2 to limit active chunks for JS
-const worldHeight = 128;
+const worldHeight = 384;
+const minworldY = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
 const worldSeed = Math.random(); 
@@ -206,8 +223,44 @@ const interactableMeshes = [];
 const brokenBlocks = new Set(); 
 
 // Fast lookup arrays for Culling memory
-const TYPE = { stone: 1, dirt: 2, grass: 3, sand: 4, sandstone: 5, snow: 6, snow_grass: 7, coal: 8, iron: 9, copper: 10, gold: 11, redstone: 12, emerald: 13, lapis: 14, diamond: 15, deepslate: 16, bedrock: 17, deepslatecoal: 18, deepslateiron: 19, deepslatecopper: 20, deepslategold: 21, deepslateredstone: 22, deepslateemerald: 23, deepslatelapis: 24, deepslatediamond: 25};
-const REVERSE_TYPE = [null, 'stone', 'dirt', 'grass', 'sand', 'sandstone', 'snow', 'snow_grass', 'coal', 'iron', 'copper'];
+const TYPE = { 
+    stone: 1, dirt: 2, grass: 3, sand: 4, sandstone: 5, snow: 6, snow_grass: 7, 
+    coal: 8, iron: 9, copper: 10, gold: 11, redstone: 12, emerald: 13, lapis: 14, 
+    diamond: 15, deepslate: 16, bedrock: 17, deepslatecoal: 18, deepslateiron: 19, 
+    deepslatecopper: 20, deepslategold: 21, deepslateredstone: 22, 
+    deepslateemerald: 23, deepslatelapis: 24, deepslatediamond: 25,
+    oaklog: 26, oakleaves: 27
+};
+const REVERSE_TYPE = [
+    null,                // 0 (Air/Empty)
+    'stone',             // 1
+    'dirt',              // 2
+    'grass',             // 3
+    'sand',              // 4
+    'sandstone',         // 5
+    'snow',              // 6
+    'snow_grass',        // 7
+    'coal',              // 8
+    'iron',              // 9
+    'copper',            // 10
+    'gold',              // 11
+    'redstone',          // 12
+    'emerald',           // 13
+    'lapis',             // 14
+    'diamond',           // 15
+    'deepslate',         // 16
+    'bedrock',           // 17
+    'deepslatecoal',     // 18
+    'deepslateiron',     // 19
+    'deepslatecopper',   // 20
+    'deepslategold',     // 21
+    'deepslateredstone', // 22
+    'deepslateemerald',  // 23
+    'deepslatelapis',    // 24
+    'deepslatediamond',  // 25
+    'oaklog',               // 26
+    'oakleaves'               // 27
+];
 
 function getBiome(temp, moist, depth) {
     let closestBiome = BIOME_REGISTRY[0];
@@ -248,26 +301,32 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
     const trunkH = 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
     const treeMatrix = new THREE.Matrix4();
     
+    // TRUNK
     for (let i = 0; i < trunkH; i++) {
-        if (brokenBlocks.has(`${x},${y + i},${z}`)) continue;
-        treeMatrix.setPosition(x, y + i, z);
-        chunkMeshes.log.setMatrixAt(indices.log++, treeMatrix);
+        let actualY = y + i;
+        if (brokenBlocks.has(`${x},${actualY},${z}`)) continue;
+        treeMatrix.setPosition(x, actualY, z);
+        // Changed .log to .oaklog
+        chunkMeshes.oaklog.setMatrixAt(indices.oaklog++, treeMatrix);
     }
-    for (let ly = trunkH - 2; ly <= trunkH + 1; ly++) {
-        let radius = (ly > trunkH - 1) ? 1 : 2; 
+
+    // LEAVES
+    for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
+        let radius = (ly > y + trunkH - 1) ? 1 : 2; 
         for (let lx = -radius; lx <= radius; lx++) {
             for (let lz = -radius; lz <= radius; lz++) {
                 if (Math.abs(lx) === radius && Math.abs(lz) === radius) {
-                    let trimChance = (ly === trunkH + 1) ? 1.0 : (ly === trunkH) ? 0.75 : 0.2;
-                    if (getDeterministicRandom(x + lx, y + ly, z + lz) < trimChance) continue;
+                    let trimChance = (ly === y + trunkH + 1) ? 1.0 : (ly === y + trunkH) ? 0.75 : 0.2;
+                    if (getDeterministicRandom(x + lx, ly, z + lz) < trimChance) continue;
                 }
-                if (lx === 0 && lz === 0 && ly < trunkH) continue;
+                if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
                 
-                const bX = x + lx; const bY = y + ly; const bZ = z + lz;
+                const bX = x + lx; const bY = ly; const bZ = z + lz;
                 if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
 
                 treeMatrix.setPosition(bX, bY, bZ);
-                chunkMeshes.leaf.setMatrixAt(indices.leaf++, treeMatrix);
+                // Changed .leaf to .oakleaves
+                chunkMeshes.oakleaves.setMatrixAt(indices.oakleaves++, treeMatrix);
             }
         }
     }
@@ -308,146 +367,131 @@ function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    // Max visible blocks kept low for performance
-    const maxVisibleBlocks = 15000; 
-    
+    // Adjusted for taller world
+    const maxVisibleBlocks = 25000; 
     const meshes = {};
     for (const [key, mat] of Object.entries(materials)) {
-        meshes[key] = new THREE.InstancedMesh(geometry, mat, key === 'leaf' || key === 'log' ? 1000 : maxVisibleBlocks);
+        meshes[key] = new THREE.InstancedMesh(geometry, mat, (key === 'oakleaves' || key === 'oaklog') ? 2000 : maxVisibleBlocks);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
-        meshes[key].frustumCulled = true; 
+        meshes[key].frustumCulled = true;
     }
 
     const indices = {};
     for (const key of Object.keys(meshes)) indices[key] = 0;
 
-    // 1D Array to map 3D Space (16 * 16 * 128 = 32768)
-    const blocks = new Uint8Array(32768);
-    const getIdx = (x, y, z) => x + z * 16 + y * 256;
+    const blocks = new Uint8Array(16 * 16 * worldHeight);
+    const getIdx = (x, y, z) => x + z * 16 + y * 256; // 'y' here is 0-383
     const treesToSpawn = [];
-    
-    // PASS 1: Math & Data Generation (Inside generateChunk)
+
+    // PASS 1: Logic & Data
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
-            let globalX = startX + x; let globalZ = startZ + z;
-        
-        // Use smooth FBM for biomes
+            let globalX = startX + x;
+            let globalZ = startZ + z;
+
             let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 800);
             let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 800);
-        
             let blendedScale = getInterpolatedHeightScale(globalX, globalZ);
-        
-        // Use 4-octave FBM for base elevation to get natural ridges and valleys
             let rawElevation = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 4, 300);
-            let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 64;
-            baseHeight = Math.floor(baseHeight / 5) * 5 + (baseHeight % 5) * 0.4;
-
-            let isAbsoluteTop = true;
-            let subBlockDepth = 0;
-
-            for (let y = 127; y >= 0; y--) {
-            // --- MINECRAFT 3D DENSITY ---
-            let cliffNoise = noise.perlin3(globalX / 50, y / 40, globalZ / 50) * 18; 
-
-            // Small noise breaks up straight lines and makes the surface look organic
-            let detailNoise = noise.perlin3(globalX / 15, y / 15, globalZ / 15) * 5;
-
-            // The deeper you go, the more solid it is. Near the surface, 3D noise takes over.
-            let depthSolidifier = Math.max(0, (60 - y) * 0.5); 
-
-            let density = (baseHeight - y) + cliffNoise + detailNoise + depthSolidifier;
             
-                if (density > 0) { 
-                // --- IMPROVED CAVE LOGIC ---
-                // Calculate a depth factor (0.0 at surface, 1.0 at bedrock)
-                    let depthFactor = Math.max(0, Math.min(1, (70 - y) / 70));
-                
-                // Spaghetti Caves (Winding Tunnels) - wider at the bottom
-                    let n1 = fbm3(globalX, y, globalZ, 2, 35);
-                    let n2 = fbm3(globalX + 1000, y + 1000, globalZ + 1000, 2, 35);
-                    let tunnelThickness = 0.002 + (depthFactor * 0.006);
-                    let isTunnel = (n1 * n1 + n2 * n2) < tunnelThickness; 
-                
-                // Cheese Caves (Large Chambers) - more common at the bottom
-                    let chamberNoise = fbm3(globalX, y, globalZ, 2, 50); 
-                    let chamberThreshold = 0.65 - (depthFactor * 0.3); // Drops to 0.35 deep down
-                    let isChamber = chamberNoise > chamberThreshold; 
-                
-                    if (isTunnel || isChamber) {
-                        isAbsoluteTop = false; 
-                        continue;
+            // Map surface height to the new world scale
+            let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 62;
+
+            for (let y = 0; y < worldHeight; y++) {
+                let actualY = y + minworldY; // -64 to 320
+                let blockIdx = getIdx(x, y, z);
+
+                // 1. Density Calculation
+                let cliffNoise = noise.perlin3(globalX / 50, actualY / 40, globalZ / 50) * 18;
+                let detailNoise = noise.perlin3(globalX / 15, actualY / 15, globalZ / 15) * 5;
+                let density = (baseHeight - actualY) + cliffNoise + detailNoise;
+
+                if (density > 0) {
+                    // 2. Bedrock
+                    if (actualY <= minworldY + 4) {
+                        let bedrockChance = ((minworldY + 5) - actualY) / 5;
+                        if (getDeterministicRandom(globalX, actualY, globalZ) < bedrockChance) {
+                            blocks[blockIdx] = TYPE.bedrock;
+                            continue;
+                        }
                     }
 
-                    if (brokenBlocks.has(`${globalX},${y},${globalZ}`)) {
-                        isAbsoluteTop = false; 
+                    // 3. Base Rock & Caves
+                    let stoneType = 'stone';
+                    let transitionNoise = noise.perlin2(globalX / 16, globalZ / 16) * 4;
+                    if (actualY < 8 + transitionNoise) stoneType = 'deepslate';
+
+                    let n1 = fbm3(globalX, actualY, globalZ, 2, 35);
+                    let n2 = fbm3(globalX + 1000, actualY + 1000, globalZ + 1000, 2, 35);
+                    let isCave = (n1 * n1 + n2 * n2) < 0.005;
+
+                    if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) {
                         continue; 
                     }
 
-                // --- MINECRAFT LAYER LOGIC ---
-                    let blockType;
-                    const localBiome = getBiome(tempMap, moistMap, 0);
+                    // 4. Ore Pass
+                    let blockType = stoneType;
+                    let foundOre = false;
 
-                    if (isAbsoluteTop) {
-                        // Natural snowy mountain peaks
-                        let snowLine = 95 + (fbm2(globalX, globalZ, 2, 50) * 10);
-                        blockType = y > snowLine ? 'snow' : localBiome.topBlock;
-                    
-                        isAbsoluteTop = false; 
-                        subBlockDepth = 0;
-                    
-                        if (blockType !== 'snow' && localBiome.treeChance > 0 && getDeterministicRandom(globalX, y, globalZ) < localBiome.treeChance) {
-                        treesToSpawn.push({ x, y, z });
-                        }
-                    } else if (subBlockDepth < 3) {
-                        blockType = localBiome.subBlock;
-                        subBlockDepth++;
-                    } else {
-                        let baseDeepBlock = subBlockDepth < 6 && localBiome.name === "Desert" ? 'sandstone' : 'stone';
-                        subBlockDepth++;
+                    for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
+                        if (foundOre) break;
+                        for (const conf of rules) {
+                            if (actualY >= conf.min && actualY <= conf.max) {
+                                let distFromPeak = Math.abs(actualY - conf.peak);
+                                let totalRange = (actualY > conf.peak) ? (conf.max - conf.peak) : (conf.peak - conf.min);
+                                let densityFactor = 1.0 - (distFromPeak / (totalRange || 1));
+                                let finalThreshold = conf.threshold + (1.0 - densityFactor) * 0.15;
+                                let veinNoise = noise.perlin3(globalX * 0.2, actualY * 0.2, globalZ * 0.2);
 
-                        if (baseDeepBlock === 'stone') {
-                            // Ores spawn slightly more frequently deeper down
-                            let oreNoise = noise.perlin3(globalX * 0.15, y * 0.15, globalZ * 0.15);
-                            blockType = oreNoise > (0.75 - depthFactor*0.1) ? 'coal' : oreNoise < (-0.75 + depthFactor*0.1) ? 'iron' : 'stone';
-                        } else {
-                            blockType = baseDeepBlock;
+                                if (veinNoise > finalThreshold) {
+                                    if (isCave && conf.reduceAir && getDeterministicRandom(globalX+7, actualY, globalZ+7) > 0.3) continue;
+                                    
+                                    // Biome check for Emerald/Mountain Iron
+                                    if (oreName === 'emerald' || (oreName === 'iron' && conf.peak > 100)) {
+                                        if (getBiome(tempMap, moistMap, 0).name !== "Mountains") continue;
+                                    }
+
+                                    let blockKey = (stoneType === 'deepslate') ? `deepslate${oreName}` : oreName;
+                                    blockType = blockKey;
+                                    foundOre = true;
+                                    break;
+                                }
+                            }
                         }
                     }
-                    blocks[getIdx(x, y, z)] = TYPE[blockType];
-                } else {
-                    isAbsoluteTop = true;
+
+                    // 5. Surface Layer (Topsoil)
+                    // We only apply topsoil if the block above is empty/air
+                    // (Simplified for performance)
+                    if (actualY > baseHeight - 1 && blockType === 'stone') {
+                        const localBiome = getBiome(tempMap, moistMap, 0);
+                        blockType = actualY > 100 ? 'snow' : localBiome.topBlock;
+                        if (localBiome.treeChance > 0 && getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
+                             treesToSpawn.push({ x, y, z, actualY });
+                        }
+                    }
+
+                    blocks[blockIdx] = TYPE[blockType] || TYPE.stone;
                 }
             }
         }
     }
 
-    // PASS 2: Mesh Population (Hidden Face Culling)
+    // PASS 2: Mesh Generation with Culling
     const matrix = new THREE.Matrix4();
-    const overlayMatrix = new THREE.Matrix4();
-
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
-            for (let y = 0; y < 128; y++) {
+            for (let y = 0; y < worldHeight; y++) {
                 let typeId = blocks[getIdx(x, y, z)];
                 if (typeId === 0) continue;
 
-                // Replace the 'visible = false;' logic in Pass 2 with this:
-
+                // Hidden face culling
                 let visible = false;
-
-// If we are at the absolute edge of the chunk, only render if we are near the surface or caves
-                if (x === 0 || x === 15 || z === 0 || z === 15) {
-    // Only force render if it's high enough, preventing massive underground walls from rendering
-                    if (y > 40) visible = true; 
-                } 
-                if (y === 0 || y === 127) {
-                    visible = true; 
-                } 
-
-                // Normal neighbor culling for everything else
-                if (!visible) {
-                    if (blocks[getIdx(x-1, y, z)] === 0 || blocks[getIdx(x+1, y, z)] === 0 || 
+                if (x === 0 || x === 15 || z === 0 || z === 15 || y === 0 || y === worldHeight - 1) {
+                    visible = true;
+                } else {
+                    if (blocks[getIdx(x-1, y, z)] === 0 || blocks[getIdx(x+1, y, z)] === 0 ||
                         blocks[getIdx(x, y-1, z)] === 0 || blocks[getIdx(x, y+1, z)] === 0 ||
                         blocks[getIdx(x, y, z-1)] === 0 || blocks[getIdx(x, y, z+1)] === 0) {
                         visible = true;
@@ -456,16 +500,9 @@ function generateChunk(chunkX, chunkZ) {
 
                 if (visible) {
                     let bName = REVERSE_TYPE[typeId];
-                    if (indices[bName] >= meshes[bName].count) continue; 
-
-                    let gX = startX + x; let gZ = startZ + z;
-                    matrix.setPosition(gX, y, gZ);
-                    meshes[bName].setMatrixAt(indices[bName]++, matrix);
-                    
-                    if (bName === 'grass' && blocks[getIdx(x, Math.min(127, y+1), z)] === 0 && indices.overlay < meshes.overlay.count) {
-                        overlayMatrix.makeScale(1.002, 1.002, 1.002);
-                        overlayMatrix.setPosition(gX, y, gZ);
-                        meshes.overlay.setMatrixAt(indices.overlay++, overlayMatrix);
+                    if (meshes[bName] && indices[bName] < meshes[bName].count) {
+                        matrix.setPosition(startX + x, y + minworldY, startZ + z);
+                        meshes[bName].setMatrixAt(indices[bName]++, matrix);
                     }
                 }
             }
@@ -473,14 +510,14 @@ function generateChunk(chunkX, chunkZ) {
     }
 
     // Pass 3: Trees
-    for (let t of treesToSpawn) spawnTree(startX + t.x, t.y + 1, startZ + t.z, meshes, indices);
+    for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices);
 
-    // Finalize meshes
-    for (const [key, mesh] of Object.entries(meshes)) {
-        mesh.count = indices[key];
-        mesh.instanceMatrix.needsUpdate = true;
-        scene.add(mesh);
-        if (mesh.count > 0) interactableMeshes.push(mesh);
+    // Finalize
+    for (const key in meshes) {
+        meshes[key].count = indices[key];
+        meshes[key].instanceMatrix.needsUpdate = true;
+        scene.add(meshes[key]);
+        if (meshes[key].count > 0) interactableMeshes.push(meshes[key]);
     }
     activeChunks[chunkId] = meshes;
 }
@@ -548,16 +585,24 @@ const raycaster = new THREE.Raycaster(); raycaster.far = 6;
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
 
 function getTarget() {
+    // 1. Point ray at the center of the screen
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    
+    // 2. Optimization: Find which chunk the player is in
     const pX = Math.floor(camera.position.x / chunkSize);
     const pZ = Math.floor(camera.position.z / chunkSize);
     
-    const near = interactableMeshes.filter(m => {
+    // 3. Only intersect meshes from the chunk the player is standing in 
+    //    and the 8 chunks surrounding them.
+    const nearbyMeshes = interactableMeshes.filter(m => {
         if (!m.chunkId) return false;
         const [cx, cz] = m.chunkId.split(',').map(Number);
         return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
     });
-    const hit = raycaster.intersectObjects(near);
+
+    // 4. Run the intersection only on those nearby meshes
+    const hit = raycaster.intersectObjects(nearbyMeshes);
+    
     return hit.length > 0 ? hit[0] : null;
 }
 
