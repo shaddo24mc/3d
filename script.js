@@ -32,20 +32,20 @@ const BLOCK_HARDNESS = {
     bedrock: 999999999
 };
 
-// BALANCED ORE CONFIGURATION
-// Higher threshold = Rarer. Lower threshold = More common.
+// MINECRAFT-LIKE ORE CONFIGURATION
+// Higher threshold = Rarer. Scale makes veins smaller.
 const ORE_CONFIG = {
-    diamond: [{ min: -64, max: 16,  peak: -54, threshold: 0.55, reduceAir: true }],
-    lapis:   [{ min: -64, max: 64,  peak: 0,   threshold: 0.50, reduceAir: true }],
-    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.48, reduceAir: true }],
-    emerald: [{ min: 32,  max: 320, peak: 128, threshold: 0.50, reduceAir: false }],
-    redstone:[{ min: -64, max: 15,  peak: -32, threshold: 0.45, reduceAir: true }],
-    copper:  [{ min: -16, max: 112, peak: 48,  threshold: 0.42, reduceAir: false }],
+    emerald: [{ min: 32,  max: 320, threshold: 0.88 }], // Extremely rare (usually single blocks)
+    diamond: [{ min: -64, max: 16,  threshold: 0.82 }], // Very rare (small veins)
+    lapis:   [{ min: -64, max: 64,  threshold: 0.78 }], 
+    gold:    [{ min: -64, max: 32,  threshold: 0.78 }],
+    redstone:[{ min: -64, max: 15,  threshold: 0.75 }],
+    copper:  [{ min: -16, max: 112, threshold: 0.70 }], // Uncommon
     iron:    [
-        { min: -64, max: 80,  peak: 16,  threshold: 0.44, reduceAir: false }, // Increased threshold to reduce spam
-        { min: 64,  max: 320, peak: 128, threshold: 0.44, reduceAir: false } 
+        { min: -64, max: 80,  threshold: 0.65 }, // Common
+        { min: 64,  max: 320, threshold: 0.65 } 
     ],
-    coal:    [{ min: -64, max: 128, peak: 95,  threshold: 0.42, reduceAir: false }], // Increased threshold to reduce spam
+    coal:    [{ min: -64, max: 128, threshold: 0.60 }], // Very common
 };
 
 const loader = new THREE.TextureLoader();
@@ -183,12 +183,13 @@ scene.add(destroyMesh);
 // ----------------------------------------------------
 // 2. BIOME REGISTRY (Vanilla Minecraft Tweaks)
 // ----------------------------------------------------
+// Fixed temp/moist ranges so the generated noise values can actually reach them!
 const BIOME_REGISTRY = [
-    { name: "Forest", temp: 0.2, moist: 0.6, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20 },
-    { name: "Plains", temp: 0.1, moist: -0.2, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8 },
-    { name: "Desert", temp: 0.8, moist: -0.8, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 12 },
-    { name: "Snowy Tundra", temp: -0.8, moist: 0.2, depth: 0.0, topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15 },
-    { name: "Mountains", temp: 0.5, moist: 0.5, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0.0, heightScale: 55 }
+    { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20 },
+    { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8 },
+    { name: "Desert", temp: 0.35, moist: -0.35, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 12 },
+    { name: "Snowy Tundra", temp: -0.35, moist: 0.1, depth: 0.0, topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15 },
+    { name: "Mountains", temp: 0.3, moist: 0.3, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0.0, heightScale: 55 }
 ];
 
 // ----------------------------------------------------
@@ -501,16 +502,16 @@ function generateChunk(chunkX, chunkZ) {
                     let blockType = stoneType;
                     let foundOre = false;
                     
-                    // MODIFIED ORE LOGIC: Checking rarest ores first in the loop
+                    // MINECRAFT-LIKE ORE LOGIC: Rarest first, smaller veins
                     for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
                         if (foundOre) break;
                         for (const conf of rules) {
                             if (actualY >= conf.min && actualY <= conf.max) {
-                                // Added slight offsets to noise for each ore type so they don't overlap perfectly
-                                let offset = (oreName.length * 10);
-                                let veinNoise = noise.perlin3((globalX + offset) * 0.2, (actualY + offset) * 0.2, (globalZ + offset) * 0.2);
+                                // Larger offset to completely separate ore maps
+                                let offset = (oreName.length * 100); 
+                                // Increased scale to 0.35 to make the veins very small (1-4 blocks)
+                                let veinNoise = noise.perlin3((globalX + offset) * 0.35, (actualY + offset) * 0.35, (globalZ + offset) * 0.35);
                                 
-                                // Simplified threshold check (Removed the "peak" distance penalty to allow more spawning)
                                 if (veinNoise > conf.threshold) {
                                     blockType = (stoneType === 'deepslate') ? `deepslate${oreName}` : oreName;
                                     foundOre = true; break;
