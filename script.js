@@ -929,7 +929,12 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         scene.add(meshes[key]);
-        if (meshes[key].count > 0) interactableMeshes.push(meshes[key]);
+        
+        // FIX 1: Push ALL meshes (except the decorative grass overlay) to interactableMeshes, 
+        // even if count is 0. This prevents "ghost blocks" when you place a new block type!
+        if (key !== 'overlay') {
+            interactableMeshes.push(meshes[key]);
+        }
     }
     
     activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
@@ -1073,9 +1078,9 @@ const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
 function spawnDroppedItem(x, y, z, blockName) {
     if (!materials[blockName]) return; 
     
-    // Extract a display material for the small item cube
+    // FIX 2: Pass the entire material array directly to the mesh. 
+    // This allows logs, grass, and sandstone to keep their top/bottom textures!
     let mat = materials[blockName];
-    if (Array.isArray(mat)) mat = mat[0]; // Just use the side texture
 
     const mesh = new THREE.Mesh(itemGeometry, mat);
     mesh.position.set(x, y, z);
