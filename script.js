@@ -32,18 +32,18 @@ const BLOCK_HARDNESS = {
     bedrock: 999999999
 };
 const ORE_CONFIG = {
-    coal:    [{ min: 0,   max: 128, peak: 95,  threshold: 0.58, reduceAir: false }],
+    coal:    [{ min: 0,   max: 128, peak: 95,  threshold: 0.45, reduceAir: false }],
     // Iron: One peaks at Y=16 (underground), one peaks at Y=128+ (mountains)
     iron:    [
-        { min: -16, max: 80,  peak: 16,  threshold: 0.62, reduceAir: false },
-        { min: 64,  max: 128, peak: 128, threshold: 0.55, reduceAir: false } 
+        { min: -64, max: 80,  peak: 16,  threshold: 0.50, reduceAir: false },
+        { min: 64,  max: 320, peak: 128, threshold: 0.48, reduceAir: false } 
     ],
-    copper:  [{ min: 0,   max: 96,  peak: 48,  threshold: 0.60, reduceAir: false }],
-    gold:    [{ min: 0,   max: 32,  peak: 5,   threshold: 0.78, reduceAir: true }],
-    redstone:[{ min: 0,   max: 15,  peak: 0,   threshold: 0.80, reduceAir: true }],
-    lapis:   [{ min: 0,   max: 64,  peak: 0,   threshold: 0.82, reduceAir: true }],
-    diamond: [{ min: 0,   max: 16,  peak: 0,   threshold: 0.82, reduceAir: true }],
-    emerald: [{ min: 64,  max: 128, peak: 128, threshold: 0.85, reduceAir: false }]
+    copper:  [{ min: -16, max: 112, peak: 48,  threshold: 0.52, reduceAir: false }],
+    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.58, reduceAir: true }],
+    redstone:[{ min: -64, max: 15,  peak: -32, threshold: 0.58, reduceAir: true }],
+    lapis:   [{ min: -64, max: 64,  peak: 0,   threshold: 0.60, reduceAir: true }],
+    diamond: [{ min: -64, max: 16,  peak: -54, threshold: 0.62, reduceAir: true }],
+    emerald: [{ min: 32,  max: 320, peak: 128, threshold: 0.65, reduceAir: false }]
 };
 const loader = new THREE.TextureLoader();
 const loadTex = (url) => {
@@ -64,7 +64,6 @@ const logSide = loadTex('./textures/oak_log.png');
 const logTop = loadTex('./textures/oak_log_top.png');
 const leaves = loadTex('./textures/oak_leaves.png');
 
-
 const coalore = loadTex('./textures/coal_ore.png');
 const ironore = loadTex('./textures/iron_ore.png');
 const copperore = loadTex('./textures/copper_ore.png');
@@ -84,17 +83,6 @@ const deepslateemeraldore = loadTex('./textures/deepslate_emerald_ore.png');
 const deepslatelapisore = loadTex('./textures/deepslate_lapis_ore.png');
 const deepslatediamondore = loadTex('./textures/deepslate_diamond_ore.png');
 const bedrock = loadTex('./textures/bedrock.png');
-
-
-
-
-
-
-
-
-
-
-
 
 const sand = loadTex('./textures/sand.png'); 
 const snow = loadTex('./textures/snow.png');
@@ -145,8 +133,6 @@ const materials = {
     ],
     snow: new THREE.MeshStandardMaterial({ map: snow}), 
 
-
-    
     coal: new THREE.MeshStandardMaterial({ map: coalore }),
     iron: new THREE.MeshStandardMaterial({ map: ironore }),
     copper: new THREE.MeshStandardMaterial({ map: copperore }),
@@ -306,7 +292,6 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
         let actualY = y + i;
         if (brokenBlocks.has(`${x},${actualY},${z}`)) continue;
         treeMatrix.setPosition(x, actualY, z);
-        // Changed .log to .oaklog
         chunkMeshes.oaklog.setMatrixAt(indices.oaklog++, treeMatrix);
     }
 
@@ -325,7 +310,6 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
                 if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
 
                 treeMatrix.setPosition(bX, bY, bZ);
-                // Changed .leaf to .oakleaves
                 chunkMeshes.oakleaves.setMatrixAt(indices.oakleaves++, treeMatrix);
             }
         }
@@ -434,7 +418,7 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
-                    // SURFACE LOGIC (The Fix)
+                    // SURFACE LOGIC 
                     let actualYAbove = actualY + 1;
                     let densityAbove = (baseHeight - actualYAbove) + 
                                        (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
@@ -443,8 +427,13 @@ function generateChunk(chunkX, chunkZ) {
                     if (densityAbove <= 0) { // TRUE TOP BLOCK
                         const localBiome = getBiome(tempMap, moistMap, 0);
                         blockType = actualY > 100 ? 'snow' : localBiome.topBlock;
-                        if (localBiome.treeChance > 0 && getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
-                             treesToSpawn.push({ x, y, z, actualY });
+                        
+                        // FIX: Ensure we are actually near surface to spawn trees, not in caves
+                        const isNearSurface = actualY >= baseHeight - 10;
+                        if (isNearSurface && blockType !== 'snow' && localBiome.treeChance > 0) {
+                            if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
+                                 treesToSpawn.push({ x, y, z, actualY });
+                            }
                         }
                     } else if (densityAbove < 3) { // DIRT CRUST
                         blockType = getBiome(tempMap, moistMap, 0).subBlock;
@@ -497,49 +486,14 @@ function generateChunk(chunkX, chunkZ) {
         scene.add(meshes[key]);
         if (meshes[key].count > 0) interactableMeshes.push(meshes[key]);
     }
+    
+    // FIX: Save blocks and trees for future unculling
     activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
 }
 
 // ----------------------------------------------------
-// 5. Light & Engine Core
+// 4.5. Chunk Rebuilding (Unculling)
 // ----------------------------------------------------
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
-scene.add(hemiLight);
-const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
-sunLight.position.set(50, 100, 20); 
-scene.add(sunLight);
-
-let lastPlayerChunkX = -999; let lastPlayerChunkZ = -999;
-
-function updateChunks() {
-    const pX = Math.floor(camera.position.x / chunkSize);
-    const pZ = Math.floor(camera.position.z / chunkSize);
-
-    if (pX === lastPlayerChunkX && pZ === lastPlayerChunkZ) return;
-    lastPlayerChunkX = pX; lastPlayerChunkZ = pZ;
-
-    const chunksToKeep = new Set();
-    for (let x = pX - renderDistance; x <= pX + renderDistance; x++) {
-        for (let z = pZ - renderDistance; z <= pZ + renderDistance; z++) {
-            const id = `${x},${z}`;
-            chunksToKeep.add(id);
-            if (!activeChunks[id] && !chunkQueue.includes(id)) chunkQueue.push(id);
-        }
-    }
-
-    for (const id in activeChunks) {
-        if (!chunksToKeep.has(id)) {
-            // CHANGE THIS LINE to point to .meshes
-            for (const mesh of Object.values(activeChunks[id].meshes)) {
-                scene.remove(mesh);
-                const i = interactableMeshes.indexOf(mesh);
-                if (i > -1) interactableMeshes.splice(i, 1);
-                mesh.dispose();
-            }
-            delete activeChunks[id];
-        }
-    }
-}
 function rebuildChunkGeometry(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     const chunkData = activeChunks[chunkId];
@@ -602,6 +556,48 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
         meshes[key].instanceMatrix.needsUpdate = true;
     }
 }
+
+// ----------------------------------------------------
+// 5. Light & Engine Core
+// ----------------------------------------------------
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+scene.add(hemiLight);
+const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+sunLight.position.set(50, 100, 20); 
+scene.add(sunLight);
+
+let lastPlayerChunkX = -999; let lastPlayerChunkZ = -999;
+
+function updateChunks() {
+    const pX = Math.floor(camera.position.x / chunkSize);
+    const pZ = Math.floor(camera.position.z / chunkSize);
+
+    if (pX === lastPlayerChunkX && pZ === lastPlayerChunkZ) return;
+    lastPlayerChunkX = pX; lastPlayerChunkZ = pZ;
+
+    const chunksToKeep = new Set();
+    for (let x = pX - renderDistance; x <= pX + renderDistance; x++) {
+        for (let z = pZ - renderDistance; z <= pZ + renderDistance; z++) {
+            const id = `${x},${z}`;
+            chunksToKeep.add(id);
+            if (!activeChunks[id] && !chunkQueue.includes(id)) chunkQueue.push(id);
+        }
+    }
+
+    for (const id in activeChunks) {
+        if (!chunksToKeep.has(id)) {
+            // FIX: Point to .meshes to avoid memory leaks
+            for (const mesh of Object.values(activeChunks[id].meshes)) {
+                scene.remove(mesh);
+                const i = interactableMeshes.indexOf(mesh);
+                if (i > -1) interactableMeshes.splice(i, 1);
+                mesh.dispose();
+            }
+            delete activeChunks[id];
+        }
+    }
+}
+
 // ----------------------------------------------------
 // 6. Player, Controls & Mining
 // ----------------------------------------------------
@@ -671,18 +667,19 @@ function updateMining() {
         const mat = new THREE.Matrix4(); mining.targetMesh.getMatrixAt(mining.targetId, mat);
         const p = new THREE.Vector3().setFromMatrixPosition(mat);
         
+        // Add to broken blocks
         brokenBlocks.add(`${Math.round(p.x)},${Math.round(p.y)},${Math.round(p.z)}`);
         
-        // Calculate which chunk the broken block is in
+        // FIX: Calculate chunk and rebuild to un-cull hidden neighbors
         const bX = Math.round(p.x);
         const bZ = Math.round(p.z);
         const cX = Math.floor(bX / chunkSize);
         const cZ = Math.floor(bZ / chunkSize);
 
-        // Rebuild that chunk to reveal neighbors
+        // Rebuild the main chunk
         rebuildChunkGeometry(cX, cZ);
 
-        // If you broke a block right on the edge of a chunk, update the neighbor chunk too!
+        // If block is on the edge of a chunk, update the neighbor chunk too
         const localX = bX - (cX * chunkSize);
         const localZ = bZ - (cZ * chunkSize);
         if (localX === 0) rebuildChunkGeometry(cX - 1, cZ);
@@ -731,6 +728,14 @@ function animate() {
     }
 
     updateMining();
+    doRandomTicks();
+
+    // Batch process all visual chunk updates at once
+    for (let chunkId of chunksToRebuild) {
+        let [cx, cz] = chunkId.split(',').map(Number);
+        rebuildChunkGeometry(cx, cz);
+    }
+    chunksToRebuild.clear();
     
     if (mining.active) {
         const t = Date.now() * 0.025; 
