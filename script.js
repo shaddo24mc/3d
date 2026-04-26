@@ -45,6 +45,7 @@ inventory[2] = { type: 'grass', count: 64 };
 inventory[3] = { type: 'oaklog', count: 64 };
 inventory[4] = { type: 'sprucelog', count: 64 };
 inventory[5] = { type: 'sand', count: 64 };
+inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
 let selectedSlot = 0;
 let heldItem = { type: null, count: 0 }; // For moving items around the inventory
@@ -56,9 +57,8 @@ function getItemImage(type) {
         grass: './textures/grass_block_side.png',
         oaklog: './textures/oak_log.png',
         sprucelog: './textures/spruce_log.png',
-        snow_grass: './textures/grass_block_snow.png'
-        // Just drop your other item pictures in the folder!
-        // By default, it assumes the image is named EXACTLY like the block (e.g., diamond.png)
+        snow_grass: './textures/grass_block_snow.png',
+        diamond_pickaxe: './textures/diamond_pickaxe.png'
     };
     return `url(${customTextures[type] || `./textures/${type}.png`})`;
 }
@@ -87,6 +87,7 @@ for (let i = 0; i < 9; i++) {
     slot.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
     slot.style.boxSizing = 'border-box';
     slot.style.position = 'relative';
+    slot.style.cursor = 'pointer';
     
     const countLabel = document.createElement('span');
     countLabel.style.position = 'absolute';
@@ -99,6 +100,14 @@ for (let i = 0; i < 9; i++) {
     countLabel.style.textShadow = '1px 1px 0 #000';
     slot.appendChild(countLabel);
     
+    // Allow clicking the HUD hotbar to select items
+    slot.addEventListener('mousedown', () => {
+        if (inventoryScreen.style.display === 'none') {
+            selectedSlot = i;
+            updateInventoryUI();
+        }
+    });
+
     hotbarContainer.appendChild(slot);
     hotbarSlotsUI.push({ div: slot, label: countLabel });
 }
@@ -313,6 +322,19 @@ const BLOCK_HARDNESS = {
     bedrock: 999999999
 };
 
+const BLOCK_DROPS = {
+    grass: 'dirt',       // Grass correctly drops dirt!
+    snow_grass: 'dirt',
+    oakleaves: null,     // Leaves drop nothing for now
+    spruceleaves: null
+};
+
+const BLOCK_TOOL_REQUIREMENT = {
+    stone: 'pickaxe', deepslate: 'pickaxe', sandstone: 'pickaxe',
+    coal: 'pickaxe', iron: 'pickaxe', copper: 'pickaxe', gold: 'pickaxe', redstone: 'pickaxe', emerald: 'pickaxe', lapis: 'pickaxe', diamond: 'pickaxe',
+    deepslatecoal: 'pickaxe', deepslateiron: 'pickaxe', deepslatecopper: 'pickaxe', deepslategold: 'pickaxe', deepslateredstone: 'pickaxe', deepslateemerald: 'pickaxe', deepslatelapis: 'pickaxe', deepslatediamond: 'pickaxe'
+};
+
 // MINECRAFT 1.18+ ORE CONFIGURATION
 const ORE_CONFIG = {
     emerald: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
@@ -333,7 +355,7 @@ const ORE_CONFIG = {
         { min: -64, max: -32, threshold: 0.58 }
     ],
     coal:    [
-        { min: 0,   max: 192, peak: 96, threshold: 0.50 }, // STOPS EXACTLY AT Y=0!
+        { min: 0,   max: 192, peak: 96, threshold: 0.50 },
         { min: 136, max: 320, threshold: 0.55 }
     ],
 };
@@ -464,7 +486,7 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: logSide }),
         new THREE.MeshStandardMaterial({ map: logSide })
     ],
-    spruceleaves: new THREE.MeshStandardMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), // Darker pine green
+    spruceleaves: new THREE.MeshStandardMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), 
     sprucelog: [
         new THREE.MeshStandardMaterial({ map: spruceLogSide }),
         new THREE.MeshStandardMaterial({ map: spruceLogSide }),
@@ -928,10 +950,9 @@ function generateChunk(chunkX, chunkZ) {
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
+        meshes[key].computeBoundingSphere(); // FIX: Allows Raycaster to correctly find newly placed blocks!
         scene.add(meshes[key]);
         
-        // FIX 1: Push ALL meshes (except the decorative grass overlay) to interactableMeshes, 
-        // even if count is 0. This prevents "ghost blocks" when you place a new block type!
         if (key !== 'overlay') {
             interactableMeshes.push(meshes[key]);
         }
@@ -1005,6 +1026,7 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
+        meshes[key].computeBoundingSphere(); // FIX: Raycaster update for physics after a chunk rebuilds
     }
 }
 
@@ -1060,7 +1082,7 @@ for (let y = 127; y >= 0; y--) {
 
 camera.position.set(spawnX, safeSpawnY + 2, spawnZ);
 
-// Custom hand reverted for easier viewing
+// Custom hand
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); handGeo.translate(0, 0.4, 0); 
 const playerHand = new THREE.Mesh(handGeo, new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 }));
 playerHand.position.set(0.4, -0.4, -0.1);
@@ -1068,6 +1090,8 @@ playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0);
 camera.add(playerHand); scene.add(camera);
 
 let yaw = 0, pitch = 0, keys = {};
+let isLeftMouseDown = false; // Decoupled mouse tracker to prevent mining freeze/loops
+
 const raycaster = new THREE.Raycaster(); raycaster.far = 6;
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
 
@@ -1077,9 +1101,6 @@ const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
 
 function spawnDroppedItem(x, y, z, blockName) {
     if (!materials[blockName]) return; 
-    
-    // FIX 2: Pass the entire material array directly to the mesh. 
-    // This allows logs, grass, and sandstone to keep their top/bottom textures!
     let mat = materials[blockName];
 
     const mesh = new THREE.Mesh(itemGeometry, mat);
@@ -1140,7 +1161,7 @@ function updateMining() {
     if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
         mining.active = false; 
         destroyMesh.visible = false;
-        if (hit) startMining(hit); 
+        // If we look at a new block while holding click, it'll seamlessly catch it next frame!
         return;
     }
 
@@ -1155,16 +1176,15 @@ function updateMining() {
         const mat = new THREE.Matrix4(); 
         mining.targetMesh.getMatrixAt(mining.targetId, mat);
         const p = new THREE.Vector3().setFromMatrixPosition(mat);
-        const blockName = mining.targetMesh.name; // Find out what block we broke
+        const blockName = mining.targetMesh.name; 
         
         setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
         
-        // --- Drop Logic & Tool Requirements ---
+        // --- Drop Logic ---
         const heldItemType = inventory[selectedSlot].type;
         const isHoldingPickaxe = heldItemType && heldItemType.includes('pickaxe');
         const requiresPickaxe = BLOCK_TOOL_REQUIREMENT[blockName] === 'pickaxe';
 
-        // Only spawn the item if it doesn't need a pickaxe, OR we are holding one!
         if (!requiresPickaxe || isHoldingPickaxe) {
             const dropName = BLOCK_DROPS[blockName] !== undefined ? BLOCK_DROPS[blockName] : blockName;
             if (dropName !== null) { 
@@ -1176,17 +1196,9 @@ function updateMining() {
             chunksToRebuild.add(mining.targetMesh.chunkId);
         }
 
-        const next = getTarget();
-        if (next) {
-            startMining(next); 
-            const nextMat = new THREE.Matrix4();
-            next.object.getMatrixAt(next.instanceId, nextMat);
-            destroyMesh.position.setFromMatrixPosition(nextMat);
-            destroyMesh.visible = true;
-        } else {
-            mining.active = false;
-            destroyMesh.visible = false;
-        }
+        // FIX: Cleanly end the mining sequence so it doesn't get stuck in a CPU loop finding the next block
+        mining.active = false;
+        destroyMesh.visible = false;
     }
 }
 
@@ -1200,14 +1212,13 @@ document.addEventListener('mousedown', (e) => {
     if (!document.pointerLockElement && inventoryScreen.style.display === 'none') {
         renderer.domElement.requestPointerLock();
     } else if (document.pointerLockElement) {
-        const hit = getTarget(); 
-        if (!hit) return;
-        
-        if (e.button === 0) { 
-            // Left Click = Mine
-            startMining(hit); 
+        if (e.button === 0) {
+            isLeftMouseDown = true; // Decoupled trigger to fix game-freeze bugs
         } else if (e.button === 2) { 
             // Right Click = Place Block
+            const hit = getTarget(); 
+            if (!hit) return;
+            
             const mat = new THREE.Matrix4(); 
             hit.object.getMatrixAt(hit.instanceId, mat);
             const p = new THREE.Vector3().setFromMatrixPosition(mat);
@@ -1217,7 +1228,6 @@ document.addEventListener('mousedown', (e) => {
             const placeY = Math.round(p.y + hit.face.normal.y);
             const placeZ = Math.round(p.z + hit.face.normal.z);
             
-            // If the space is empty (0 means air), place the currently selected hotbar block
             if (getGlobalBlock(placeX, placeY, placeZ) === 0) {
                 const selectedItem = inventory[selectedSlot];
                 
@@ -1237,7 +1247,13 @@ document.addEventListener('mousedown', (e) => {
     }
 });
 
-document.addEventListener('mouseup', () => mining.active = false);
+document.addEventListener('mouseup', (e) => {
+    if (e.button === 0) {
+        isLeftMouseDown = false;
+        mining.active = false;
+        destroyMesh.visible = false;
+    }
+});
 
 document.addEventListener('mousemove', (e) => {
     if (document.pointerLockElement) {
@@ -1262,7 +1278,7 @@ window.addEventListener('keydown', (e) => {
             inventoryScreen.style.display = 'none';
             crosshair.style.display = 'block';
             
-            // If we closed the inventory while dragging an item, toss it back into the inventory!
+            // Toss dragging item back into inventory if closed
             if (heldItem.type) {
                 addItemToInventory(heldItem.type, heldItem.count);
                 heldItem = { type: null, count: 0 };
@@ -1272,7 +1288,7 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
-    // Select hotbar slots with 1-9 number keys (Only if inventory is closed)
+    // Select hotbar slots with 1-9 number keys
     if (e.key >= '1' && e.key <= '9' && inventoryScreen.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
         updateInventoryUI();
@@ -1290,20 +1306,6 @@ window.addEventListener('wheel', (e) => {
             selectedSlot = (selectedSlot - 1 + 9) % 9;
         }
         updateInventoryUI();
-    }
-});
-
-window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
-
-// Cycle hotbar with mouse scroll wheel
-window.addEventListener('wheel', (e) => {
-    if (document.pointerLockElement) {
-        if (e.deltaY > 0) {
-            selectedSlot = (selectedSlot + 1) % 9;
-        } else {
-            selectedSlot = (selectedSlot - 1 + 9) % 9;
-        }
-        updateHotbar();
     }
 });
 
@@ -1327,6 +1329,12 @@ function animate() {
         generateChunk(cx, cz);
     }
 
+    // Safely trigger mining on the main loop so it doesn't cause recursive freezing!
+    if (isLeftMouseDown && !mining.active && document.pointerLockElement && inventoryScreen.style.display === 'none') {
+        const hit = getTarget();
+        if (hit) startMining(hit);
+    }
+
     updateMining();
     doRandomTicks();
 
@@ -1341,37 +1349,31 @@ function animate() {
         let item = droppedItems[i];
         item.lifeTime += delta;
         
-        // Physics & Gravity
         item.velocity.y -= 15 * delta; 
         item.mesh.position.addScaledVector(item.velocity, delta);
         
-        // Floor Collision
         let bX = Math.round(item.mesh.position.x);
         let bY = Math.floor(item.mesh.position.y - 0.125);
         let bZ = Math.round(item.mesh.position.z);
         
         let blockBelow = getGlobalBlock(bX, bY, bZ);
         if (blockBelow !== 0 && blockBelow !== null) {
-            item.mesh.position.y = bY + 0.625; // Sit directly on top of the block
-            item.velocity.x *= 0.5; // Friction
+            item.mesh.position.y = bY + 0.625; 
+            item.velocity.x *= 0.5; 
             item.velocity.z *= 0.5;
             item.velocity.y = 0; 
         }
 
-        // Spin and bob up and down
         item.mesh.rotation.y += delta * 2;
         if (item.velocity.y === 0) {
             item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
         }
         
-        // Player Pickup (Collect if close enough)
         const dist = camera.position.distanceTo(item.mesh.position);
         if (dist < 1.5) {
             scene.remove(item.mesh);
             item.mesh.geometry.dispose();
             droppedItems.splice(i, 1);
-            
-            // Add to our new inventory system!
             addItemToInventory(item.blockName, 1);
         }
     }
