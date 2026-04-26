@@ -378,7 +378,7 @@ function getDeterministicRandom(x, y, z) {
 function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
     // Spruce trees generate slightly taller!
     const trunkH = treeType === 'spruce' 
-        ? 5 + Math.floor(getDeterministicRandom(x, y, z) * 3) 
+        ? 6 + Math.floor(getDeterministicRandom(x, y, z) * 4) 
         : 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
         
     const treeMatrix = new THREE.Matrix4();
@@ -395,21 +395,18 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
 
     // LEAVES
     if (treeType === 'spruce') {
-        // --- CUSTOM SPRUCE TREE SHAPE (Layered pine cone) ---
-        let leafStart = y + 2; 
-        let topY = y + trunkH + 1;
-        let radius = 2; // Start wide
+        // --- CUSTOM SPRUCE TREE SHAPE (Iconic layered pine cone) ---
+        let leafStart = y + 2 + Math.floor(getDeterministicRandom(x, y, z) * 2); 
+        let radius = 1;
         
-        for (let ly = leafStart; ly <= topY; ly++) {
-            // Narrow the radius at the very top of the tree
-            let currentRadius = (ly === topY) ? 0 : (ly === topY - 1) ? 1 : radius;
+        for (let ly = y + trunkH + 1; ly >= leafStart; ly--) {
+            let cr = (ly === y + trunkH + 1) ? 0 : (ly === y + trunkH) ? 1 : radius;
             
-            for (let lx = -currentRadius; lx <= currentRadius; lx++) {
-                for (let lz = -currentRadius; lz <= currentRadius; lz++) {
-                    // Trim corners randomly for a more circular/jagged spruce look
-                    if (Math.abs(lx) === currentRadius && Math.abs(lz) === currentRadius && currentRadius > 0) {
-                        if (getDeterministicRandom(x + lx, ly, z + lz) < 0.5) continue;
-                    }
+            for (let lx = -cr; lx <= cr; lx++) {
+                for (let lz = -cr; lz <= cr; lz++) {
+                    // Cut the exact corners on radius=2 layers to make them perfect 5x5 diamonds
+                    if (Math.abs(lx) === cr && Math.abs(lz) === cr && cr === 2) continue;
+                    
                     // Skip the center block where the trunk goes
                     if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
                     
@@ -420,8 +417,10 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
                 }
             }
-            // Alternate radius between layers (e.g. 2, 1, 2, 1) for that classic pine look
-            radius = radius === 2 ? 1 : 2;
+            // Alternate radius for that classic pine cone look (1, 2, 1, 2)
+            if (ly <= y + trunkH) {
+                radius = radius === 1 ? 2 : 1;
+            }
         }
     } else {
         // --- STANDARD OAK TREE SHAPE ---
@@ -543,41 +542,47 @@ function generateChunk(chunkX, chunkZ) {
 
                     if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
 
-                    let blockType = stoneType;
-                    let foundOre = false;
-                    let oreIndex = 0; 
-                    
-                    for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
-                        if (foundOre) break;
-                        oreIndex++; 
+                    // Determine the base terrain block type BEFORE checking for ores
+                    let baseBlockType = stoneType;
+                    if (densityAbove <= 0) { 
+                        baseBlockType = actualY > 100 ? 'snow' : localBiome.topBlock;
+                    } else if (densityAbove < 3) {
+                        baseBlockType = localBiome.subBlock;
+                    }
+
+                    let blockType = baseBlockType;
+
+                    // Only generate ores if the block is actually stone or deepslate!
+                    // This prevents dirt/sand from overwriting ores, and allows ores on exposed mountainsides.
+                    if (baseBlockType === 'stone' || baseBlockType === 'deepslate') {
+                        let foundOre = false;
+                        let oreIndex = 0; 
                         
-                        for (const conf of rules) {
-                            if (actualY >= conf.min && actualY <= conf.max) {
-                                let offset = (oreIndex * 1000); 
-                                let veinNoise = noise.perlin3((globalX + offset) * 0.25, (actualY + offset) * 0.25, (globalZ + offset) * 0.25);
-                                
-                                let currentThreshold = conf.threshold;
-                                
-                                if (conf.peak !== undefined) {
-                                    let maxDist = Math.max(Math.abs(conf.max - conf.peak), Math.abs(conf.min - conf.peak));
-                                    let dist = Math.abs(actualY - conf.peak);
-                                    let penalty = (dist / maxDist) * 0.15; 
-                                    currentThreshold += penalty;
-                                }
-                                
-                                if (veinNoise > currentThreshold) {
-                                    blockType = (stoneType === 'deepslate') ? `deepslate${oreName}` : oreName;
-                                    foundOre = true; break;
+                        for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
+                            if (foundOre) break;
+                            oreIndex++; 
+                            
+                            for (const conf of rules) {
+                                if (actualY >= conf.min && actualY <= conf.max) {
+                                    let offset = (oreIndex * 1000); 
+                                    let veinNoise = noise.perlin3((globalX + offset) * 0.25, (actualY + offset) * 0.25, (globalZ + offset) * 0.25);
+                                    
+                                    let currentThreshold = conf.threshold;
+                                    
+                                    if (conf.peak !== undefined) {
+                                        let maxDist = Math.max(Math.abs(conf.max - conf.peak), Math.abs(conf.min - conf.peak));
+                                        let dist = Math.abs(actualY - conf.peak);
+                                        let penalty = (dist / maxDist) * 0.15; 
+                                        currentThreshold += penalty;
+                                    }
+                                    
+                                    if (veinNoise > currentThreshold) {
+                                        blockType = (baseBlockType === 'deepslate') ? `deepslate${oreName}` : oreName;
+                                        foundOre = true; break;
+                                    }
                                 }
                             }
                         }
-                    }
-
-                    // Applied surface blocks (dirt/sand) last so they overwrite surface ores
-                    if (densityAbove <= 0) { 
-                        blockType = actualY > 100 ? 'snow' : localBiome.topBlock;
-                    } else if (densityAbove < 3) {
-                        blockType = localBiome.subBlock;
                     }
 
                     blocks[blockIdx] = TYPE[blockType] || TYPE.stone;
