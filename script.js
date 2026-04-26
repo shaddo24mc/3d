@@ -19,6 +19,88 @@ document.body.appendChild(stats.dom);
 renderer.shadowMap.enabled = false; 
 
 // ----------------------------------------------------
+// UI: Crosshair & Hotbar
+// ----------------------------------------------------
+// Crosshair
+const crosshair = document.createElement('div');
+crosshair.style.position = 'absolute';
+crosshair.style.top = '50%';
+crosshair.style.left = '50%';
+crosshair.style.width = '20px';
+crosshair.style.height = '20px';
+crosshair.style.transform = 'translate(-50%, -50%)';
+crosshair.style.pointerEvents = 'none'; // So clicks pass through to the game
+crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
+document.body.appendChild(crosshair);
+
+// Hotbar Container
+const hotbarContainer = document.createElement('div');
+hotbarContainer.id = 'hotbar';
+hotbarContainer.style.position = 'absolute';
+hotbarContainer.style.bottom = '20px';
+hotbarContainer.style.left = '50%';
+hotbarContainer.style.transform = 'translateX(-50%)';
+hotbarContainer.style.display = 'flex';
+hotbarContainer.style.gap = '4px';
+hotbarContainer.style.padding = '6px';
+hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+hotbarContainer.style.border = '3px solid #444';
+hotbarContainer.style.borderRadius = '4px';
+document.body.appendChild(hotbarContainer);
+
+// Blocks assigned to the 9 hotbar slots
+const hotbarBlocks = ['stone', 'dirt', 'grass', 'oaklog', 'sprucelog', 'sand', 'sandstone', 'snow', 'deepslate'];
+const hotbarTextures = {
+    stone: './textures/stone.png', 
+    dirt: './textures/dirt.png', 
+    grass: './textures/grass_block_side.png',
+    oaklog: './textures/oak_log.png', 
+    sprucelog: './textures/spruce_log.png', 
+    sand: './textures/sand.png',
+    sandstone: './textures/sandstone.png', 
+    snow: './textures/snow.png', 
+    deepslate: './textures/deepslate.png'
+};
+
+const slots = [];
+let selectedSlot = 0;
+
+for (let i = 0; i < 9; i++) {
+    const slot = document.createElement('div');
+    slot.style.width = '44px';
+    slot.style.height = '44px';
+    slot.style.border = '3px solid #888';
+    slot.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
+    slot.style.boxSizing = 'border-box';
+    slot.style.transition = 'transform 0.1s';
+    
+    // Apply block textures to the UI
+    if (hotbarBlocks[i] && hotbarTextures[hotbarBlocks[i]]) {
+        slot.style.backgroundImage = `url(${hotbarTextures[hotbarBlocks[i]]})`;
+        slot.style.backgroundSize = 'cover';
+        slot.style.imageRendering = 'pixelated'; // Keep pixels crisp
+    }
+    
+    hotbarContainer.appendChild(slot);
+    slots.push(slot);
+}
+
+function updateHotbar() {
+    slots.forEach((slot, index) => {
+        if (index === selectedSlot) {
+            slot.style.border = '3px solid #fff';
+            slot.style.transform = 'scale(1.15)';
+            slot.style.zIndex = '10';
+        } else {
+            slot.style.border = '3px solid #888';
+            slot.style.transform = 'scale(1)';
+            slot.style.zIndex = '1';
+        }
+    });
+}
+updateHotbar(); // Initialize visuals
+
+// ----------------------------------------------------
 // 1. Centralized Block & Material System
 // ----------------------------------------------------
 const BLOCK_HARDNESS = {
@@ -763,7 +845,7 @@ function updateChunks() {
 }
 
 // ----------------------------------------------------
-// 6. Player, Controls & Mining (Reverted to Fly Mode)
+// 6. Player, Controls, Mining & Placing
 // ----------------------------------------------------
 const spawnX = 0; const spawnZ = 0; let safeSpawnY = 127; 
 for (let y = 127; y >= 0; y--) {
@@ -784,6 +866,31 @@ camera.add(playerHand); scene.add(camera);
 let yaw = 0, pitch = 0, keys = {};
 const raycaster = new THREE.Raycaster(); raycaster.far = 6;
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
+
+// --- Dropped Items System ---
+const droppedItems = [];
+const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+
+function spawnDroppedItem(x, y, z, blockName) {
+    if (!materials[blockName]) return; 
+    
+    // Extract a display material for the small item cube
+    let mat = materials[blockName];
+    if (Array.isArray(mat)) mat = mat[0]; // Just use the side texture
+
+    const mesh = new THREE.Mesh(itemGeometry, mat);
+    mesh.position.set(x, y, z);
+    
+    // Give it a random physical "pop" out of the broken block
+    const velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 4,
+        3 + Math.random() * 2,
+        (Math.random() - 0.5) * 4
+    );
+
+    scene.add(mesh);
+    droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
+}
 
 function getTarget() {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
@@ -817,7 +924,6 @@ function updateMining() {
     
     const hit = getTarget();
     
-    // If we lose our target or aim at a different block, reset or start over
     if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
         mining.active = false; 
         destroyMesh.visible = false;
@@ -833,22 +939,22 @@ function updateMining() {
     }
 
     if (elapsed >= mining.requiredTime) {
-        // 1. Get the position of the block we just finished breaking
         const mat = new THREE.Matrix4(); 
         mining.targetMesh.getMatrixAt(mining.targetId, mat);
         const p = new THREE.Vector3().setFromMatrixPosition(mat);
+        const blockName = mining.targetMesh.name; // Find out what block we broke
         
-        // 2. Remove the block from the world
         setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
+        
+        // Spawn the spinning item!
+        spawnDroppedItem(p.x, p.y, p.z, blockName);
         
         if (mining.targetMesh && mining.targetMesh.chunkId) {
             chunksToRebuild.add(mining.targetMesh.chunkId);
         }
 
-        // 3. IMMEDIATELY check for the next block behind/under it
         const next = getTarget();
         if (next) {
-            // Start mining the NEXT block and immediately update the overlay position
             startMining(next); 
             const nextMat = new THREE.Matrix4();
             next.object.getMatrixAt(next.instanceId, nextMat);
@@ -861,20 +967,76 @@ function updateMining() {
     }
 }
 
+// Stop right-click from opening the browser context menu
+document.addEventListener('contextmenu', e => e.preventDefault());
+
 document.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.btn')) return; 
-    if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
-    else if (e.button === 0) { const hit = getTarget(); if (hit) startMining(hit); }
+    // Prevent locking pointer if clicking the UI
+    if (e.target.closest('.btn') || e.target.closest('#hotbar')) return; 
+    
+    if (!document.pointerLockElement) {
+        renderer.domElement.requestPointerLock();
+    } else {
+        const hit = getTarget(); 
+        if (!hit) return;
+        
+        if (e.button === 0) { 
+            // Left Click = Mine
+            startMining(hit); 
+        } else if (e.button === 2) { 
+            // Right Click = Place Block
+            const mat = new THREE.Matrix4(); 
+            hit.object.getMatrixAt(hit.instanceId, mat);
+            const p = new THREE.Vector3().setFromMatrixPosition(mat);
+            
+            // Calculate empty space directly attached to the face you clicked
+            const placeX = Math.round(p.x + hit.face.normal.x);
+            const placeY = Math.round(p.y + hit.face.normal.y);
+            const placeZ = Math.round(p.z + hit.face.normal.z);
+            
+            // If the space is empty (0 means air), place the currently selected hotbar block
+            if (getGlobalBlock(placeX, placeY, placeZ) === 0) {
+                const blockType = hotbarBlocks[selectedSlot];
+                if (blockType && TYPE[blockType]) {
+                    setGlobalBlock(placeX, placeY, placeZ, TYPE[blockType]);
+                }
+            }
+        }
+    }
 });
+
 document.addEventListener('mouseup', () => mining.active = false);
+
 document.addEventListener('mousemove', (e) => {
     if (document.pointerLockElement) {
         yaw -= e.movementX * 0.002;
         pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - e.movementY * 0.002));
     }
 });
-window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+
+window.addEventListener('keydown', (e) => {
+    keys[e.key.toLowerCase()] = true;
+    
+    // Select hotbar slots with 1-9 number keys
+    if (e.key >= '1' && e.key <= '9') {
+        selectedSlot = parseInt(e.key) - 1;
+        updateHotbar();
+    }
+});
+
 window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+// Cycle hotbar with mouse scroll wheel
+window.addEventListener('wheel', (e) => {
+    if (document.pointerLockElement) {
+        if (e.deltaY > 0) {
+            selectedSlot = (selectedSlot + 1) % 9;
+        } else {
+            selectedSlot = (selectedSlot - 1 + 9) % 9;
+        }
+        updateHotbar();
+    }
+});
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -905,6 +1067,45 @@ function animate() {
     }
     chunksToRebuild.clear();
     
+    // --- Update Dropped Items ---
+    for (let i = droppedItems.length - 1; i >= 0; i--) {
+        let item = droppedItems[i];
+        item.lifeTime += delta;
+        
+        // Physics & Gravity
+        item.velocity.y -= 15 * delta; 
+        item.mesh.position.addScaledVector(item.velocity, delta);
+        
+        // Floor Collision
+        let bX = Math.round(item.mesh.position.x);
+        let bY = Math.floor(item.mesh.position.y - 0.125);
+        let bZ = Math.round(item.mesh.position.z);
+        
+        let blockBelow = getGlobalBlock(bX, bY, bZ);
+        if (blockBelow !== 0 && blockBelow !== null) {
+            item.mesh.position.y = bY + 0.625; // Sit directly on top of the block
+            item.velocity.x *= 0.5; // Friction
+            item.velocity.z *= 0.5;
+            item.velocity.y = 0; 
+        }
+
+        // Spin and bob up and down
+        item.mesh.rotation.y += delta * 2;
+        if (item.velocity.y === 0) {
+            item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
+        }
+        
+        // Player Pickup (Collect if close enough)
+        const dist = camera.position.distanceTo(item.mesh.position);
+        if (dist < 1.5) {
+            scene.remove(item.mesh);
+            item.mesh.geometry.dispose();
+            droppedItems.splice(i, 1);
+            
+            // Note: This is where we will hook up the actual inventory numbers later!
+        }
+    }
+
     // Animate Hand
     if (mining.active) {
         const t = Date.now() * 0.025; 
