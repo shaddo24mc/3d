@@ -366,25 +366,24 @@ function generateChunk(chunkX, chunkZ) {
 
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
-
-    // Adjusted for taller world
     const maxVisibleBlocks = 25000; 
+
+    // 1. Initialize Meshes
     const meshes = {};
+    const indices = {};
     for (const [key, mat] of Object.entries(materials)) {
         meshes[key] = new THREE.InstancedMesh(geometry, mat, (key === 'oakleaves' || key === 'oaklog') ? 2000 : maxVisibleBlocks);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
-        meshes[key].frustumCulled = true;
+        meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage); // Allows for real-time hiding
+        indices[key] = 0;
     }
 
-    const indices = {};
-    for (const key of Object.keys(meshes)) indices[key] = 0;
-
-    const blocks = new Uint8Array(16 * 16 * worldHeight);
-    const getIdx = (x, y, z) => x + z * 16 + y * 256; // 'y' here is 0-383
+    const blocks = new Uint8Array(chunkSize * chunkSize * worldHeight);
+    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
     const treesToSpawn = [];
 
-    // PASS 1: Logic & Data
+    // PASS 1: DATA GENERATION
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x;
@@ -394,96 +393,61 @@ function generateChunk(chunkX, chunkZ) {
             let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 800);
             let blendedScale = getInterpolatedHeightScale(globalX, globalZ);
             let rawElevation = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 4, 300);
-            
-            // Map surface height to the new world scale
             let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 62;
 
             for (let y = 0; y < worldHeight; y++) {
-                let actualY = y + minworldY; // -64 to 320
+                let actualY = y + minworldY;
                 let blockIdx = getIdx(x, y, z);
 
-                // 1. Density Calculation
+                // Density Check
                 let cliffNoise = noise.perlin3(globalX / 50, actualY / 40, globalZ / 50) * 18;
                 let detailNoise = noise.perlin3(globalX / 15, actualY / 15, globalZ / 15) * 5;
                 let density = (baseHeight - actualY) + cliffNoise + detailNoise;
 
                 if (density > 0) {
-                    // 2. Bedrock
+                    // Bedrock
                     if (actualY <= minworldY + 4) {
-                        let bedrockChance = ((minworldY + 5) - actualY) / 5;
-                        if (getDeterministicRandom(globalX, actualY, globalZ) < bedrockChance) {
-                            blocks[blockIdx] = TYPE.bedrock;
-                            continue;
+                        if (getDeterministicRandom(globalX, actualY, globalZ) < ((minworldY + 5) - actualY) / 5) {
+                            blocks[blockIdx] = TYPE.bedrock; continue;
                         }
                     }
 
-                    // 3. Base Rock & Caves
-                    let stoneType = 'stone';
-                    let transitionNoise = noise.perlin2(globalX / 16, globalZ / 16) * 4;
-                    if (actualY < 8 + transitionNoise) stoneType = 'deepslate';
+                    // Stone & Caves
+                    let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
+                    let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
 
-                    let n1 = fbm3(globalX, actualY, globalZ, 2, 35);
-                    let n2 = fbm3(globalX + 1000, actualY + 1000, globalZ + 1000, 2, 35);
-                    let isCave = (n1 * n1 + n2 * n2) < 0.005;
+                    if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
 
-                    if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) {
-                        continue; 
-                    }
-
-                    // 4. Ore Pass
+                    // Ore Pass
                     let blockType = stoneType;
                     let foundOre = false;
-
                     for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
                         if (foundOre) break;
                         for (const conf of rules) {
                             if (actualY >= conf.min && actualY <= conf.max) {
-                                let distFromPeak = Math.abs(actualY - conf.peak);
-                                let totalRange = (actualY > conf.peak) ? (conf.max - conf.peak) : (conf.peak - conf.min);
-                                let densityFactor = 1.0 - (distFromPeak / (totalRange || 1));
-                                let finalThreshold = conf.threshold + (1.0 - densityFactor) * 0.15;
                                 let veinNoise = noise.perlin3(globalX * 0.2, actualY * 0.2, globalZ * 0.2);
-
-                                if (veinNoise > finalThreshold) {
-                                    if (isCave && conf.reduceAir && getDeterministicRandom(globalX+7, actualY, globalZ+7) > 0.3) continue;
-                                    
-                                    // Biome check for Emerald/Mountain Iron
-                                    if (oreName === 'emerald' || (oreName === 'iron' && conf.peak > 100)) {
-                                        if (getBiome(tempMap, moistMap, 0).name !== "Mountains") continue;
-                                    }
-
-                                    let blockKey = (stoneType === 'deepslate') ? `deepslate${oreName}` : oreName;
-                                    blockType = blockKey;
-                                    foundOre = true;
-                                    break;
+                                if (veinNoise > (conf.threshold + (Math.abs(actualY - conf.peak) / 100) * 0.15)) {
+                                    blockType = (stoneType === 'deepslate') ? `deepslate${oreName}` : oreName;
+                                    foundOre = true; break;
                                 }
                             }
                         }
                     }
-                    if (foundOre) {
-                        let neighborsStone = 0;
-                        if (x > 0 && x < 15) {
-                            if (blocks[getIdx(x-1, y, z)] !== 0) neighborsStone++;
-                            if (blocks[getIdx(x+1, y, z)] !== 0) neighborsStone++;
-                        }
-                            if (z > 0 && z < 15) {
-                            if (blocks[getIdx(x, y, z-1)] !== 0) neighborsStone++;
-                            if (blocks[getIdx(x, y, z+1)] !== 0) neighborsStone++;
-                        }
-                        if (neighborsStone < 3 && actualY > baseHeight - 10) {
-                            blockType = stoneType; 
-                            foundOre = false;
-                        }
-                    }
-                    // 5. Surface Layer (Topsoil)
-                    // We only apply topsoil if the block above is empty/air
-                    // (Simplified for performance)
-                    if (actualY > baseHeight - 1 && blockType === 'stone' || foundOre) {
+
+                    // SURFACE LOGIC (The Fix)
+                    let actualYAbove = actualY + 1;
+                    let densityAbove = (baseHeight - actualYAbove) + 
+                                       (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
+                                       (noise.perlin3(globalX / 15, actualYAbove / 15, globalZ / 15) * 5);
+
+                    if (densityAbove <= 0) { // TRUE TOP BLOCK
                         const localBiome = getBiome(tempMap, moistMap, 0);
                         blockType = actualY > 100 ? 'snow' : localBiome.topBlock;
                         if (localBiome.treeChance > 0 && getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
                              treesToSpawn.push({ x, y, z, actualY });
                         }
+                    } else if (densityAbove < 3) { // DIRT CRUST
+                        blockType = getBiome(tempMap, moistMap, 0).subBlock;
                     }
 
                     blocks[blockIdx] = TYPE[blockType] || TYPE.stone;
@@ -492,7 +456,7 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // PASS 2: Mesh Generation with Culling
+    // PASS 2: MESH GENERATION & CULLING
     const matrix = new THREE.Matrix4();
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -500,23 +464,23 @@ function generateChunk(chunkX, chunkZ) {
                 let typeId = blocks[getIdx(x, y, z)];
                 if (typeId === 0) continue;
 
-                // Hidden face culling
-                let visible = false;
-                if (x === 0 || x === 15 || z === 0 || z === 15 || y === 0 || y === worldHeight - 1) {
-                    visible = true;
-                } else {
-                    if (blocks[getIdx(x-1, y, z)] === 0 || blocks[getIdx(x+1, y, z)] === 0 ||
-                        blocks[getIdx(x, y-1, z)] === 0 || blocks[getIdx(x, y+1, z)] === 0 ||
-                        blocks[getIdx(x, y, z-1)] === 0 || blocks[getIdx(x, y, z+1)] === 0) {
-                        visible = true;
-                    }
-                }
+                // Neighbor Culling (Make neighbors visible logic)
+                // We render a block if any of its 6 neighbors are AIR (0)
+                let isVisible = (x === 0 || x === 15 || z === 0 || z === 15 || y === 0 || y === worldHeight - 1) ||
+                                (blocks[getIdx(x-1, y, z)] === 0 || blocks[getIdx(x+1, y, z)] === 0 ||
+                                 blocks[getIdx(x, y-1, z)] === 0 || blocks[getIdx(x, y+1, z)] === 0 ||
+                                 blocks[getIdx(x, y, z-1)] === 0 || blocks[getIdx(x, y, z+1)] === 0);
 
-                if (visible) {
+                if (isVisible) {
                     let bName = REVERSE_TYPE[typeId];
-                    if (meshes[bName] && indices[bName] < meshes[bName].count) {
+                    if (meshes[bName]) {
                         matrix.setPosition(startX + x, y + minworldY, startZ + z);
                         meshes[bName].setMatrixAt(indices[bName]++, matrix);
+
+                        // GRASS OVERLAY logic
+                        if (bName === 'grass' && meshes['overlay']) {
+                            meshes['overlay'].setMatrixAt(indices['overlay']++, matrix);
+                        }
                     }
                 }
             }
@@ -533,7 +497,7 @@ function generateChunk(chunkX, chunkZ) {
         scene.add(meshes[key]);
         if (meshes[key].count > 0) interactableMeshes.push(meshes[key]);
     }
-    activeChunks[chunkId] = meshes;
+    activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
 }
 
 // ----------------------------------------------------
@@ -565,7 +529,8 @@ function updateChunks() {
 
     for (const id in activeChunks) {
         if (!chunksToKeep.has(id)) {
-            for (const mesh of Object.values(activeChunks[id])) {
+            // CHANGE THIS LINE to point to .meshes
+            for (const mesh of Object.values(activeChunks[id].meshes)) {
                 scene.remove(mesh);
                 const i = interactableMeshes.indexOf(mesh);
                 if (i > -1) interactableMeshes.splice(i, 1);
@@ -575,7 +540,68 @@ function updateChunks() {
         }
     }
 }
+function rebuildChunkGeometry(chunkX, chunkZ) {
+    const chunkId = `${chunkX},${chunkZ}`;
+    const chunkData = activeChunks[chunkId];
+    if (!chunkData) return;
 
+    const { meshes, blocks, treesToSpawn } = chunkData;
+    const startX = chunkX * chunkSize;
+    const startZ = chunkZ * chunkSize;
+    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+
+    const indices = {};
+    for (const key in meshes) indices[key] = 0;
+
+    const matrix = new THREE.Matrix4();
+
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            for (let y = 0; y < worldHeight; y++) {
+                let typeId = blocks[getIdx(x, y, z)];
+                if (typeId === 0) continue;
+
+                let globalX = startX + x;
+                let actualY = y + minworldY;
+                let globalZ = startZ + z;
+
+                if (brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
+
+                // Culling helper: Check if neighbor is air, broken, or outside the chunk
+                const isOpen = (nx, ny, nz) => {
+                    if (nx < 0 || nx >= chunkSize || nz < 0 || nz >= chunkSize || ny < 0 || ny >= worldHeight) return true;
+                    if (blocks[getIdx(nx, ny, nz)] === 0) return true;
+                    return brokenBlocks.has(`${startX + nx},${ny + minworldY},${startZ + nz}`);
+                };
+
+                let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
+                                isOpen(x, y-1, z) || isOpen(x, y+1, z) ||
+                                isOpen(x, y, z-1) || isOpen(x, y, z+1);
+
+                if (isVisible) {
+                    let bName = REVERSE_TYPE[typeId];
+                    if (meshes[bName]) {
+                        matrix.setPosition(globalX, actualY, globalZ);
+                        meshes[bName].setMatrixAt(indices[bName]++, matrix);
+
+                        if (bName === 'grass' && meshes['overlay']) {
+                            meshes['overlay'].setMatrixAt(indices['overlay']++, matrix);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Re-add trees for this chunk
+    for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices);
+
+    // Tell GPU to update the visible counts
+    for (const key in meshes) {
+        meshes[key].count = indices[key];
+        meshes[key].instanceMatrix.needsUpdate = true;
+    }
+}
 // ----------------------------------------------------
 // 6. Player, Controls & Mining
 // ----------------------------------------------------
@@ -647,10 +673,22 @@ function updateMining() {
         
         brokenBlocks.add(`${Math.round(p.x)},${Math.round(p.y)},${Math.round(p.z)}`);
         
-        // Hide block instantly instead of rebuilding chunk
-        mat.setPosition(0, -9999, 0); 
-        mining.targetMesh.setMatrixAt(mining.targetId, mat);
-        mining.targetMesh.instanceMatrix.needsUpdate = true;
+        // Calculate which chunk the broken block is in
+        const bX = Math.round(p.x);
+        const bZ = Math.round(p.z);
+        const cX = Math.floor(bX / chunkSize);
+        const cZ = Math.floor(bZ / chunkSize);
+
+        // Rebuild that chunk to reveal neighbors
+        rebuildChunkGeometry(cX, cZ);
+
+        // If you broke a block right on the edge of a chunk, update the neighbor chunk too!
+        const localX = bX - (cX * chunkSize);
+        const localZ = bZ - (cZ * chunkSize);
+        if (localX === 0) rebuildChunkGeometry(cX - 1, cZ);
+        if (localX === chunkSize - 1) rebuildChunkGeometry(cX + 1, cZ);
+        if (localZ === 0) rebuildChunkGeometry(cX, cZ - 1);
+        if (localZ === chunkSize - 1) rebuildChunkGeometry(cX, cZ + 1);
 
         const next = getTarget();
         if (next) startMining(next); else mining.active = false;
