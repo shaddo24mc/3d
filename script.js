@@ -32,20 +32,30 @@ const BLOCK_HARDNESS = {
     bedrock: 999999999
 };
 
-// MINECRAFT-LIKE ORE CONFIGURATION
-// Higher threshold = Rarer. Scale makes veins smaller.
+// MINECRAFT 1.18+ ORE CONFIGURATION (Matched exactly to the distribution chart)
+// Triangles (Peaks) have a 'peak' value. Rectangles (Uniform) do not.
 const ORE_CONFIG = {
-    emerald: [{ min: 32,  max: 320, threshold: 0.88 }], // Extremely rare (usually single blocks)
-    diamond: [{ min: -64, max: 16,  threshold: 0.82 }], // Very rare (small veins)
-    lapis:   [{ min: -64, max: 64,  threshold: 0.78 }], 
-    gold:    [{ min: -64, max: 32,  threshold: 0.78 }],
-    redstone:[{ min: -64, max: 15,  threshold: 0.75 }],
-    copper:  [{ min: -16, max: 112, threshold: 0.70 }], // Uncommon
-    iron:    [
-        { min: -64, max: 80,  threshold: 0.65 }, // Common
-        { min: 64,  max: 320, threshold: 0.65 } 
+    emerald: [{ min: -16, max: 320, peak: 232, threshold: 0.88 }],
+    diamond: [{ min: -64, max: 16,  peak: -64, threshold: 0.82 }],
+    lapis:   [
+        { min: -64, max: 64,  peak: 0, threshold: 0.80 }, 
+        { min: -32, max: 32,  threshold: 0.78 } 
     ],
-    coal:    [{ min: -64, max: 128, threshold: 0.60 }], // Very common
+    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.78 }],
+    redstone:[
+        { min: -64, max: 15,  threshold: 0.75 },
+        { min: -64, max: -32, peak: -64, threshold: 0.72 }
+    ],
+    copper:  [{ min: -16, max: 112, peak: 48, threshold: 0.70 }],
+    iron:    [
+        { min: -64, max: 72,  peak: 16, threshold: 0.65 },
+        { min: 80,  max: 320, peak: 232, threshold: 0.65 },
+        { min: -64, max: -32, threshold: 0.68 }
+    ],
+    coal:    [
+        { min: 0,   max: 192, peak: 96, threshold: 0.60 }, // STOPS EXACTLY AT Y=0!
+        { min: 136, max: 320, threshold: 0.65 }
+    ],
 };
 
 const loader = new THREE.TextureLoader();
@@ -502,17 +512,26 @@ function generateChunk(chunkX, chunkZ) {
                     let blockType = stoneType;
                     let foundOre = false;
                     
-                    // MINECRAFT-LIKE ORE LOGIC: Rarest first, smaller veins
+                    // MINECRAFT 1.18 ORE LOGIC: Rarest first, matching chart curves
                     for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
                         if (foundOre) break;
                         for (const conf of rules) {
                             if (actualY >= conf.min && actualY <= conf.max) {
-                                // Larger offset to completely separate ore maps
                                 let offset = (oreName.length * 100); 
-                                // Increased scale to 0.35 to make the veins very small (1-4 blocks)
                                 let veinNoise = noise.perlin3((globalX + offset) * 0.35, (actualY + offset) * 0.35, (globalZ + offset) * 0.35);
                                 
-                                if (veinNoise > conf.threshold) {
+                                let currentThreshold = conf.threshold;
+                                
+                                // Emulate the "Triangles" on the chart: ore gets rarer further from its peak
+                                if (conf.peak !== undefined) {
+                                    let maxDist = Math.max(Math.abs(conf.max - conf.peak), Math.abs(conf.min - conf.peak));
+                                    let dist = Math.abs(actualY - conf.peak);
+                                    // Penalty makes the threshold harder to hit at the edges of the triangle
+                                    let penalty = (dist / maxDist) * 0.15; 
+                                    currentThreshold += penalty;
+                                }
+                                
+                                if (veinNoise > currentThreshold) {
                                     blockType = (stoneType === 'deepslate') ? `deepslate${oreName}` : oreName;
                                     foundOre = true; break;
                                 }
