@@ -358,7 +358,6 @@ function getInterpolatedHeightScale(x, z) {
     
     for (let offX = -range; offX <= range; offX += step) {
         for (let offZ = -range; offZ <= range; offZ += step) {
-            // Lowered biome scale from 800 to 400 so Deserts are smaller and easier to find!
             let temp = fbm2(x + offX + mapOffsetX, z + offZ + mapOffsetZ, 2, 400);
             let moist = fbm2(x + offX + mapOffsetX + 10000, z + offZ + mapOffsetZ + 10000, 2, 400);
             totalScale += getBiome(temp, moist, 0).heightScale;
@@ -376,7 +375,6 @@ function getDeterministicRandom(x, y, z) {
 }
 
 function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
-    // Spruce trees generate slightly taller!
     const trunkH = treeType === 'spruce' 
         ? 6 + Math.floor(getDeterministicRandom(x, y, z) * 4) 
         : 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
@@ -395,20 +393,20 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
 
     // LEAVES
     if (treeType === 'spruce') {
-        // --- CUSTOM SPRUCE TREE SHAPE (Iconic layered pine cone) ---
-        let leafStart = y + 2 + Math.floor(getDeterministicRandom(x, y, z) * 2); 
-        let radius = 1;
+        let leafHeight = trunkH - (1 + Math.floor(getDeterministicRandom(x, y, z) * 2));
+        let leafStart = y + trunkH - leafHeight;
+        let topY = y + trunkH + 1;
+        let currentRadius = 0; 
         
-        for (let ly = y + trunkH + 1; ly >= leafStart; ly--) {
-            let cr = (ly === y + trunkH + 1) ? 0 : (ly === y + trunkH) ? 1 : radius;
-            
-            for (let lx = -cr; lx <= cr; lx++) {
-                for (let lz = -cr; lz <= cr; lz++) {
-                    // Cut the exact corners on radius=2 layers to make them perfect 5x5 diamonds
-                    if (Math.abs(lx) === cr && Math.abs(lz) === cr && cr === 2) continue;
+        for (let ly = topY; ly >= leafStart; ly--) {
+            for (let lx = -currentRadius; lx <= currentRadius; lx++) {
+                for (let lz = -currentRadius; lz <= currentRadius; lz++) {
+                    if (Math.abs(lx) === currentRadius && Math.abs(lz) === currentRadius && currentRadius > 0) {
+                        if (currentRadius === 2) continue; 
+                        if (currentRadius === 1 && ly === topY - 1) continue; 
+                    }
                     
-                    // Skip the center block where the trunk goes
-                    if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
+                    if (lx === 0 && lz === 0 && ly < y + trunkH) continue; 
                     
                     const bX = x + lx; const bY = ly; const bZ = z + lz;
                     if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
@@ -417,13 +415,16 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
                 }
             }
-            // Alternate radius for that classic pine cone look (1, 2, 1, 2)
-            if (ly <= y + trunkH) {
-                radius = radius === 1 ? 2 : 1;
+            
+            if (currentRadius === 0) {
+                currentRadius = 1; 
+            } else if (currentRadius === 1 && ly < topY - 1) {
+                currentRadius = 2; 
+            } else if (currentRadius === 2) {
+                currentRadius = 1; 
             }
         }
     } else {
-        // --- STANDARD OAK TREE SHAPE ---
         for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
             let radius = (ly > y + trunkH - 1) ? 1 : 2; 
             for (let lx = -radius; lx <= radius; lx++) {
@@ -481,7 +482,6 @@ function generateChunk(chunkX, chunkZ) {
     const startZ = chunkZ * chunkSize;
     const maxVisibleBlocks = 25000; 
 
-    // 1. Initialize Meshes (Removed the 2000 instance limit to prevent sheared trees)
     const meshes = {};
     const indices = {};
     for (const [key, mat] of Object.entries(materials)) {
@@ -504,7 +504,11 @@ function generateChunk(chunkX, chunkZ) {
 
             let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 400);
             let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 400);
-            let localBiome = getBiome(tempMap, moistMap, 0); 
+            
+            let biomeJitterX = noise.perlin2(globalX / 8, globalZ / 8) * 0.08;
+            let biomeJitterZ = noise.perlin2(globalX / 8 + 5000, globalZ / 8 + 5000) * 0.08;
+            
+            let localBiome = getBiome(tempMap + biomeJitterX, moistMap + biomeJitterZ, 0); 
             
             let blendedScale = getInterpolatedHeightScale(globalX, globalZ);
             let rawElevation = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 4, 300);
@@ -525,7 +529,6 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
-                    // Calculate distance from the surface FIRST
                     let actualYAbove = actualY + 1;
                     let densityAbove = (baseHeight - actualYAbove) + 
                                        (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
@@ -533,7 +536,6 @@ function generateChunk(chunkX, chunkZ) {
 
                     let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
                     
-                    // Limit Sandstone (deepSubBlock) to only spawn within ~10 blocks of the surface!
                     if (stoneType === 'stone' && densityAbove < 10 && localBiome.deepSubBlock !== 'stone') {
                         stoneType = localBiome.deepSubBlock;
                     }
@@ -542,7 +544,6 @@ function generateChunk(chunkX, chunkZ) {
 
                     if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
 
-                    // Determine the base terrain block type BEFORE checking for ores
                     let baseBlockType = stoneType;
                     if (densityAbove <= 0) { 
                         baseBlockType = actualY > 100 ? 'snow' : localBiome.topBlock;
@@ -552,8 +553,6 @@ function generateChunk(chunkX, chunkZ) {
 
                     let blockType = baseBlockType;
 
-                    // Only generate ores if the block is actually stone or deepslate!
-                    // This prevents dirt/sand from overwriting ores, and allows ores on exposed mountainsides.
                     if (baseBlockType === 'stone' || baseBlockType === 'deepslate') {
                         let foundOre = false;
                         let oreIndex = 0; 
@@ -587,10 +586,8 @@ function generateChunk(chunkX, chunkZ) {
 
                     blocks[blockIdx] = TYPE[blockType] || TYPE.stone;
                 }
-            } // End of Y loop
+            } 
 
-            // TREE FIX: Find the absolute highest block in this column to spawn trees on.
-            // This guarantees trees can never spawn underground inside caves or overhangs!
             for (let y = worldHeight - 1; y >= 0; y--) {
                 let b = blocks[getIdx(x, y, z)];
                 if (b !== 0) { 
@@ -600,10 +597,9 @@ function generateChunk(chunkX, chunkZ) {
                             treesToSpawn.push({ x, y, z, actualY, treeType: localBiome.treeType });
                         }
                     }
-                    break; // Found the surface, stop checking lower blocks
+                    break; 
                 }
             }
-
         }
     }
 
@@ -619,7 +615,6 @@ function generateChunk(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
-                        // Make sure BOTH leaves are treated as "transparent" so blocks behind them render!
                         return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
                     }
                     let gx = startX + nx; let gy = ny + minworldY; let gz = startZ + nz;
@@ -815,30 +810,54 @@ function startMining(hit) {
 }
 
 function updateMining() {
-    if (!mining.active) { destroyMesh.visible = false; return; }
+    if (!mining.active) { 
+        destroyMesh.visible = false; 
+        return; 
+    }
+    
     const hit = getTarget();
+    
+    // If we lose our target or aim at a different block, reset or start over
     if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
-        mining.active = false; destroyMesh.visible = false;
-        if (hit) startMining(hit); return;
+        mining.active = false; 
+        destroyMesh.visible = false;
+        if (hit) startMining(hit); 
+        return;
     }
 
     const elapsed = Date.now() - mining.startTime;
     const phase = Math.floor(Math.min(elapsed / mining.requiredTime, 1.0) * 9.99); 
-    if (destroyMat.map !== destroyTextures[phase]) { destroyMat.map = destroyTextures[phase]; destroyMat.needsUpdate = true; }
+    if (destroyMat.map !== destroyTextures[phase]) { 
+        destroyMat.map = destroyTextures[phase]; 
+        destroyMat.needsUpdate = true; 
+    }
 
     if (elapsed >= mining.requiredTime) {
-        destroyMesh.visible = false; 
-        const mat = new THREE.Matrix4(); mining.targetMesh.getMatrixAt(mining.targetId, mat);
+        // 1. Get the position of the block we just finished breaking
+        const mat = new THREE.Matrix4(); 
+        mining.targetMesh.getMatrixAt(mining.targetId, mat);
         const p = new THREE.Vector3().setFromMatrixPosition(mat);
         
+        // 2. Remove the block from the world
         setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
         
         if (mining.targetMesh && mining.targetMesh.chunkId) {
             chunksToRebuild.add(mining.targetMesh.chunkId);
         }
 
+        // 3. IMMEDIATELY check for the next block behind/under it
         const next = getTarget();
-        if (next) startMining(next); else mining.active = false;
+        if (next) {
+            // Start mining the NEXT block and immediately update the overlay position
+            startMining(next); 
+            const nextMat = new THREE.Matrix4();
+            next.object.getMatrixAt(next.instanceId, nextMat);
+            destroyMesh.position.setFromMatrixPosition(nextMat);
+            destroyMesh.visible = true;
+        } else {
+            mining.active = false;
+            destroyMesh.visible = false;
+        }
     }
 }
 
