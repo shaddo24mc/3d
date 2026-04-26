@@ -19,7 +19,7 @@ document.body.appendChild(stats.dom);
 renderer.shadowMap.enabled = false; 
 
 // ----------------------------------------------------
-// UI: Crosshair & Hotbar
+// UI: Crosshair, Hotbar, & Full Inventory
 // ----------------------------------------------------
 // Crosshair
 const crosshair = document.createElement('div');
@@ -30,10 +30,40 @@ crosshair.style.width = '20px';
 crosshair.style.height = '20px';
 crosshair.style.transform = 'translate(-50%, -50%)';
 crosshair.style.pointerEvents = 'none'; // So clicks pass through to the game
+crosshair.style.zIndex = '100';
 crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
 document.body.appendChild(crosshair);
 
-// Hotbar Container
+// --- Inventory State ---
+const INVENTORY_SIZE = 36; // 0-8 is Hotbar, 9-35 is Main Inventory
+const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
+
+// Starting items for testing!
+inventory[0] = { type: 'stone', count: 64 };
+inventory[1] = { type: 'dirt', count: 64 };
+inventory[2] = { type: 'grass', count: 64 };
+inventory[3] = { type: 'oaklog', count: 64 };
+inventory[4] = { type: 'sprucelog', count: 64 };
+inventory[5] = { type: 'sand', count: 64 };
+
+let selectedSlot = 0;
+let heldItem = { type: null, count: 0 }; // For moving items around the inventory
+
+// Helper to get image paths (You can add more here as you gather pictures!)
+function getItemImage(type) {
+    if (!type) return 'none';
+    const customTextures = {
+        grass: './textures/grass_block_side.png',
+        oaklog: './textures/oak_log.png',
+        sprucelog: './textures/spruce_log.png',
+        snow_grass: './textures/grass_block_snow.png'
+        // Just drop your other item pictures in the folder!
+        // By default, it assumes the image is named EXACTLY like the block (e.g., diamond.png)
+    };
+    return `url(${customTextures[type] || `./textures/${type}.png`})`;
+}
+
+// --- Hotbar UI (Bottom of screen) ---
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.style.position = 'absolute';
@@ -48,23 +78,7 @@ hotbarContainer.style.border = '3px solid #444';
 hotbarContainer.style.borderRadius = '4px';
 document.body.appendChild(hotbarContainer);
 
-// Blocks assigned to the 9 hotbar slots
-const hotbarBlocks = ['stone', 'dirt', 'grass', 'oaklog', 'sprucelog', 'sand', 'sandstone', 'snow', 'deepslate'];
-const hotbarTextures = {
-    stone: './textures/stone.png', 
-    dirt: './textures/dirt.png', 
-    grass: './textures/grass_block_side.png',
-    oaklog: './textures/oak_log.png', 
-    sprucelog: './textures/spruce_log.png', 
-    sand: './textures/sand.png',
-    sandstone: './textures/sandstone.png', 
-    snow: './textures/snow.png', 
-    deepslate: './textures/deepslate.png'
-};
-
-const slots = [];
-let selectedSlot = 0;
-
+const hotbarSlotsUI = [];
 for (let i = 0; i < 9; i++) {
     const slot = document.createElement('div');
     slot.style.width = '44px';
@@ -72,33 +86,218 @@ for (let i = 0; i < 9; i++) {
     slot.style.border = '3px solid #888';
     slot.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
     slot.style.boxSizing = 'border-box';
-    slot.style.transition = 'transform 0.1s';
+    slot.style.position = 'relative';
     
-    // Apply block textures to the UI
-    if (hotbarBlocks[i] && hotbarTextures[hotbarBlocks[i]]) {
-        slot.style.backgroundImage = `url(${hotbarTextures[hotbarBlocks[i]]})`;
-        slot.style.backgroundSize = 'cover';
-        slot.style.imageRendering = 'pixelated'; // Keep pixels crisp
-    }
+    const countLabel = document.createElement('span');
+    countLabel.style.position = 'absolute';
+    countLabel.style.bottom = '2px';
+    countLabel.style.right = '4px';
+    countLabel.style.color = 'white';
+    countLabel.style.fontWeight = 'bold';
+    countLabel.style.fontFamily = 'monospace';
+    countLabel.style.fontSize = '14px';
+    countLabel.style.textShadow = '1px 1px 0 #000';
+    slot.appendChild(countLabel);
     
     hotbarContainer.appendChild(slot);
-    slots.push(slot);
+    hotbarSlotsUI.push({ div: slot, label: countLabel });
 }
 
-function updateHotbar() {
-    slots.forEach((slot, index) => {
-        if (index === selectedSlot) {
-            slot.style.border = '3px solid #fff';
-            slot.style.transform = 'scale(1.15)';
-            slot.style.zIndex = '10';
-        } else {
-            slot.style.border = '3px solid #888';
-            slot.style.transform = 'scale(1)';
-            slot.style.zIndex = '1';
+// --- Full Inventory UI (Press 'E') ---
+const inventoryScreen = document.createElement('div');
+inventoryScreen.id = 'inventory-screen';
+inventoryScreen.style.position = 'absolute';
+inventoryScreen.style.top = '50%';
+inventoryScreen.style.left = '50%';
+inventoryScreen.style.transform = 'translate(-50%, -50%)';
+inventoryScreen.style.backgroundColor = '#c6c6c6'; // Classic MC gray
+inventoryScreen.style.border = '4px solid #555';
+inventoryScreen.style.padding = '20px';
+inventoryScreen.style.display = 'none'; // Hidden by default
+inventoryScreen.style.flexDirection = 'column';
+inventoryScreen.style.gap = '20px';
+inventoryScreen.style.boxShadow = 'inset -4px -4px 0 rgba(0,0,0,0.2), inset 4px 4px 0 rgba(255,255,255,0.5)';
+inventoryScreen.style.zIndex = '200';
+document.body.appendChild(inventoryScreen);
+
+// Title
+const invTitle = document.createElement('div');
+invTitle.innerText = "Inventory";
+invTitle.style.fontFamily = "monospace";
+invTitle.style.fontWeight = "bold";
+invTitle.style.color = "#333";
+inventoryScreen.appendChild(invTitle);
+
+// Main Inventory Grid
+const mainGrid = document.createElement('div');
+mainGrid.style.display = 'grid';
+mainGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
+mainGrid.style.gap = '4px';
+inventoryScreen.appendChild(mainGrid);
+
+// Spacer
+const spacer = document.createElement('div');
+spacer.style.height = '10px';
+inventoryScreen.appendChild(spacer);
+
+// Hotbar Grid (Inside Inventory Menu)
+const invHotbarGrid = document.createElement('div');
+invHotbarGrid.style.display = 'grid';
+invHotbarGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
+invHotbarGrid.style.gap = '4px';
+inventoryScreen.appendChild(invHotbarGrid);
+
+// Create all 36 interactive slots
+const allSlotsUI = [];
+
+// Custom cursor attached to mouse for dragging items
+const heldItemUI = document.createElement('div');
+heldItemUI.style.position = 'absolute';
+heldItemUI.style.width = '44px';
+heldItemUI.style.height = '44px';
+heldItemUI.style.pointerEvents = 'none';
+heldItemUI.style.zIndex = '300';
+heldItemUI.style.display = 'none';
+const heldLabel = document.createElement('span');
+heldLabel.style.position = 'absolute';
+heldLabel.style.bottom = '2px';
+heldLabel.style.right = '4px';
+heldLabel.style.color = 'white';
+heldLabel.style.fontWeight = 'bold';
+heldLabel.style.fontFamily = 'monospace';
+heldLabel.style.textShadow = '1px 1px 0 #000';
+heldItemUI.appendChild(heldLabel);
+document.body.appendChild(heldItemUI);
+
+document.addEventListener('mousemove', (e) => {
+    if (inventoryScreen.style.display === 'flex') {
+        heldItemUI.style.left = e.clientX - 22 + 'px';
+        heldItemUI.style.top = e.clientY - 22 + 'px';
+    }
+});
+
+for (let i = 0; i < INVENTORY_SIZE; i++) {
+    const slot = document.createElement('div');
+    slot.style.width = '44px';
+    slot.style.height = '44px';
+    slot.style.backgroundColor = '#8b8b8b';
+    slot.style.boxShadow = 'inset -2px -2px 0 #fff, inset 2px 2px 0 #373737';
+    slot.style.position = 'relative';
+    slot.style.cursor = 'pointer';
+    
+    const countLabel = document.createElement('span');
+    countLabel.style.position = 'absolute';
+    countLabel.style.bottom = '2px';
+    countLabel.style.right = '4px';
+    countLabel.style.color = 'white';
+    countLabel.style.fontWeight = 'bold';
+    countLabel.style.fontFamily = 'monospace';
+    countLabel.style.fontSize = '14px';
+    countLabel.style.textShadow = '1px 1px 0 #000';
+    slot.appendChild(countLabel);
+    
+    // Click to swap/move items!
+    slot.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        if (e.button === 0) { // Left click
+            let tempType = inventory[i].type;
+            let tempCount = inventory[i].count;
+            
+            // If they are the same type, stack them!
+            if (heldItem.type === inventory[i].type && heldItem.type !== null) {
+                let space = 64 - inventory[i].count;
+                let toMove = Math.min(space, heldItem.count);
+                inventory[i].count += toMove;
+                heldItem.count -= toMove;
+                if (heldItem.count <= 0) heldItem.type = null;
+            } else {
+                // Otherwise, swap them
+                inventory[i].type = heldItem.type;
+                inventory[i].count = heldItem.count;
+                heldItem.type = tempType;
+                heldItem.count = tempCount;
+            }
+            updateInventoryUI();
         }
     });
+
+    if (i < 9) {
+        invHotbarGrid.appendChild(slot); // Slots 0-8 are Hotbar
+    } else {
+        mainGrid.appendChild(slot); // Slots 9-35 are Main Inventory
+    }
+    allSlotsUI.push({ div: slot, label: countLabel });
 }
-updateHotbar(); // Initialize visuals
+
+function updateInventoryUI() {
+    // Update Main HUD Hotbar
+    for (let i = 0; i < 9; i++) {
+        const item = inventory[i];
+        const ui = hotbarSlotsUI[i];
+        ui.div.style.backgroundImage = getItemImage(item.type);
+        ui.div.style.backgroundSize = 'cover';
+        ui.div.style.imageRendering = 'pixelated';
+        ui.label.innerText = (item.count > 1) ? item.count : '';
+        
+        if (i === selectedSlot) {
+            ui.div.style.border = '3px solid #fff';
+            ui.div.style.transform = 'scale(1.15)';
+            ui.div.style.zIndex = '10';
+        } else {
+            ui.div.style.border = '3px solid #888';
+            ui.div.style.transform = 'scale(1)';
+            ui.div.style.zIndex = '1';
+        }
+    }
+    
+    // Update Full E-Menu Grid
+    for (let i = 0; i < INVENTORY_SIZE; i++) {
+        const item = inventory[i];
+        const ui = allSlotsUI[i];
+        ui.div.style.backgroundImage = getItemImage(item.type);
+        ui.div.style.backgroundSize = 'cover';
+        ui.div.style.imageRendering = 'pixelated';
+        ui.label.innerText = (item.count > 1) ? item.count : '';
+    }
+    
+    // Update Mouse Cursor (Dragging item)
+    if (heldItem.type) {
+        heldItemUI.style.display = 'block';
+        heldItemUI.style.backgroundImage = getItemImage(heldItem.type);
+        heldItemUI.style.backgroundSize = 'cover';
+        heldItemUI.style.imageRendering = 'pixelated';
+        heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
+    } else {
+        heldItemUI.style.display = 'none';
+    }
+}
+
+function addItemToInventory(type, amount) {
+    // 1. Try to add to an existing stack
+    for (let i = 0; i < INVENTORY_SIZE; i++) {
+        if (inventory[i].type === type && inventory[i].count < 64) {
+            let space = 64 - inventory[i].count;
+            let toAdd = Math.min(space, amount);
+            inventory[i].count += toAdd;
+            amount -= toAdd;
+            if (amount <= 0) break;
+        }
+    }
+    // 2. If we still have some left, find an empty slot
+    if (amount > 0) {
+        for (let i = 0; i < INVENTORY_SIZE; i++) {
+            if (inventory[i].type === null) {
+                inventory[i].type = type;
+                inventory[i].count = amount;
+                amount = 0;
+                break;
+            }
+        }
+    }
+    updateInventoryUI();
+}
+
+updateInventoryUI(); // Initial draw
 
 // ----------------------------------------------------
 // 1. Centralized Block & Material System
@@ -909,7 +1108,16 @@ function getTarget() {
 }
 
 function startMining(hit) {
-    mining = { active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId, requiredTime: BLOCK_HARDNESS[hit.object.name] || 1000 };
+    const blockName = hit.object.name;
+    let requiredTime = BLOCK_HARDNESS[blockName] || 1000;
+
+    // Bonus: Make mining 5x faster if holding the right tool!
+    const heldItemType = inventory[selectedSlot].type;
+    if (heldItemType && heldItemType.includes('pickaxe') && BLOCK_TOOL_REQUIREMENT[blockName] === 'pickaxe') {
+        requiredTime /= 5; 
+    }
+
+    mining = { active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId, requiredTime: requiredTime };
     destroyMat.map = destroyTextures[0]; destroyMat.needsUpdate = true;
     const mat = new THREE.Matrix4(); hit.object.getMatrixAt(hit.instanceId, mat);
     destroyMesh.position.setFromMatrixPosition(mat);
@@ -946,8 +1154,18 @@ function updateMining() {
         
         setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
         
-        // Spawn the spinning item!
-        spawnDroppedItem(p.x, p.y, p.z, blockName);
+        // --- Drop Logic & Tool Requirements ---
+        const heldItemType = inventory[selectedSlot].type;
+        const isHoldingPickaxe = heldItemType && heldItemType.includes('pickaxe');
+        const requiresPickaxe = BLOCK_TOOL_REQUIREMENT[blockName] === 'pickaxe';
+
+        // Only spawn the item if it doesn't need a pickaxe, OR we are holding one!
+        if (!requiresPickaxe || isHoldingPickaxe) {
+            const dropName = BLOCK_DROPS[blockName] !== undefined ? BLOCK_DROPS[blockName] : blockName;
+            if (dropName !== null) { 
+                spawnDroppedItem(p.x, p.y, p.z, dropName);
+            }
+        }
         
         if (mining.targetMesh && mining.targetMesh.chunkId) {
             chunksToRebuild.add(mining.targetMesh.chunkId);
@@ -972,11 +1190,11 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 
 document.addEventListener('mousedown', (e) => {
     // Prevent locking pointer if clicking the UI
-    if (e.target.closest('.btn') || e.target.closest('#hotbar')) return; 
+    if (e.target.closest('#inventory-screen') || e.target.closest('#hotbar')) return; 
     
-    if (!document.pointerLockElement) {
+    if (!document.pointerLockElement && inventoryScreen.style.display === 'none') {
         renderer.domElement.requestPointerLock();
-    } else {
+    } else if (document.pointerLockElement) {
         const hit = getTarget(); 
         if (!hit) return;
         
@@ -996,9 +1214,18 @@ document.addEventListener('mousedown', (e) => {
             
             // If the space is empty (0 means air), place the currently selected hotbar block
             if (getGlobalBlock(placeX, placeY, placeZ) === 0) {
-                const blockType = hotbarBlocks[selectedSlot];
-                if (blockType && TYPE[blockType]) {
-                    setGlobalBlock(placeX, placeY, placeZ, TYPE[blockType]);
+                const selectedItem = inventory[selectedSlot];
+                
+                if (selectedItem.type && TYPE[selectedItem.type]) {
+                    setGlobalBlock(placeX, placeY, placeZ, TYPE[selectedItem.type]);
+                    
+                    // Consume the item from inventory!
+                    selectedItem.count--;
+                    if (selectedItem.count <= 0) {
+                        selectedItem.type = null;
+                        selectedItem.count = 0;
+                    }
+                    updateInventoryUI();
                 }
             }
         }
@@ -1017,10 +1244,47 @@ document.addEventListener('mousemove', (e) => {
 window.addEventListener('keydown', (e) => {
     keys[e.key.toLowerCase()] = true;
     
-    // Select hotbar slots with 1-9 number keys
-    if (e.key >= '1' && e.key <= '9') {
+    // Open/Close Inventory with 'E'
+    if (e.key.toLowerCase() === 'e') {
+        if (inventoryScreen.style.display === 'none') {
+            // Open Menu
+            inventoryScreen.style.display = 'flex';
+            crosshair.style.display = 'none';
+            document.exitPointerLock();
+            keys = {}; // Stop the player from continuously walking
+        } else {
+            // Close Menu
+            inventoryScreen.style.display = 'none';
+            crosshair.style.display = 'block';
+            
+            // If we closed the inventory while dragging an item, toss it back into the inventory!
+            if (heldItem.type) {
+                addItemToInventory(heldItem.type, heldItem.count);
+                heldItem = { type: null, count: 0 };
+                updateInventoryUI();
+            }
+            renderer.domElement.requestPointerLock();
+        }
+    }
+
+    // Select hotbar slots with 1-9 number keys (Only if inventory is closed)
+    if (e.key >= '1' && e.key <= '9' && inventoryScreen.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
-        updateHotbar();
+        updateInventoryUI();
+    }
+});
+
+window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+// Cycle hotbar with mouse scroll wheel
+window.addEventListener('wheel', (e) => {
+    if (document.pointerLockElement && inventoryScreen.style.display === 'none') {
+        if (e.deltaY > 0) {
+            selectedSlot = (selectedSlot + 1) % 9;
+        } else {
+            selectedSlot = (selectedSlot - 1 + 9) % 9;
+        }
+        updateInventoryUI();
     }
 });
 
@@ -1102,7 +1366,8 @@ function animate() {
             item.mesh.geometry.dispose();
             droppedItems.splice(i, 1);
             
-            // Note: This is where we will hook up the actual inventory numbers later!
+            // Add to our new inventory system!
+            addItemToInventory(item.blockName, 1);
         }
     }
 
