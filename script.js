@@ -31,20 +31,23 @@ const BLOCK_HARDNESS = {
     deepslatelapis: 22500, deepslatediamond: 22500,
     bedrock: 999999999
 };
+
+// BALANCED ORE CONFIGURATION
+// Higher threshold = Rarer. Lower threshold = More common.
 const ORE_CONFIG = {
-    coal:    [{ min: 0,   max: 128, peak: 95,  threshold: 0.35, reduceAir: false }],
-    // Iron: One peaks at Y=16 (underground), one peaks at Y=128+ (mountains)
-    iron:    [
-        { min: -64, max: 80,  peak: 16,  threshold: 0.40, reduceAir: false },
-        { min: 64,  max: 320, peak: 128, threshold: 0.40, reduceAir: false } 
-    ],
-    copper:  [{ min: -16, max: 112, peak: 48,  threshold: 0.42, reduceAir: false }],
-    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.45, reduceAir: true }],
+    diamond: [{ min: -64, max: 16,  peak: -54, threshold: 0.55, reduceAir: true }],
+    lapis:   [{ min: -64, max: 64,  peak: 0,   threshold: 0.50, reduceAir: true }],
+    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.48, reduceAir: true }],
+    emerald: [{ min: 32,  max: 320, peak: 128, threshold: 0.50, reduceAir: false }],
     redstone:[{ min: -64, max: 15,  peak: -32, threshold: 0.45, reduceAir: true }],
-    lapis:   [{ min: -64, max: 64,  peak: 0,   threshold: 0.46, reduceAir: true }],
-    diamond: [{ min: -64, max: 16,  peak: -54, threshold: 0.48, reduceAir: true }],
-    emerald: [{ min: 32,  max: 320, peak: 128, threshold: 0.50, reduceAir: false }]
+    copper:  [{ min: -16, max: 112, peak: 48,  threshold: 0.42, reduceAir: false }],
+    iron:    [
+        { min: -64, max: 80,  peak: 16,  threshold: 0.44, reduceAir: false }, // Increased threshold to reduce spam
+        { min: 64,  max: 320, peak: 128, threshold: 0.44, reduceAir: false } 
+    ],
+    coal:    [{ min: -64, max: 128, peak: 95,  threshold: 0.42, reduceAir: false }], // Increased threshold to reduce spam
 };
+
 const loader = new THREE.TextureLoader();
 const loadTex = (url) => {
     const t = loader.load(url);
@@ -497,12 +500,18 @@ function generateChunk(chunkX, chunkZ) {
 
                     let blockType = stoneType;
                     let foundOre = false;
+                    
+                    // MODIFIED ORE LOGIC: Checking rarest ores first in the loop
                     for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
                         if (foundOre) break;
                         for (const conf of rules) {
                             if (actualY >= conf.min && actualY <= conf.max) {
-                                let veinNoise = noise.perlin3(globalX * 0.2, actualY * 0.2, globalZ * 0.2);
-                                if (veinNoise > (conf.threshold + (Math.abs(actualY - conf.peak) / 100) * 0.15)) {
+                                // Added slight offsets to noise for each ore type so they don't overlap perfectly
+                                let offset = (oreName.length * 10);
+                                let veinNoise = noise.perlin3((globalX + offset) * 0.2, (actualY + offset) * 0.2, (globalZ + offset) * 0.2);
+                                
+                                // Simplified threshold check (Removed the "peak" distance penalty to allow more spawning)
+                                if (veinNoise > conf.threshold) {
                                     blockType = (stoneType === 'deepslate') ? `deepslate${oreName}` : oreName;
                                     foundOre = true; break;
                                 }
