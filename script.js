@@ -311,7 +311,7 @@ function spawnTree(x, y, z, chunkMeshes, indices) {
     }
 
     // LEAVES
-    for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
+    for (let ly = y + trunkH - 2; ly <= y + trunkH + 1; ly++) {
         let radius = (ly > y + trunkH - 1) ? 1 : 2; 
         for (let lx = -radius; lx <= radius; lx++) {
             for (let lz = -radius; lz <= radius; lz++) {
