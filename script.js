@@ -33,28 +33,28 @@ const BLOCK_HARDNESS = {
 };
 
 // MINECRAFT 1.18+ ORE CONFIGURATION (Matched exactly to the distribution chart)
-// Triangles (Peaks) have a 'peak' value. Rectangles (Uniform) do not.
+// Thresholds lowered to account for realistic noise generator outputs.
 const ORE_CONFIG = {
-    emerald: [{ min: -16, max: 320, peak: 232, threshold: 0.88 }],
-    diamond: [{ min: -64, max: 16,  peak: -64, threshold: 0.82 }],
+    emerald: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
+    diamond: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
     lapis:   [
-        { min: -64, max: 64,  peak: 0, threshold: 0.80 }, 
-        { min: -32, max: 32,  threshold: 0.78 } 
+        { min: -64, max: 64,  peak: 0, threshold: 0.68 }, 
+        { min: -32, max: 32,  threshold: 0.65 } 
     ],
-    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.78 }],
+    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.68 }],
     redstone:[
-        { min: -64, max: 15,  threshold: 0.75 },
-        { min: -64, max: -32, peak: -64, threshold: 0.72 }
+        { min: -64, max: 15,  threshold: 0.65 },
+        { min: -64, max: -32, peak: -64, threshold: 0.62 }
     ],
-    copper:  [{ min: -16, max: 112, peak: 48, threshold: 0.70 }],
+    copper:  [{ min: -16, max: 112, peak: 48, threshold: 0.60 }],
     iron:    [
-        { min: -64, max: 72,  peak: 16, threshold: 0.65 },
-        { min: 80,  max: 320, peak: 232, threshold: 0.65 },
-        { min: -64, max: -32, threshold: 0.68 }
+        { min: -64, max: 72,  peak: 16, threshold: 0.55 },
+        { min: 80,  max: 320, peak: 232, threshold: 0.55 },
+        { min: -64, max: -32, threshold: 0.58 }
     ],
     coal:    [
-        { min: 0,   max: 192, peak: 96, threshold: 0.60 }, // STOPS EXACTLY AT Y=0!
-        { min: 136, max: 320, threshold: 0.65 }
+        { min: 0,   max: 192, peak: 96, threshold: 0.50 }, // STOPS EXACTLY AT Y=0!
+        { min: 136, max: 320, threshold: 0.55 }
     ],
 };
 
@@ -511,14 +511,19 @@ function generateChunk(chunkX, chunkZ) {
 
                     let blockType = stoneType;
                     let foundOre = false;
+                    let oreIndex = 0; // ADDED: A unique counter for our noise offset
                     
                     // MINECRAFT 1.18 ORE LOGIC: Rarest first, matching chart curves
                     for (const [oreName, rules] of Object.entries(ORE_CONFIG)) {
                         if (foundOre) break;
+                        oreIndex++; // ADDED: Increases by 1 for every ore type
+                        
                         for (const conf of rules) {
                             if (actualY >= conf.min && actualY <= conf.max) {
-                                let offset = (oreName.length * 100); 
-                                let veinNoise = noise.perlin3((globalX + offset) * 0.35, (actualY + offset) * 0.35, (globalZ + offset) * 0.35);
+                                // FIXED: Use the unique oreIndex so they never overlap!
+                                let offset = (oreIndex * 1000); 
+                                // Lowered scale to 0.25 to make the veins slightly thicker (3-8 blocks)
+                                let veinNoise = noise.perlin3((globalX + offset) * 0.25, (actualY + offset) * 0.25, (globalZ + offset) * 0.25);
                                 
                                 let currentThreshold = conf.threshold;
                                 
