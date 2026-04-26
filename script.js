@@ -1298,8 +1298,14 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
 // Cycle hotbar with mouse scroll wheel
+let lastScrollTime = 0; // Tracks when you last scrolled
 window.addEventListener('wheel', (e) => {
     if (document.pointerLockElement && inventoryScreen.style.display === 'none') {
+        const now = Date.now();
+        // 150ms cooldown prevents double-triggering
+        if (now - lastScrollTime < 150) return; 
+        lastScrollTime = now;
+
         if (e.deltaY > 0) {
             selectedSlot = (selectedSlot + 1) % 9;
         } else {
