@@ -32,18 +32,18 @@ const BLOCK_HARDNESS = {
     bedrock: 999999999
 };
 const ORE_CONFIG = {
-    coal:    [{ min: 0,   max: 128, peak: 95,  threshold: 0.45, reduceAir: false }],
+    coal:    [{ min: 0,   max: 128, peak: 95,  threshold: 0.35, reduceAir: false }],
     // Iron: One peaks at Y=16 (underground), one peaks at Y=128+ (mountains)
     iron:    [
-        { min: -64, max: 80,  peak: 16,  threshold: 0.50, reduceAir: false },
-        { min: 64,  max: 320, peak: 128, threshold: 0.48, reduceAir: false } 
+        { min: -64, max: 80,  peak: 16,  threshold: 0.40, reduceAir: false },
+        { min: 64,  max: 320, peak: 128, threshold: 0.40, reduceAir: false } 
     ],
-    copper:  [{ min: -16, max: 112, peak: 48,  threshold: 0.52, reduceAir: false }],
-    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.58, reduceAir: true }],
-    redstone:[{ min: -64, max: 15,  peak: -32, threshold: 0.58, reduceAir: true }],
-    lapis:   [{ min: -64, max: 64,  peak: 0,   threshold: 0.60, reduceAir: true }],
-    diamond: [{ min: -64, max: 16,  peak: -54, threshold: 0.62, reduceAir: true }],
-    emerald: [{ min: 32,  max: 320, peak: 128, threshold: 0.65, reduceAir: false }]
+    copper:  [{ min: -16, max: 112, peak: 48,  threshold: 0.42, reduceAir: false }],
+    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.45, reduceAir: true }],
+    redstone:[{ min: -64, max: 15,  peak: -32, threshold: 0.45, reduceAir: true }],
+    lapis:   [{ min: -64, max: 64,  peak: 0,   threshold: 0.46, reduceAir: true }],
+    diamond: [{ min: -64, max: 16,  peak: -54, threshold: 0.48, reduceAir: true }],
+    emerald: [{ min: 32,  max: 320, peak: 128, threshold: 0.50, reduceAir: false }]
 };
 const loader = new THREE.TextureLoader();
 const loadTex = (url) => {
