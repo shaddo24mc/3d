@@ -23,7 +23,7 @@ renderer.shadowMap.enabled = false;
 // ----------------------------------------------------
 const BLOCK_HARDNESS = {
     stone: 7500, coal: 15000, iron: 15000, copper: 10000, gold: 15000, emerald: 15000, redstone: 15000, lapis: 15000, diamond: 15000,
-    oaklog: 3000, oakleaves: 300, dirt: 750, grass: 750, overlay: 750, 
+    oaklog: 3000, oakleaves: 300, sprucelog: 3000, spruceleaves: 300, dirt: 750, grass: 750, overlay: 750, 
     snow_grass: 750, sand: 600, snow: 500, sandstone: 4000,
     deepslate: 20000, 
     deepslatecoal: 22500, deepslateiron: 22500, deepslatecopper: 15000, 
@@ -75,6 +75,10 @@ const stone = loadTex('./textures/stone.png');
 const logSide = loadTex('./textures/oak_log.png');
 const logTop = loadTex('./textures/oak_log_top.png');
 const leaves = loadTex('./textures/oak_leaves.png');
+
+const spruceLogSide = loadTex('./textures/spruce_log.png');
+const spruceLogTop = loadTex('./textures/spruce_log_top.png');
+const spruceLeaves = loadTex('./textures/spruce_leaves.png');
 
 const coalore = loadTex('./textures/coal_ore.png');
 const ironore = loadTex('./textures/iron_ore.png');
@@ -178,6 +182,15 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: logTop }),
         new THREE.MeshStandardMaterial({ map: logSide }),
         new THREE.MeshStandardMaterial({ map: logSide })
+    ],
+    spruceleaves: new THREE.MeshStandardMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), // Darker pine green
+    sprucelog: [
+        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
+        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
+        new THREE.MeshStandardMaterial({ map: spruceLogTop }),
+        new THREE.MeshStandardMaterial({ map: spruceLogTop }),
+        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
+        new THREE.MeshStandardMaterial({ map: spruceLogSide })
     ]
 };
 
@@ -193,11 +206,11 @@ scene.add(destroyMesh);
 // 2. BIOME REGISTRY 
 // ----------------------------------------------------
 const BIOME_REGISTRY = [
-    { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20 },
-    { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8 },
-    { name: "Desert", temp: 0.35, moist: -0.35, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 12 },
-    { name: "Snowy Tundra", temp: -0.35, moist: 0.1, depth: 0.0, topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15 },
-    { name: "Mountains", temp: 0.3, moist: 0.3, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0.0, heightScale: 55 }
+    { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20, treeType: 'oak' },
+    { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8, treeType: 'oak' },
+    { name: "Desert", temp: 0.35, moist: -0.35, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 12, treeType: 'oak' },
+    { name: "Snowy Tundra", temp: -0.35, moist: 0.1, depth: 0.0, topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15, treeType: 'spruce' },
+    { name: "Mountains", temp: 0.3, moist: 0.3, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0.0, heightScale: 55, treeType: 'spruce' }
 ];
 
 // ----------------------------------------------------
@@ -227,14 +240,14 @@ const TYPE = {
     diamond: 15, deepslate: 16, bedrock: 17, deepslatecoal: 18, deepslateiron: 19, 
     deepslatecopper: 20, deepslategold: 21, deepslateredstone: 22, 
     deepslateemerald: 23, deepslatelapis: 24, deepslatediamond: 25,
-    oaklog: 26, oakleaves: 27
+    oaklog: 26, oakleaves: 27, sprucelog: 28, spruceleaves: 29
 };
 const REVERSE_TYPE = [
     null, 'stone', 'dirt', 'grass', 'sand', 'sandstone', 'snow', 'snow_grass', 
     'coal', 'iron', 'copper', 'gold', 'redstone', 'emerald', 'lapis', 'diamond', 
     'deepslate', 'bedrock', 'deepslatecoal', 'deepslateiron', 'deepslatecopper', 
     'deepslategold', 'deepslateredstone', 'deepslateemerald', 'deepslatelapis', 
-    'deepslatediamond', 'oaklog', 'oakleaves'
+    'deepslatediamond', 'oaklog', 'oakleaves', 'sprucelog', 'spruceleaves'
 ];
 
 function getGlobalBlock(gx, gy, gz) {
@@ -302,10 +315,10 @@ function doRandomTicks() {
 
                 let above = getGlobalBlock(gx, gy + 1, gz);
                 
-                if (above !== null && above !== 0 && above !== TYPE.oakleaves && above !== TYPE.snow) {
+                if (above !== null && above !== 0 && above !== TYPE.oakleaves && above !== TYPE.spruceleaves && above !== TYPE.snow) {
                     setGlobalBlock(gx, gy, gz, TYPE.dirt);
                 } 
-                else if (above === 0 || above === TYPE.oakleaves || above === TYPE.snow) {
+                else if (above === 0 || above === TYPE.oakleaves || above === TYPE.spruceleaves || above === TYPE.snow) {
                     let ox = Math.floor(Math.random() * 3) - 1; 
                     let oz = Math.floor(Math.random() * 3) - 1;
                     let oy = Math.floor(Math.random() * 5) - 3; 
@@ -317,7 +330,7 @@ function doRandomTicks() {
                     let target = getGlobalBlock(tx, ty, tz);
                     if (target === TYPE.dirt) {
                         let targetAbove = getGlobalBlock(tx, ty + 1, tz);
-                        if (targetAbove === 0 || targetAbove === TYPE.oakleaves || targetAbove === TYPE.snow) {
+                        if (targetAbove === 0 || targetAbove === TYPE.oakleaves || targetAbove === TYPE.spruceleaves || targetAbove === TYPE.snow) {
                             setGlobalBlock(tx, ty, tz, blockType);
                         }
                     }
@@ -345,8 +358,9 @@ function getInterpolatedHeightScale(x, z) {
     
     for (let offX = -range; offX <= range; offX += step) {
         for (let offZ = -range; offZ <= range; offZ += step) {
-            let temp = fbm2(x + offX + mapOffsetX, z + offZ + mapOffsetZ, 2, 800);
-            let moist = fbm2(x + offX + mapOffsetX + 10000, z + offZ + mapOffsetZ + 10000, 2, 800);
+            // Lowered biome scale from 800 to 400 so Deserts are smaller and easier to find!
+            let temp = fbm2(x + offX + mapOffsetX, z + offZ + mapOffsetZ, 2, 400);
+            let moist = fbm2(x + offX + mapOffsetX + 10000, z + offZ + mapOffsetZ + 10000, 2, 400);
             totalScale += getBiome(temp, moist, 0).heightScale;
             samples++;
         }
@@ -361,34 +375,72 @@ function getDeterministicRandom(x, y, z) {
     return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
 }
 
-function spawnTree(x, y, z, chunkMeshes, indices) {
-    const trunkH = 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
+function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
+    // Spruce trees generate slightly taller!
+    const trunkH = treeType === 'spruce' 
+        ? 5 + Math.floor(getDeterministicRandom(x, y, z) * 3) 
+        : 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
+        
     const treeMatrix = new THREE.Matrix4();
+    const logType = `${treeType}log`;
+    const leavesType = `${treeType}leaves`;
     
     // TRUNK
     for (let i = 0; i < trunkH; i++) {
         let actualY = y + i;
         if (brokenBlocks.has(`${x},${actualY},${z}`)) continue;
         treeMatrix.setPosition(x, actualY, z);
-        chunkMeshes.oaklog.setMatrixAt(indices.oaklog++, treeMatrix);
+        chunkMeshes[logType].setMatrixAt(indices[logType]++, treeMatrix);
     }
 
     // LEAVES
-    for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
-        let radius = (ly > y + trunkH - 1) ? 1 : 2; 
-        for (let lx = -radius; lx <= radius; lx++) {
-            for (let lz = -radius; lz <= radius; lz++) {
-                if (Math.abs(lx) === radius && Math.abs(lz) === radius) {
-                    let trimChance = (ly === y + trunkH + 1) ? 1.0 : (ly === y + trunkH) ? 0.75 : 0.2;
-                    if (getDeterministicRandom(x + lx, ly, z + lz) < trimChance) continue;
-                }
-                if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
-                
-                const bX = x + lx; const bY = ly; const bZ = z + lz;
-                if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
+    if (treeType === 'spruce') {
+        // --- CUSTOM SPRUCE TREE SHAPE (Layered pine cone) ---
+        let leafStart = y + 2; 
+        let topY = y + trunkH + 1;
+        let radius = 2; // Start wide
+        
+        for (let ly = leafStart; ly <= topY; ly++) {
+            // Narrow the radius at the very top of the tree
+            let currentRadius = (ly === topY) ? 0 : (ly === topY - 1) ? 1 : radius;
+            
+            for (let lx = -currentRadius; lx <= currentRadius; lx++) {
+                for (let lz = -currentRadius; lz <= currentRadius; lz++) {
+                    // Trim corners randomly for a more circular/jagged spruce look
+                    if (Math.abs(lx) === currentRadius && Math.abs(lz) === currentRadius && currentRadius > 0) {
+                        if (getDeterministicRandom(x + lx, ly, z + lz) < 0.5) continue;
+                    }
+                    // Skip the center block where the trunk goes
+                    if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
+                    
+                    const bX = x + lx; const bY = ly; const bZ = z + lz;
+                    if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
 
-                treeMatrix.setPosition(bX, bY, bZ);
-                chunkMeshes.oakleaves.setMatrixAt(indices.oakleaves++, treeMatrix);
+                    treeMatrix.setPosition(bX, bY, bZ);
+                    chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
+                }
+            }
+            // Alternate radius between layers (e.g. 2, 1, 2, 1) for that classic pine look
+            radius = radius === 2 ? 1 : 2;
+        }
+    } else {
+        // --- STANDARD OAK TREE SHAPE ---
+        for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
+            let radius = (ly > y + trunkH - 1) ? 1 : 2; 
+            for (let lx = -radius; lx <= radius; lx++) {
+                for (let lz = -radius; lz <= radius; lz++) {
+                    if (Math.abs(lx) === radius && Math.abs(lz) === radius) {
+                        let trimChance = (ly === y + trunkH + 1) ? 1.0 : (ly === y + trunkH) ? 0.75 : 0.2;
+                        if (getDeterministicRandom(x + lx, ly, z + lz) < trimChance) continue;
+                    }
+                    if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
+                    
+                    const bX = x + lx; const bY = ly; const bZ = z + lz;
+                    if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
+
+                    treeMatrix.setPosition(bX, bY, bZ);
+                    chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
+                }
             }
         }
     }
@@ -430,7 +482,7 @@ function generateChunk(chunkX, chunkZ) {
     const startZ = chunkZ * chunkSize;
     const maxVisibleBlocks = 25000; 
 
-    // 1. Initialize Meshes (FIX: Removed the 2000 instance limit to prevent sheared trees)
+    // 1. Initialize Meshes (Removed the 2000 instance limit to prevent sheared trees)
     const meshes = {};
     const indices = {};
     for (const [key, mat] of Object.entries(materials)) {
@@ -451,9 +503,8 @@ function generateChunk(chunkX, chunkZ) {
             let globalX = startX + x;
             let globalZ = startZ + z;
 
-            // FIX: We precalculate the biome once for the whole Y column to properly assign deep SubBlocks!
-            let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 800);
-            let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 800);
+            let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 400);
+            let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 400);
             let localBiome = getBiome(tempMap, moistMap, 0); 
             
             let blendedScale = getInterpolatedHeightScale(globalX, globalZ);
@@ -475,8 +526,19 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
-                    // FIX: This pulls sandstone from the Desert biome registry instead of defaulting to stone!
-                    let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : (localBiome.deepSubBlock || 'stone');
+                    // Calculate distance from the surface FIRST
+                    let actualYAbove = actualY + 1;
+                    let densityAbove = (baseHeight - actualYAbove) + 
+                                       (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
+                                       (noise.perlin3(globalX / 15, actualYAbove / 15, globalZ / 15) * 5);
+
+                    let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
+                    
+                    // Limit Sandstone (deepSubBlock) to only spawn within ~10 blocks of the surface!
+                    if (stoneType === 'stone' && densityAbove < 10 && localBiome.deepSubBlock !== 'stone') {
+                        stoneType = localBiome.deepSubBlock;
+                    }
+
                     let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
 
                     if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
@@ -511,27 +573,32 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
-                    let actualYAbove = actualY + 1;
-                    let densityAbove = (baseHeight - actualYAbove) + 
-                                       (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
-                                       (noise.perlin3(globalX / 15, actualYAbove / 15, globalZ / 15) * 5);
-
+                    // Applied surface blocks (dirt/sand) last so they overwrite surface ores
                     if (densityAbove <= 0) { 
                         blockType = actualY > 100 ? 'snow' : localBiome.topBlock;
-                        
-                        const isNearSurface = actualY >= baseHeight - 10;
-                        if (isNearSurface && blockType !== 'snow' && localBiome.treeChance > 0) {
-                            if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
-                                 treesToSpawn.push({ x, y, z, actualY });
-                            }
-                        }
                     } else if (densityAbove < 3) {
                         blockType = localBiome.subBlock;
                     }
 
                     blocks[blockIdx] = TYPE[blockType] || TYPE.stone;
                 }
+            } // End of Y loop
+
+            // TREE FIX: Find the absolute highest block in this column to spawn trees on.
+            // This guarantees trees can never spawn underground inside caves or overhangs!
+            for (let y = worldHeight - 1; y >= 0; y--) {
+                let b = blocks[getIdx(x, y, z)];
+                if (b !== 0) { 
+                    if ((b === TYPE.grass || b === TYPE.snow_grass) && localBiome.treeChance > 0) {
+                        let actualY = y + minworldY;
+                        if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
+                            treesToSpawn.push({ x, y, z, actualY, treeType: localBiome.treeType });
+                        }
+                    }
+                    break; // Found the surface, stop checking lower blocks
+                }
             }
+
         }
     }
 
@@ -547,12 +614,13 @@ function generateChunk(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
-                        return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
+                        // Make sure BOTH leaves are treated as "transparent" so blocks behind them render!
+                        return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
                     }
                     let gx = startX + nx; let gy = ny + minworldY; let gz = startZ + nz;
                     let b = getGlobalBlock(gx, gy, gz);
                     if (b === null) return true; 
-                    return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
+                    return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
@@ -574,7 +642,7 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices);
+    for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices, t.treeType);
 
     for (const key in meshes) {
         meshes[key].count = indices[key];
@@ -620,11 +688,11 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
-                        return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
+                        return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
                     }
                     let b = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
                     if (b === null) return true; 
-                    return b === 0 || b === TYPE.oakleaves || b === TYPE.snow;
+                    return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
@@ -646,7 +714,7 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
         }
     }
 
-    for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices);
+    for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices, t.treeType);
 
     for (const key in meshes) {
         meshes[key].count = indices[key];
