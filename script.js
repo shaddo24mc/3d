@@ -58,7 +58,7 @@ function getItemImage(type) {
         oaklog: './textures/oak_log.png',
         sprucelog: './textures/spruce_log.png',
         snow_grass: './textures/grass_block_snow.png',
-        diamond_pickaxe: './textures/diamond_pickaxe.png'
+        diamond_pickaxe: './items/diamond_pickaxe.png'
     };
     return `url(${customTextures[type] || `./textures/${type}.png`})`;
 }
