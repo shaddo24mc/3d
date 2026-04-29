@@ -61,9 +61,6 @@ function getItemImage(type) {
         rawiron: './items/raw_iron.png',
         rawgold: './items/raw_gold.png',
         rawcopper: './items/raw_gold.png',
-        icoal: './items/coal.png',
-        idiamond: './items/diamond.png',
-        ilapis: './items/lapis_lazuli.png',
         redstonedust: './items/restone_dust.png'
         diamond_pickaxe: './items/diamond_pickaxe.png'
     };
@@ -330,13 +327,46 @@ const BLOCK_HARDNESS = {
 };
 
 const BLOCK_DROPS = {
-    grass: 'dirt',       // Grass correctly drops dirt!
-    snow_grass: 'dirt',
-    oakleaves: null,     // Leaves drop nothing for now
+    grass: { item: 'dirt', count: 1 },
+    snow_grass: { item: 'dirt', count: 1 },
+
+    stone: { item: 'cobblestone', count: 1 },
+    deepslate: { item: 'cobbleddeepslate', count: 1 },
+
+    coal: { item: 'coal', count: 1 },
+    deepslatecoal: { item: 'coal', count: 1 },
+
+    iron: { item: 'rawiron', count: 1 },
+    deepslateiron: { item: 'rawiron', count: 1 },
+
+    copper: { item: 'rawcopper', count: () => 3 + Math.floor(Math.random() * 3) },
+    deepslatecopper: { item: 'rawcopper', count: () => 3 + Math.floor(Math.random() * 3) },
+
+    gold: { item: 'rawgold', count: 1 },
+    deepslategold: { item: 'rawgold', count: 1 },
+
+    diamond: { item: 'diamond', count: 1 },
+    deepslatediamond: { item: 'diamond', count: 1 },
+
+    lapis: { item: 'lapis', count: () => 4 + Math.floor(Math.random() * 5) },
+    deepslatelapis: { item: 'lapis', count: () => 4 + Math.floor(Math.random() * 5) },
+
+    redstone: { item: 'redstonedust', count: () => 4 + Math.floor(Math.random() * 2) },
+    deepslateredstone: { item: 'redstonedust', count: () => 4 + Math.floor(Math.random() * 2) },
+
+    emerald: { item: 'emerald', count: 1 },
+    deepslateemerald: { item: 'emerald', count: 1 },
+
+    sand: { item: 'sand', count: 1 },
+    sandstone: { item: 'sandstone', count: 1 },
+
+    oaklog: { item: 'oaklog', count: 1 },
+    sprucelog: { item: 'sprucelog', count: 1 },
+
+    oakleaves: null,
     spruceleaves: null,
-    iron: 'rawiron',
-    gold: 'rawgold',
-    
+
+    bedrock: null
 };
 
 const BLOCK_TOOL_REQUIREMENT = {
@@ -1196,9 +1226,17 @@ function updateMining() {
         const requiresPickaxe = BLOCK_TOOL_REQUIREMENT[blockName] === 'pickaxe';
 
         if (!requiresPickaxe || isHoldingPickaxe) {
-            const dropName = BLOCK_DROPS[blockName] !== undefined ? BLOCK_DROPS[blockName] : blockName;
-            if (dropName !== null) { 
-                spawnDroppedItem(p.x, p.y, p.z, dropName);
+            const dropData = BLOCK_DROPS[blockName];
+
+            if (dropData !== null) {
+                const item = dropData?.item || blockName;
+                let count = dropData?.count || 1;
+
+                if (typeof count === 'function') count = count();
+
+                for (let i = 0; i < count; i++) {
+                    spawnDroppedItem(p.x, p.y, p.z, item);
+                }
             }
         }
         
