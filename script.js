@@ -643,6 +643,7 @@ const activeChunks = {};
 const chunkQueue = []; 
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
+const placedBlocks = new Map(); // <-- Our new memory bank for placed blocks!
 const chunksToRebuild = new Set(); 
 
 const TYPE = { 
@@ -681,20 +682,31 @@ function getGlobalBlock(gx, gy, gz) {
 
 function setGlobalBlock(gx, gy, gz, type) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return;
+    
+    // Memory Bank Update: Always record the change before messing with chunks
+    let blockKey = `${gx},${gy},${gz}`;
+    if (type === 0) {
+        brokenBlocks.add(blockKey);
+        placedBlocks.delete(blockKey); // If we break a block we placed, remove it from placed memory
+    } else {
+        brokenBlocks.delete(blockKey);
+        placedBlocks.set(blockKey, type); // Save the block forever!
+    }
+
     let cx = Math.floor(gx / chunkSize);
     let cz = Math.floor(gz / chunkSize);
     let chunkId = `${cx},${cz}`;
     let chunk = activeChunks[chunkId];
-    if (!chunk) return;
+    
+    // If the chunk happens to be unloaded when we place/break something (like a growing tree over the border)
+    // We safely return. Since we already saved it in `placedBlocks`, it will build correctly when we walk over there!
+    if (!chunk) return; 
     
     let lx = gx - (cx * chunkSize);
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
     
-    if (type === 0) brokenBlocks.add(`${gx},${gy},${gz}`);
-    else brokenBlocks.delete(`${gx},${gy},${gz}`);
-
     if (chunk.blocks[idx] !== type) {
         chunk.blocks[idx] = type;
     }
@@ -867,7 +879,9 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
     // TRUNK
     for (let i = 0; i < trunkH; i++) {
         let actualY = y + i;
-        if (brokenBlocks.has(`${x},${actualY},${z}`)) continue;
+        let blockKey = `${x},${actualY},${z}`;
+        // Skip logs if the player placed or broke something here!
+        if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
         treeMatrix.setPosition(x, actualY, z);
         chunkMeshes[logType].setMatrixAt(indices[logType]++, treeMatrix);
     }
@@ -890,7 +904,9 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     if (lx === 0 && lz === 0 && ly < y + trunkH) continue; 
                     
                     const bX = x + lx; const bY = ly; const bZ = z + lz;
-                    if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
+                    let blockKey = `${bX},${bY},${bZ}`;
+                    // Skip leaves if the player modified this spot
+                    if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
                     chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
@@ -917,7 +933,9 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
                     
                     const bX = x + lx; const bY = ly; const bZ = z + lz;
-                    if (brokenBlocks.has(`${bX},${bY},${bZ}`)) continue;
+                    let blockKey = `${bX},${bY},${bZ}`;
+                    // Skip leaves if the player modified this spot
+                    if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
                     chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
@@ -999,6 +1017,17 @@ function generateChunk(chunkX, chunkZ) {
             for (let y = 0; y < worldHeight; y++) {
                 let actualY = y + minworldY;
                 let blockIdx = getIdx(x, y, z);
+                let blockKey = `${globalX},${actualY},${globalZ}`;
+
+                // VERY FIRST THING: Check if the player manually placed or broke something here!
+                if (placedBlocks.has(blockKey)) {
+                    blocks[blockIdx] = placedBlocks.get(blockKey);
+                    continue; // Skip the natural math generator
+                }
+                if (brokenBlocks.has(blockKey)) {
+                    blocks[blockIdx] = 0; // Make sure it stays empty air
+                    continue; // Skip the natural math generator
+                }
 
                 let cliffNoise = noise.perlin3(globalX / 50, actualY / 40, globalZ / 50) * 18;
                 let detailNoise = noise.perlin3(globalX / 15, actualY / 15, globalZ / 15) * 5;
@@ -1024,7 +1053,7 @@ function generateChunk(chunkX, chunkZ) {
 
                     let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
 
-                    if (isCave || brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
+                    if (isCave) continue;
 
                     let baseBlockType = stoneType;
                     if (densityAbove <= 0) { 
@@ -1490,7 +1519,7 @@ window.addEventListener('wheel', (e) => {
     if (document.pointerLockElement && inventoryScreen.style.display === 'none') {
         const now = Date.now();
         // 150ms cooldown prevents double-triggering
-        if (now - lastScrollTime < 150) return; 
+        if (now - lastScrollTime < 50) return; 
         lastScrollTime = now;
 
         if (e.deltaY > 0) {
