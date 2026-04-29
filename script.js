@@ -470,6 +470,19 @@ const sandstonebottom = loadTex('./textures/sandstone_bottom.png');
 const oakSaplingTex = loadTex('./textures/oak_sapling.png');
 const spruceSaplingTex = loadTex('./textures/spruce_sapling.png');
 
+// --- NEW TEXTURES FOR DROPS ---
+const cobblestoneTex = loadTex('./textures/cobblestone.png');
+const cobbledDeepslateTex = loadTex('./textures/cobbled_deepslate.png');
+const coalTex = loadTex('./items/coal.png');
+const rawIronTex = loadTex('./items/raw_iron.png');
+const rawCopperTex = loadTex('./items/raw_copper.png');
+const rawGoldTex = loadTex('./items/raw_gold.png');
+const diamondTex = loadTex('./items/diamond.png');
+const emeraldTex = loadTex('./items/emerald.png');
+const lapisTex = loadTex('./items/lapis_lazuli.png');
+const redstoneTex = loadTex('./items/redstone_dust.png');
+const snowballTex = loadTex('./items/snowball.png');
+
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
@@ -511,6 +524,19 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: sandstoneside})
     ],
     snow_block: new THREE.MeshStandardMaterial({ map: snow}), 
+
+    // --- MATERIALS FOR ITEMS & NEW BLOCKS ---
+    cobblestone: new THREE.MeshStandardMaterial({ map: cobblestoneTex }),
+    cobbled_deepslate: new THREE.MeshStandardMaterial({ map: cobbledDeepslateTex }),
+    coal: new THREE.MeshStandardMaterial({ map: coalTex, transparent: true, alphaTest: 0.5 }),
+    raw_iron: new THREE.MeshStandardMaterial({ map: rawIronTex, transparent: true, alphaTest: 0.5 }),
+    raw_copper: new THREE.MeshStandardMaterial({ map: rawCopperTex, transparent: true, alphaTest: 0.5 }),
+    raw_gold: new THREE.MeshStandardMaterial({ map: rawGoldTex, transparent: true, alphaTest: 0.5 }),
+    diamond: new THREE.MeshStandardMaterial({ map: diamondTex, transparent: true, alphaTest: 0.5 }),
+    emerald: new THREE.MeshStandardMaterial({ map: emeraldTex, transparent: true, alphaTest: 0.5 }),
+    lapis_lazuli: new THREE.MeshStandardMaterial({ map: lapisTex, transparent: true, alphaTest: 0.5 }),
+    redstone: new THREE.MeshStandardMaterial({ map: redstoneTex, transparent: true, alphaTest: 0.5 }),
+    snowball: new THREE.MeshStandardMaterial({ map: snowballTex, transparent: true, alphaTest: 0.5 }),
 
     coal_ore: new THREE.MeshStandardMaterial({ map: coalore }),
     iron_ore: new THREE.MeshStandardMaterial({ map: ironore }),
@@ -625,14 +651,16 @@ const TYPE = {
     diamond_ore: 15, deepslate: 16, bedrock: 17, deepslate_coal_ore: 18, deepslate_iron_ore: 19, 
     deepslate_copper_ore: 20, deepslate_gold_ore: 21, deepslate_redstone_ore: 22, 
     deepslate_emerald_ore: 23, deepslate_lapis_ore: 24, deepslate_diamond_ore: 25,
-    oak_log: 26, oak_leaves: 27, spruce_log: 28, spruce_leaves: 29, oak_sapling: 30, spruce_sapling: 31
+    oak_log: 26, oak_leaves: 27, spruce_log: 28, spruce_leaves: 29, oak_sapling: 30, spruce_sapling: 31,
+    cobblestone: 32, cobbled_deepslate: 33 // Added missing placeable blocks!
 };
 const REVERSE_TYPE = [
     null, 'stone', 'dirt', 'grass_block', 'sand', 'sandstone', 'snow_block', 'snowy_grass_block', 
     'coal_ore', 'iron_ore', 'copper_ore', 'gold_ore', 'redstone_ore', 'emerald_ore', 'lapis_ore', 'diamond_ore', 
     'deepslate', 'bedrock', 'deepslate_coal_ore', 'deepslate_iron_ore', 'deepslate_copper_ore', 
     'deepslate_gold_ore', 'deepslate_redstone_ore', 'deepslate_emerald_ore', 'deepslate_lapis_ore', 
-    'deepslate_diamond_ore', 'oak_log', 'oak_leaves', 'spruce_log', 'spruce_leaves', 'oak_sapling', 'spruce_sapling'
+    'deepslate_diamond_ore', 'oak_log', 'oak_leaves', 'spruce_log', 'spruce_leaves', 'oak_sapling', 'spruce_sapling',
+    'cobblestone', 'cobbled_deepslate' // Added missing placeable blocks!
 ];
 
 function getGlobalBlock(gx, gy, gz) {
