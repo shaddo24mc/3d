@@ -1543,21 +1543,47 @@ function animate() {
         item.lifeTime += delta;
         
         item.velocity.y -= 15 * delta; 
-        item.mesh.position.addScaledVector(item.velocity, delta);
         
-        let bX = Math.round(item.mesh.position.x);
-        let bY = Math.floor(item.mesh.position.y - 0.125);
-        let bZ = Math.round(item.mesh.position.z);
-        
+        // Calculate potential next position
+        let nx = item.mesh.position.x + item.velocity.x * delta;
+        let ny = item.mesh.position.y + item.velocity.y * delta;
+        let nz = item.mesh.position.z + item.velocity.z * delta;
+
+        let bX = Math.round(nx);
+        let bY = Math.round(ny - 0.25); // Check the block right below the item
+        let bZ = Math.round(nz);
+
         let blockBelow = getGlobalBlock(bX, bY, bZ);
-        if (blockBelow !== 0 && blockBelow !== null) {
-            item.mesh.position.y = bY + 0.625; 
-            item.velocity.x *= 0.5; 
+
+        // 1. Unloaded Chunk Check (Freeze items so they don't fall into the void)
+        if (blockBelow === null) {
+            item.velocity.set(0, 0, 0);
+            nx = item.mesh.position.x;
+            ny = item.mesh.position.y;
+            nz = item.mesh.position.z;
+        } 
+        // 2. Floor Collision
+        else if (blockBelow !== 0) {
+            ny = bY + 0.5 + 0.125; // Top of the block + half item size
+            item.velocity.y = 0;
+            item.velocity.x *= 0.5; // Friction slows it down
             item.velocity.z *= 0.5;
-            item.velocity.y = 0; 
+        } 
+        // 3. Wall Collision (Prevent flying sideways into a wall and falling down)
+        else {
+            let wallBlock = getGlobalBlock(bX, Math.round(ny), bZ);
+            if (wallBlock !== 0 && wallBlock !== null) {
+                item.velocity.x *= -0.5; // Bounce back
+                item.velocity.z *= -0.5;
+                nx = item.mesh.position.x;
+                nz = item.mesh.position.z;
+            }
         }
 
+        item.mesh.position.set(nx, ny, nz);
+
         item.mesh.rotation.y += delta * 2;
+        // Make it bob up and down when resting on the ground
         if (item.velocity.y === 0) {
             item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
         }
@@ -1568,6 +1594,11 @@ function animate() {
             item.mesh.geometry.dispose();
             droppedItems.splice(i, 1);
             addItemToInventory(item.blockName, 1);
+        } else if (item.mesh.position.y < minworldY - 20) {
+            // Despawn if it somehow falls deep into the void (Cleanup for lag)
+            scene.remove(item.mesh);
+            item.mesh.geometry.dispose();
+            droppedItems.splice(i, 1);
         }
     }
 
