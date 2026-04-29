@@ -58,6 +58,13 @@ function getItemImage(type) {
         oaklog: './textures/oak_log.png',
         sprucelog: './textures/spruce_log.png',
         snow_grass: './textures/grass_block_snow.png',
+        rawiron: './items/raw_iron.png',
+        rawgold: './items/raw_gold.png',
+        rawcopper: './items/raw_gold.png',
+        icoal: './items/coal.png',
+        idiamond: './items/diamond.png',
+        ilapis: './items/lapis_lazuli.png',
+        redstonedust: './items/restone_dust.png'
         diamond_pickaxe: './items/diamond_pickaxe.png'
     };
     return `url(${customTextures[type] || `./textures/${type}.png`})`;
@@ -312,7 +319,7 @@ updateInventoryUI(); // Initial draw
 // 1. Centralized Block & Material System
 // ----------------------------------------------------
 const BLOCK_HARDNESS = {
-    stone: 7500, coal: 15000, iron: 15000, copper: 10000, gold: 15000, emerald: 15000, redstone: 15000, lapis: 15000, diamond: 15000,
+    stone: 7500, coal: 15000, iron: 15000, copper: 10000, gold: 15000, emerald: 15000, redstone: 15000, lapis: 15000, diamond: 15000, cobblestone: 7500, cobbleddeepslate: 20000,
     oaklog: 3000, oakleaves: 300, sprucelog: 3000, spruceleaves: 300, dirt: 750, grass: 750, overlay: 750, 
     snow_grass: 750, sand: 600, snow: 500, sandstone: 4000,
     deepslate: 20000, 
@@ -326,7 +333,10 @@ const BLOCK_DROPS = {
     grass: 'dirt',       // Grass correctly drops dirt!
     snow_grass: 'dirt',
     oakleaves: null,     // Leaves drop nothing for now
-    spruceleaves: null
+    spruceleaves: null,
+    iron: 'rawiron',
+    gold: 'rawgold',
+    
 };
 
 const BLOCK_TOOL_REQUIREMENT = {
