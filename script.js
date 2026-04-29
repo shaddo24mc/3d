@@ -989,6 +989,8 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
         meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        // Added instance color attribute for Lighting Engine!
+        meshes[key].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxVisibleBlocks * 3), 3);
         indices[key] = 0;
     }
 
@@ -1114,13 +1116,31 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
+    // NEW ENGINE FEATURE: Build Chunk Heightmap for Lighting
+    const heightMap = new Int16Array(chunkSize * chunkSize);
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            let hY = worldHeight - 1;
+            while (hY >= 0) {
+                let b = blocks[getIdx(x, hY, z)];
+                // Ignore transparent blocks so sunlight passes through leaves/saplings!
+                if (b !== 0 && b !== TYPE.oak_leaves && b !== TYPE.spruce_leaves && b !== TYPE.oak_sapling && b !== TYPE.spruce_sapling) break;
+                hY--;
+            }
+            heightMap[x + z * chunkSize] = hY + minworldY;
+        }
+    }
+
     // PASS 2: MESH GENERATION & CULLING
     const matrix = new THREE.Matrix4();
+    const colorObj = new THREE.Color();
+    
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             for (let y = 0; y < worldHeight; y++) {
                 let typeId = blocks[getIdx(x, y, z)];
                 if (typeId === 0) continue;
+                let actualY = y + minworldY;
 
                 const isOpen = (nx, ny, nz) => {
                     if (ny < 0 || ny >= worldHeight) return true;
@@ -1141,11 +1161,32 @@ function generateChunk(chunkX, chunkZ) {
                 if (isVisible) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
-                        matrix.setPosition(startX + x, y + minworldY, startZ + z);
-                        meshes[bName].setMatrixAt(indices[bName]++, matrix);
+                        
+                        // MINECRAFT LIGHT LEVEL CALCULATION!
+                        let localHighest = heightMap[x + z * chunkSize];
+                        let lowestAdjacentH = localHighest;
+                        // Check side block heights to let light spill down cliffs
+                        if (x > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x-1) + z * chunkSize]);
+                        if (x < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x+1) + z * chunkSize]);
+                        if (z > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z-1) * chunkSize]);
+                        if (z < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z+1) * chunkSize]);
+
+                        let lightLevel = 1.0;
+                        if (actualY <= lowestAdjacentH) {
+                            let depth = lowestAdjacentH - actualY;
+                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); // Deeper = Darker
+                        }
+                        colorObj.setRGB(lightLevel, lightLevel, lightLevel);
+
+                        matrix.setPosition(startX + x, actualY, startZ + z);
+                        meshes[bName].setMatrixAt(indices[bName], matrix);
+                        meshes[bName].setColorAt(indices[bName], colorObj); // Apply shade!
+                        indices[bName]++;
 
                         if (bName === 'grass_block' && meshes['grass_block_overlay']) {
-                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay']++, matrix);
+                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
+                            meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
+                            indices['grass_block_overlay']++;
                         }
                     }
                 }
@@ -1158,6 +1199,7 @@ function generateChunk(chunkX, chunkZ) {
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
+        if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
         meshes[key].computeBoundingSphere(); // FIX: Allows Raycaster to correctly find newly placed blocks!
         scene.add(meshes[key]);
         
@@ -1186,6 +1228,29 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
     for (const key in meshes) indices[key] = 0;
 
     const matrix = new THREE.Matrix4();
+    const colorObj = new THREE.Color();
+
+    // Rebuild Heightmap
+    const heightMap = new Int16Array(chunkSize * chunkSize);
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            let hY = worldHeight - 1;
+            while (hY >= 0) {
+                let b = blocks[getIdx(x, hY, z)];
+                let globalX = startX + x;
+                let actualY = hY + minworldY;
+                let globalZ = startZ + z;
+                
+                // Pretend broken blocks are air for the sunlight
+                if (brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) {
+                    hY--; continue; 
+                }
+                if (b !== 0 && b !== TYPE.oak_leaves && b !== TYPE.spruce_leaves && b !== TYPE.oak_sapling && b !== TYPE.spruce_sapling) break;
+                hY--;
+            }
+            heightMap[x + z * chunkSize] = hY + minworldY;
+        }
+    }
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -1217,11 +1282,31 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                 if (isVisible) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
+                        
+                        // Calculate lighting
+                        let localHighest = heightMap[x + z * chunkSize];
+                        let lowestAdjacentH = localHighest;
+                        if (x > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x-1) + z * chunkSize]);
+                        if (x < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x+1) + z * chunkSize]);
+                        if (z > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z-1) * chunkSize]);
+                        if (z < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z+1) * chunkSize]);
+
+                        let lightLevel = 1.0;
+                        if (actualY <= lowestAdjacentH) {
+                            let depth = lowestAdjacentH - actualY;
+                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15));
+                        }
+                        colorObj.setRGB(lightLevel, lightLevel, lightLevel);
+
                         matrix.setPosition(globalX, actualY, globalZ);
-                        meshes[bName].setMatrixAt(indices[bName]++, matrix);
+                        meshes[bName].setMatrixAt(indices[bName], matrix);
+                        meshes[bName].setColorAt(indices[bName], colorObj);
+                        indices[bName]++;
 
                         if (bName === 'grass_block' && meshes['grass_block_overlay']) {
-                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay']++, matrix);
+                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
+                            meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
+                            indices['grass_block_overlay']++;
                         }
                     }
                 }
@@ -1234,18 +1319,126 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); // FIX: Raycaster update for physics after a chunk rebuilds
+        if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
+        meshes[key].computeBoundingSphere(); 
     }
 }
 
 // ----------------------------------------------------
-// 5. Light & Engine Core
+// 5. Light & Engine Core (Day / Night Cycle)
 // ----------------------------------------------------
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
-scene.add(hemiLight);
-const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
-sunLight.position.set(50, 100, 20); 
+// Setup Sun, Moon, and Sky variables
+let timeOfDay = Math.PI / 2; // Start at exactly noon
+const dayCycleSpeed = 0.05; // Make larger for faster days!
+
+// Basic Global Light
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
+scene.add(ambientLight);
+
+// The Sun Light
+const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
 scene.add(sunLight);
+
+// The Sun Object
+const sunGeo = new THREE.BoxGeometry(6, 6, 6);
+const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa }); // Unlit material so it always glows
+const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+scene.add(sunMesh);
+
+// The Moon Light
+const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2); // Faint blue light for night
+scene.add(moonLight);
+
+// The Moon Object
+const moonGeo = new THREE.BoxGeometry(4, 4, 4);
+const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff });
+const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+scene.add(moonMesh);
+
+// The Stars
+const starsGeo = new THREE.BufferGeometry();
+const starVertices = [];
+for(let i=0; i<1500; i++) {
+    // Spread stars out far around the player
+    let x = THREE.MathUtils.randFloatSpread(300);
+    let y = THREE.MathUtils.randFloatSpread(300);
+    let z = THREE.MathUtils.randFloatSpread(300);
+    // Cut out the center so stars don't float inside your face!
+    if(Math.abs(x) > 50 || Math.abs(y) > 50 || Math.abs(z) > 50) {
+        starVertices.push(x, y, z);
+    }
+}
+starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+const starsMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.8, transparent: true, opacity: 0}); // Start invisible
+const starsMesh = new THREE.Points(starsGeo, starsMat);
+scene.add(starsMesh);
+
+function updateDayNightCycle(delta) {
+    // Advance time
+    timeOfDay += delta * dayCycleSpeed;
+    if (timeOfDay > Math.PI * 2) timeOfDay -= Math.PI * 2;
+
+    const orbitRadius = 150;
+    
+    // Move the Sun
+    sunMesh.position.x = camera.position.x + Math.cos(timeOfDay) * orbitRadius;
+    sunMesh.position.y = camera.position.y + Math.sin(timeOfDay) * orbitRadius;
+    sunMesh.position.z = camera.position.z + 50; // Offset slightly so it's not perfectly overhead
+    sunLight.position.copy(sunMesh.position);
+
+    // Move the Moon (exactly opposite of the Sun)
+    moonMesh.position.x = camera.position.x + Math.cos(timeOfDay + Math.PI) * orbitRadius;
+    moonMesh.position.y = camera.position.y + Math.sin(timeOfDay + Math.PI) * orbitRadius;
+    moonMesh.position.z = camera.position.z + 50;
+    moonLight.position.copy(moonMesh.position);
+
+    // Follow the player with the stars and slowly rotate them
+    starsMesh.position.copy(camera.position);
+    starsMesh.rotation.z = timeOfDay * 0.5;
+
+    // Calculate sky colors based on the cycle (1 is noon, -1 is midnight, 0 is dawn/dusk)
+    let cycle = Math.sin(timeOfDay); 
+    let skyColor = new THREE.Color();
+
+    if (cycle > 0.2) { 
+        // --- DAY TIME ---
+        skyColor.setHex(0x87ceeb); // Light Blue Sky
+        ambientLight.intensity = 0.5;
+        sunLight.intensity = 0.8;
+        moonLight.intensity = 0;
+        starsMat.opacity = 0; // Hide stars
+    } 
+    else if (cycle > 0.0) { 
+        // --- SUNSET / SUNRISE ---
+        let interp = cycle / 0.2; // 0 to 1 value
+        skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x87ceeb), interp); // Orange -> Blue
+        ambientLight.intensity = 0.2 + (0.3 * interp);
+        sunLight.intensity = 0.8 * interp; // Fade sun light out
+        moonLight.intensity = 0;
+        starsMat.opacity = 1 - interp; // Fade stars in
+    } 
+    else if (cycle > -0.2) { 
+        // --- DUSK / DAWN ---
+        let interp = Math.abs(cycle) / 0.2; // 0 to 1 value
+        skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x000011), interp); // Orange -> Dark Blue
+        ambientLight.intensity = 0.2 - (0.1 * interp);
+        sunLight.intensity = 0;
+        moonLight.intensity = 0.2 * interp; // Fade moon light in
+        starsMat.opacity = interp;
+    } 
+    else { 
+        // --- NIGHT TIME ---
+        skyColor.setHex(0x000011); // Super Dark Blue
+        ambientLight.intensity = 0.1; // Dark! Cave blocks get pitch black now!
+        sunLight.intensity = 0;
+        moonLight.intensity = 0.2;
+        starsMat.opacity = 1; // Stars fully visible
+    }
+
+    // Apply the sky color to the background and the fog so mountains look correct
+    scene.fog.color.copy(skyColor);
+    renderer.setClearColor(skyColor);
+}
 
 let lastPlayerChunkX = -999; let lastPlayerChunkZ = -999;
 
@@ -1545,6 +1738,8 @@ function animate() {
     const delta = clock.getDelta(); 
 
     updateChunks();
+    updateDayNightCycle(delta); // Run our new weather system!
+
     if (chunkQueue.length > 0) {
         const next = chunkQueue.shift();
         const [cx, cz] = next.split(',').map(Number);
