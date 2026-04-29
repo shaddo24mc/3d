@@ -41,9 +41,9 @@ const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, coun
 // Starting items for testing!
 inventory[0] = { type: 'stone', count: 64 };
 inventory[1] = { type: 'dirt', count: 64 };
-inventory[2] = { type: 'grass', count: 64 };
-inventory[3] = { type: 'oaklog', count: 64 };
-inventory[4] = { type: 'sprucelog', count: 64 };
+inventory[2] = { type: 'grass_block', count: 64 };
+inventory[3] = { type: 'oak_log', count: 64 };
+inventory[4] = { type: 'spruce_log', count: 64 };
 inventory[5] = { type: 'sand', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
@@ -54,15 +54,26 @@ let heldItem = { type: null, count: 0 }; // For moving items around the inventor
 function getItemImage(type) {
     if (!type) return 'none';
     const customTextures = {
-        grass: './textures/grass_block_side.png',
-        oaklog: './textures/oak_log.png',
-        sprucelog: './textures/spruce_log.png',
-        snow_grass: './textures/grass_block_snow.png',
-        rawiron: './items/raw_iron.png',
-        rawgold: './items/raw_gold.png',
-        rawcopper: './items/raw_gold.png',
-        redstonedust: './items/restone_dust.png'
-        diamond_pickaxe: './items/diamond_pickaxe.png'
+        grass_block: './textures/grass_block_side.png',
+        oak_log: './textures/oak_log.png',
+        spruce_log: './textures/spruce_log.png',
+        snowy_grass_block: './textures/grass_block_snow.png',
+        raw_iron: './items/raw_iron.png',
+        raw_gold: './items/raw_gold.png',
+        raw_copper: './items/raw_copper.png', // Fixed typo here
+        redstone: './items/redstone_dust.png', // Fixed typo here
+        diamond_pickaxe: './items/diamond_pickaxe.png',
+        
+        // --- NEW ITEMS ADDED TO DROPS ---
+        coal: './items/coal.png',
+        diamond: './items/diamond.png',
+        emerald: './items/emerald.png',
+        lapis_lazuli: './items/lapis_lazuli.png',
+        snowball: './items/snowball.png',
+        oak_sapling: './textures/oak_sapling.png',
+        spruce_sapling: './textures/spruce_sapling.png',
+        cobblestone: './textures/cobblestone.png',
+        cobbled_deepslate: './textures/cobbled_deepslate.png'
     };
     return `url(${customTextures[type] || `./textures/${type}.png`})`;
 }
@@ -316,85 +327,91 @@ updateInventoryUI(); // Initial draw
 // 1. Centralized Block & Material System
 // ----------------------------------------------------
 const BLOCK_HARDNESS = {
-    stone: 7500, coal: 15000, iron: 15000, copper: 10000, gold: 15000, emerald: 15000, redstone: 15000, lapis: 15000, diamond: 15000, cobblestone: 7500, cobbleddeepslate: 20000,
-    oaklog: 3000, oakleaves: 300, sprucelog: 3000, spruceleaves: 300, dirt: 750, grass: 750, overlay: 750, 
-    snow_grass: 750, sand: 600, snow: 500, sandstone: 4000,
+    stone: 7500, coal_ore: 15000, iron_ore: 15000, copper_ore: 10000, gold_ore: 15000, emerald_ore: 15000, redstone_ore: 15000, lapis_ore: 15000, diamond_ore: 15000, cobblestone: 7500, cobbled_deepslate: 20000,
+    oak_log: 3000, oak_leaves: 300, spruce_log: 3000, spruce_leaves: 300, dirt: 750, grass_block: 750, grass_block_overlay: 750, 
+    snowy_grass_block: 750, sand: 600, snow_block: 500, sandstone: 4000,
     deepslate: 20000, 
-    deepslatecoal: 22500, deepslateiron: 22500, deepslatecopper: 15000, 
-    deepslategold: 22500, deepslateemerald: 22500, deepslateredstone: 22500, 
-    deepslatelapis: 22500, deepslatediamond: 22500,
+    deepslate_coal_ore: 22500, deepslate_iron_ore: 22500, deepslate_copper_ore: 15000, 
+    deepslate_gold_ore: 22500, deepslate_emerald_ore: 22500, deepslate_redstone_ore: 22500, 
+    deepslate_lapis_ore: 22500, deepslate_diamond_ore: 22500,
+    oak_sapling: 0, spruce_sapling: 0,
     bedrock: 999999999
 };
 
 const BLOCK_DROPS = {
-    grass: { item: 'dirt', count: 1 },
-    snow_grass: { item: 'dirt', count: 1 },
-
-    stone: { item: 'cobblestone', count: 1 },
-    deepslate: { item: 'cobbleddeepslate', count: 1 },
-
-    coal: { item: 'coal', count: 1 },
-    deepslatecoal: { item: 'coal', count: 1 },
-
-    iron: { item: 'rawiron', count: 1 },
-    deepslateiron: { item: 'rawiron', count: 1 },
-
-    copper: { item: 'rawcopper', count: () => 3 + Math.floor(Math.random() * 3) },
-    deepslatecopper: { item: 'rawcopper', count: () => 3 + Math.floor(Math.random() * 3) },
-
-    gold: { item: 'rawgold', count: 1 },
-    deepslategold: { item: 'rawgold', count: 1 },
-
-    diamond: { item: 'diamond', count: 1 },
-    deepslatediamond: { item: 'diamond', count: 1 },
-
-    lapis: { item: 'lapis', count: () => 4 + Math.floor(Math.random() * 5) },
-    deepslatelapis: { item: 'lapis', count: () => 4 + Math.floor(Math.random() * 5) },
-
-    redstone: { item: 'redstonedust', count: () => 4 + Math.floor(Math.random() * 2) },
-    deepslateredstone: { item: 'redstonedust', count: () => 4 + Math.floor(Math.random() * 2) },
-
-    emerald: { item: 'emerald', count: 1 },
-    deepslateemerald: { item: 'emerald', count: 1 },
-
+    // Surface Blocks
+    grass_block: { item: 'dirt', count: 1 },
+    snowy_grass_block: { item: 'dirt', count: 1 },
+    dirt: { item: 'dirt', count: 1 },
     sand: { item: 'sand', count: 1 },
     sandstone: { item: 'sandstone', count: 1 },
+    snow_block: { item: 'snowball', count: 4 },
+    oak_sapling: { item: 'oak_sapling', count: 1 },
+    spruce_sapling: { item: 'spruce_sapling', count: 1 },
 
-    oaklog: { item: 'oaklog', count: 1 },
-    sprucelog: { item: 'sprucelog', count: 1 },
+    // Stones
+    stone: { item: 'cobblestone', count: 1 },
+    deepslate: { item: 'cobbled_deepslate', count: 1 },
+    cobblestone: { item: 'cobblestone', count: 1 },
+    cobbled_deepslate: { item: 'cobbled_deepslate', count: 1 },
 
-    oakleaves: null,
-    spruceleaves: null,
+    // Normal Ores
+    coal_ore: { item: 'coal', count: 1 },
+    iron_ore: { item: 'raw_iron', count: 1 },
+    copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) }, // Drops 2-5
+    gold_ore: { item: 'raw_gold', count: 1 },
+    diamond_ore: { item: 'diamond', count: 1 },
+    lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) }, // Drops 4-9
+    redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) }, // Drops 4-5
+    emerald_ore: { item: 'emerald', count: 1 },
 
+    // Deepslate Ores
+    deepslate_coal_ore: { item: 'coal', count: 1 },
+    deepslate_iron_ore: { item: 'raw_iron', count: 1 },
+    deepslate_copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) },
+    deepslate_gold_ore: { item: 'raw_gold', count: 1 },
+    deepslate_diamond_ore: { item: 'diamond', count: 1 },
+    deepslate_lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) },
+    deepslate_redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) },
+    deepslate_emerald_ore: { item: 'emerald', count: 1 },
+
+    // Trees
+    oak_log: { item: 'oak_log', count: 1 },
+    spruce_log: { item: 'spruce_log', count: 1 },
+    // 5% chance to drop a sapling when breaking leaves, otherwise drops 0
+    oak_leaves: { item: 'oak_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
+    spruce_leaves: { item: 'spruce_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
+
+    // Unbreakable
     bedrock: null
 };
 
 const BLOCK_TOOL_REQUIREMENT = {
     stone: 'pickaxe', deepslate: 'pickaxe', sandstone: 'pickaxe',
-    coal: 'pickaxe', iron: 'pickaxe', copper: 'pickaxe', gold: 'pickaxe', redstone: 'pickaxe', emerald: 'pickaxe', lapis: 'pickaxe', diamond: 'pickaxe',
-    deepslatecoal: 'pickaxe', deepslateiron: 'pickaxe', deepslatecopper: 'pickaxe', deepslategold: 'pickaxe', deepslateredstone: 'pickaxe', deepslateemerald: 'pickaxe', deepslatelapis: 'pickaxe', deepslatediamond: 'pickaxe'
+    coal_ore: 'pickaxe', iron_ore: 'pickaxe', copper_ore: 'pickaxe', gold_ore: 'pickaxe', redstone_ore: 'pickaxe', emerald_ore: 'pickaxe', lapis_ore: 'pickaxe', diamond_ore: 'pickaxe',
+    deepslate_coal_ore: 'pickaxe', deepslate_iron_ore: 'pickaxe', deepslate_copper_ore: 'pickaxe', deepslate_gold_ore: 'pickaxe', deepslate_redstone_ore: 'pickaxe', deepslate_emerald_ore: 'pickaxe', deepslate_lapis_ore: 'pickaxe', deepslate_diamond_ore: 'pickaxe'
 };
 
 // MINECRAFT 1.18+ ORE CONFIGURATION
 const ORE_CONFIG = {
-    emerald: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
-    diamond: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
-    lapis:   [
+    emerald_ore: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
+    diamond_ore: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
+    lapis_ore:   [
         { min: -64, max: 64,  peak: 0, threshold: 0.68 }, 
         { min: -32, max: 32,  threshold: 0.65 } 
     ],
-    gold:    [{ min: -64, max: 32,  peak: -16, threshold: 0.68 }],
-    redstone:[
+    gold_ore:    [{ min: -64, max: 32,  peak: -16, threshold: 0.68 }],
+    redstone_ore:[
         { min: -64, max: 15,  threshold: 0.65 },
         { min: -64, max: -32, peak: -64, threshold: 0.62 }
     ],
-    copper:  [{ min: -16, max: 112, peak: 48, threshold: 0.60 }],
-    iron:    [
+    copper_ore:  [{ min: -16, max: 112, peak: 48, threshold: 0.60 }],
+    iron_ore:    [
         { min: -64, max: 72,  peak: 16, threshold: 0.55 },
         { min: 80,  max: 320, peak: 232, threshold: 0.55 },
         { min: -64, max: -32, threshold: 0.58 }
     ],
-    coal:    [
+    coal_ore:    [
         { min: 0,   max: 192, peak: 96, threshold: 0.50 },
         { min: 136, max: 320, threshold: 0.55 }
     ],
@@ -450,6 +467,9 @@ const sandstonetop = loadTex('./textures/sandstone_top.png');
 const sandstoneside = loadTex('./textures/sandstone.png');
 const sandstonebottom = loadTex('./textures/sandstone_bottom.png');
 
+const oakSaplingTex = loadTex('./textures/oak_sapling.png');
+const spruceSaplingTex = loadTex('./textures/spruce_sapling.png');
+
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
@@ -462,7 +482,7 @@ const fringeMat = new THREE.MeshStandardMaterial({
 });
 
 const materials = {
-    grass: [
+    grass_block: [
         new THREE.MeshStandardMaterial({ map: grassSide }),
         new THREE.MeshStandardMaterial({ map: grassSide }),
         new THREE.MeshStandardMaterial({ map: grassTop, color: grass_color }),
@@ -470,7 +490,7 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: grassSide }),
         new THREE.MeshStandardMaterial({ map: grassSide })
     ],
-    snow_grass: [
+    snowy_grass_block: [
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
         new THREE.MeshStandardMaterial({ map: snow }), 
@@ -478,7 +498,7 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
         new THREE.MeshStandardMaterial({ map: snowyGrassSide })
     ],
-    overlay: [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat],
+    grass_block_overlay: [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat],
     dirt: new THREE.MeshStandardMaterial({ map: dirt }),
     stone: new THREE.MeshStandardMaterial({ map: stone }),
     sand: new THREE.MeshStandardMaterial({ map: sand }),
@@ -490,16 +510,16 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: sandstoneside}),
         new THREE.MeshStandardMaterial({ map: sandstoneside})
     ],
-    snow: new THREE.MeshStandardMaterial({ map: snow}), 
+    snow_block: new THREE.MeshStandardMaterial({ map: snow}), 
 
-    coal: new THREE.MeshStandardMaterial({ map: coalore }),
-    iron: new THREE.MeshStandardMaterial({ map: ironore }),
-    copper: new THREE.MeshStandardMaterial({ map: copperore }),
-    gold: new THREE.MeshStandardMaterial({map: goldore}),
-    redstone: new THREE.MeshStandardMaterial({map: redstoneore}),
-    emerald: new THREE.MeshStandardMaterial({map: emeraldore}),
-    lapis: new THREE.MeshStandardMaterial({map: lapisore}),
-    diamond: new THREE.MeshStandardMaterial({map: diamondore}),
+    coal_ore: new THREE.MeshStandardMaterial({ map: coalore }),
+    iron_ore: new THREE.MeshStandardMaterial({ map: ironore }),
+    copper_ore: new THREE.MeshStandardMaterial({ map: copperore }),
+    gold_ore: new THREE.MeshStandardMaterial({map: goldore}),
+    redstone_ore: new THREE.MeshStandardMaterial({map: redstoneore}),
+    emerald_ore: new THREE.MeshStandardMaterial({map: emeraldore}),
+    lapis_ore: new THREE.MeshStandardMaterial({map: lapisore}),
+    diamond_ore: new THREE.MeshStandardMaterial({map: diamondore}),
     deepslate: [
         new THREE.MeshStandardMaterial({ map: deepslate }),
         new THREE.MeshStandardMaterial({ map: deepslate }),
@@ -508,17 +528,18 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: deepslate }),
         new THREE.MeshStandardMaterial({ map: deepslate })
     ],
-    deepslatecoal: new THREE.MeshStandardMaterial({ map: deepslatecoalore}),
-    deepslatecopper: new THREE.MeshStandardMaterial({ map: deepslatecopperore}),
-    deepslateiron: new THREE.MeshStandardMaterial({ map: deepslateironore}),
-    deepslategold: new THREE.MeshStandardMaterial({ map: deepslategoldore}),
-    deepslateredstone: new THREE.MeshStandardMaterial({ map: deepslateredstoneore}),
-    deepslateemerald: new THREE.MeshStandardMaterial({ map: deepslateemeraldore}),
-    deepslatelapis: new THREE.MeshStandardMaterial({ map: deepslatelapisore}),
-    deepslatediamond: new THREE.MeshStandardMaterial({ map: deepslatediamondore}),
+    deepslate_coal_ore: new THREE.MeshStandardMaterial({ map: deepslatecoalore}),
+    deepslate_copper_ore: new THREE.MeshStandardMaterial({ map: deepslatecopperore}),
+    deepslate_iron_ore: new THREE.MeshStandardMaterial({ map: deepslateironore}),
+    deepslate_gold_ore: new THREE.MeshStandardMaterial({ map: deepslategoldore}),
+    deepslate_redstone_ore: new THREE.MeshStandardMaterial({ map: deepslateredstoneore}),
+    deepslate_emerald_ore: new THREE.MeshStandardMaterial({ map: deepslateemeraldore}),
+    deepslate_lapis_ore: new THREE.MeshStandardMaterial({ map: deepslatelapisore}),
+    deepslate_diamond_ore: new THREE.MeshStandardMaterial({ map: deepslatediamondore}),
     bedrock: new THREE.MeshStandardMaterial({ map: bedrock}),
-    oakleaves: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
-    oaklog: [
+    oak_leaves: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
+    oak_sapling: new THREE.MeshStandardMaterial({ map: oakSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    oak_log: [
         new THREE.MeshStandardMaterial({ map: logSide }),
         new THREE.MeshStandardMaterial({ map: logSide }),
         new THREE.MeshStandardMaterial({ map: logTop }),
@@ -526,8 +547,9 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: logSide }),
         new THREE.MeshStandardMaterial({ map: logSide })
     ],
-    spruceleaves: new THREE.MeshStandardMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), 
-    sprucelog: [
+    spruce_leaves: new THREE.MeshStandardMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), 
+    spruce_sapling: new THREE.MeshStandardMaterial({ map: spruceSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    spruce_log: [
         new THREE.MeshStandardMaterial({ map: spruceLogSide }),
         new THREE.MeshStandardMaterial({ map: spruceLogSide }),
         new THREE.MeshStandardMaterial({ map: spruceLogTop }),
@@ -549,10 +571,10 @@ scene.add(destroyMesh);
 // 2. BIOME REGISTRY 
 // ----------------------------------------------------
 const BIOME_REGISTRY = [
-    { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20, treeType: 'oak' },
-    { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8, treeType: 'oak' },
+    { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20, treeType: 'oak' },
+    { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8, treeType: 'oak' },
     { name: "Desert", temp: 0.35, moist: -0.35, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 12, treeType: 'oak' },
-    { name: "Snowy Tundra", temp: -0.35, moist: 0.1, depth: 0.0, topBlock: 'snow_grass', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15, treeType: 'spruce' },
+    { name: "Snowy Tundra", temp: -0.35, moist: 0.1, depth: 0.0, topBlock: 'snowy_grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15, treeType: 'spruce' },
     { name: "Mountains", temp: 0.3, moist: 0.3, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0.0, heightScale: 55, treeType: 'spruce' }
 ];
 
@@ -564,6 +586,26 @@ const renderDistance = 2;
 const worldHeight = 384;
 const minworldY = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
+
+// --- Cross Geometry for Plants (X shape) ---
+const crossGeo = new THREE.BufferGeometry();
+const crossPositions = new Float32Array([
+    // Plane 1 (/)
+    -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
+     0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
+    // Plane 2 (\)
+    -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
+     0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
+]);
+const crossUVs = new Float32Array([
+    0,0,  1,0,  0,1,
+    1,0,  1,1,  0,1,
+    0,0,  1,0,  0,1,
+    1,0,  1,1,  0,1
+]);
+crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
+crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
+crossGeo.computeVertexNormals();
 
 const worldSeed = Math.random(); 
 noise.seed(worldSeed);
@@ -578,19 +620,19 @@ const brokenBlocks = new Set();
 const chunksToRebuild = new Set(); 
 
 const TYPE = { 
-    stone: 1, dirt: 2, grass: 3, sand: 4, sandstone: 5, snow: 6, snow_grass: 7, 
-    coal: 8, iron: 9, copper: 10, gold: 11, redstone: 12, emerald: 13, lapis: 14, 
-    diamond: 15, deepslate: 16, bedrock: 17, deepslatecoal: 18, deepslateiron: 19, 
-    deepslatecopper: 20, deepslategold: 21, deepslateredstone: 22, 
-    deepslateemerald: 23, deepslatelapis: 24, deepslatediamond: 25,
-    oaklog: 26, oakleaves: 27, sprucelog: 28, spruceleaves: 29
+    stone: 1, dirt: 2, grass_block: 3, sand: 4, sandstone: 5, snow_block: 6, snowy_grass_block: 7, 
+    coal_ore: 8, iron_ore: 9, copper_ore: 10, gold_ore: 11, redstone_ore: 12, emerald_ore: 13, lapis_ore: 14, 
+    diamond_ore: 15, deepslate: 16, bedrock: 17, deepslate_coal_ore: 18, deepslate_iron_ore: 19, 
+    deepslate_copper_ore: 20, deepslate_gold_ore: 21, deepslate_redstone_ore: 22, 
+    deepslate_emerald_ore: 23, deepslate_lapis_ore: 24, deepslate_diamond_ore: 25,
+    oak_log: 26, oak_leaves: 27, spruce_log: 28, spruce_leaves: 29, oak_sapling: 30, spruce_sapling: 31
 };
 const REVERSE_TYPE = [
-    null, 'stone', 'dirt', 'grass', 'sand', 'sandstone', 'snow', 'snow_grass', 
-    'coal', 'iron', 'copper', 'gold', 'redstone', 'emerald', 'lapis', 'diamond', 
-    'deepslate', 'bedrock', 'deepslatecoal', 'deepslateiron', 'deepslatecopper', 
-    'deepslategold', 'deepslateredstone', 'deepslateemerald', 'deepslatelapis', 
-    'deepslatediamond', 'oaklog', 'oakleaves', 'sprucelog', 'spruceleaves'
+    null, 'stone', 'dirt', 'grass_block', 'sand', 'sandstone', 'snow_block', 'snowy_grass_block', 
+    'coal_ore', 'iron_ore', 'copper_ore', 'gold_ore', 'redstone_ore', 'emerald_ore', 'lapis_ore', 'diamond_ore', 
+    'deepslate', 'bedrock', 'deepslate_coal_ore', 'deepslate_iron_ore', 'deepslate_copper_ore', 
+    'deepslate_gold_ore', 'deepslate_redstone_ore', 'deepslate_emerald_ore', 'deepslate_lapis_ore', 
+    'deepslate_diamond_ore', 'oak_log', 'oak_leaves', 'spruce_log', 'spruce_leaves', 'oak_sapling', 'spruce_sapling'
 ];
 
 function getGlobalBlock(gx, gy, gz) {
@@ -651,17 +693,17 @@ function doRandomTicks() {
             let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
             let blockType = chunk.blocks[idx];
 
-            if (blockType === TYPE.grass || blockType === TYPE.snow_grass) {
+            if (blockType === TYPE.grass_block || blockType === TYPE.snowy_grass_block) {
                 let gx = (cx * chunkSize) + lx;
                 let gy = ly + minworldY;
                 let gz = (cz * chunkSize) + lz;
 
                 let above = getGlobalBlock(gx, gy + 1, gz);
                 
-                if (above !== null && above !== 0 && above !== TYPE.oakleaves && above !== TYPE.spruceleaves && above !== TYPE.snow) {
+                if (above !== null && above !== 0 && above !== TYPE.oak_leaves && above !== TYPE.spruce_leaves && above !== TYPE.snow_block && above !== TYPE.oak_sapling && above !== TYPE.spruce_sapling) {
                     setGlobalBlock(gx, gy, gz, TYPE.dirt);
                 } 
-                else if (above === 0 || above === TYPE.oakleaves || above === TYPE.spruceleaves || above === TYPE.snow) {
+                else if (above === 0 || above === TYPE.oak_leaves || above === TYPE.spruce_leaves || above === TYPE.snow_block) {
                     let ox = Math.floor(Math.random() * 3) - 1; 
                     let oz = Math.floor(Math.random() * 3) - 1;
                     let oy = Math.floor(Math.random() * 5) - 3; 
@@ -673,9 +715,77 @@ function doRandomTicks() {
                     let target = getGlobalBlock(tx, ty, tz);
                     if (target === TYPE.dirt) {
                         let targetAbove = getGlobalBlock(tx, ty + 1, tz);
-                        if (targetAbove === 0 || targetAbove === TYPE.oakleaves || targetAbove === TYPE.spruceleaves || targetAbove === TYPE.snow) {
+                        if (targetAbove === 0 || targetAbove === TYPE.oak_leaves || targetAbove === TYPE.spruce_leaves || targetAbove === TYPE.snow_block || targetAbove === TYPE.oak_sapling || targetAbove === TYPE.spruce_sapling) {
                             setGlobalBlock(tx, ty, tz, blockType);
                         }
+                    }
+                }
+            } else if (blockType === TYPE.oak_sapling || blockType === TYPE.spruce_sapling) {
+                // Tree Growth! (Roughly a 1% chance per random tick to grow)
+                if (Math.random() < 0.01) {
+                    let gx = (cx * chunkSize) + lx;
+                    let gy = ly + minworldY;
+                    let gz = (cz * chunkSize) + lz;
+                    growTreeDynamic(gx, gy, gz, blockType === TYPE.oak_sapling ? 'oak' : 'spruce');
+                }
+            }
+        }
+    }
+}
+
+// Function to dynamically push a new tree into the world data
+function growTreeDynamic(x, y, z, treeType) {
+    setGlobalBlock(x, y, z, 0); // Clear sapling
+    
+    const trunkH = treeType === 'spruce' ? 6 + Math.floor(Math.random() * 4) : 4 + Math.floor(Math.random() * 2);
+    const logType = TYPE[`${treeType}_log`];
+    const leavesType = TYPE[`${treeType}_leaves`];
+
+    // TRUNK
+    for (let i = 0; i < trunkH; i++) {
+        setGlobalBlock(x, y + i, z, logType);
+    }
+
+    // LEAVES
+    if (treeType === 'spruce') {
+        let leafHeight = trunkH - (1 + Math.floor(Math.random() * 2));
+        let leafStart = y + trunkH - leafHeight;
+        let topY = y + trunkH + 1;
+        let currentRadius = 0; 
+        
+        for (let ly = topY; ly >= leafStart; ly--) {
+            for (let lx = -currentRadius; lx <= currentRadius; lx++) {
+                for (let lz = -currentRadius; lz <= currentRadius; lz++) {
+                    if (Math.abs(lx) === currentRadius && Math.abs(lz) === currentRadius && currentRadius > 0) {
+                        if (currentRadius === 2) continue; 
+                        if (currentRadius === 1 && ly === topY - 1) continue; 
+                    }
+                    if (lx === 0 && lz === 0 && ly < y + trunkH) continue; 
+                    
+                    let bX = x + lx; let bY = ly; let bZ = z + lz;
+                    if (getGlobalBlock(bX, bY, bZ) === 0) {
+                        setGlobalBlock(bX, bY, bZ, leavesType);
+                    }
+                }
+            }
+            if (currentRadius === 0) currentRadius = 1; 
+            else if (currentRadius === 1 && ly < topY - 1) currentRadius = 2; 
+            else if (currentRadius === 2) currentRadius = 1; 
+        }
+    } else {
+        for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
+            let radius = (ly > y + trunkH - 1) ? 1 : 2; 
+            for (let lx = -radius; lx <= radius; lx++) {
+                for (let lz = -radius; lz <= radius; lz++) {
+                    if (Math.abs(lx) === radius && Math.abs(lz) === radius) {
+                        let trimChance = (ly === y + trunkH + 1) ? 1.0 : (ly === y + trunkH) ? 0.75 : 0.2;
+                        if (Math.random() < trimChance) continue;
+                    }
+                    if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
+                    
+                    let bX = x + lx; let bY = ly; let bZ = z + lz;
+                    if (getGlobalBlock(bX, bY, bZ) === 0) {
+                        setGlobalBlock(bX, bY, bZ, leavesType);
                     }
                 }
             }
@@ -723,8 +833,8 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
         : 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
         
     const treeMatrix = new THREE.Matrix4();
-    const logType = `${treeType}log`;
-    const leavesType = `${treeType}leaves`;
+    const logType = `${treeType}_log`;
+    const leavesType = `${treeType}_leaves`;
     
     // TRUNK
     for (let i = 0; i < trunkH; i++) {
@@ -828,7 +938,8 @@ function generateChunk(chunkX, chunkZ) {
     const meshes = {};
     const indices = {};
     for (const [key, mat] of Object.entries(materials)) {
-        meshes[key] = new THREE.InstancedMesh(geometry, mat, maxVisibleBlocks);
+        let geo = (key === 'oak_sapling' || key === 'spruce_sapling') ? crossGeo : geometry;
+        meshes[key] = new THREE.InstancedMesh(geo, mat, maxVisibleBlocks);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
         meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -919,7 +1030,7 @@ function generateChunk(chunkX, chunkZ) {
                                     }
                                     
                                     if (veinNoise > currentThreshold) {
-                                        blockType = (baseBlockType === 'deepslate') ? `deepslate${oreName}` : oreName;
+                                        blockType = (baseBlockType === 'deepslate') ? `deepslate_${oreName}` : oreName;
                                         foundOre = true; break;
                                     }
                                 }
@@ -934,7 +1045,7 @@ function generateChunk(chunkX, chunkZ) {
             for (let y = worldHeight - 1; y >= 0; y--) {
                 let b = blocks[getIdx(x, y, z)];
                 if (b !== 0) { 
-                    if ((b === TYPE.grass || b === TYPE.snow_grass) && localBiome.treeChance > 0) {
+                    if ((b === TYPE.grass_block || b === TYPE.snowy_grass_block) && localBiome.treeChance > 0) {
                         let actualY = y + minworldY;
                         if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
                             treesToSpawn.push({ x, y, z, actualY, treeType: localBiome.treeType });
@@ -958,12 +1069,12 @@ function generateChunk(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
-                        return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
+                        return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
                     }
                     let gx = startX + nx; let gy = ny + minworldY; let gz = startZ + nz;
                     let b = getGlobalBlock(gx, gy, gz);
                     if (b === null) return true; 
-                    return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
+                    return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
@@ -976,8 +1087,8 @@ function generateChunk(chunkX, chunkZ) {
                         matrix.setPosition(startX + x, y + minworldY, startZ + z);
                         meshes[bName].setMatrixAt(indices[bName]++, matrix);
 
-                        if (bName === 'grass' && meshes['overlay']) {
-                            meshes['overlay'].setMatrixAt(indices['overlay']++, matrix);
+                        if (bName === 'grass_block' && meshes['grass_block_overlay']) {
+                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay']++, matrix);
                         }
                     }
                 }
@@ -993,7 +1104,7 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].computeBoundingSphere(); // FIX: Allows Raycaster to correctly find newly placed blocks!
         scene.add(meshes[key]);
         
-        if (key !== 'overlay') {
+        if (key !== 'grass_block_overlay') {
             interactableMeshes.push(meshes[key]);
         }
     }
@@ -1035,11 +1146,11 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
-                        return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
+                        return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
                     }
                     let b = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
                     if (b === null) return true; 
-                    return b === 0 || b === TYPE.oakleaves || b === TYPE.spruceleaves || b === TYPE.snow;
+                    return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
@@ -1052,8 +1163,8 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                         matrix.setPosition(globalX, actualY, globalZ);
                         meshes[bName].setMatrixAt(indices[bName]++, matrix);
 
-                        if (bName === 'grass' && meshes['overlay']) {
-                            meshes['overlay'].setMatrixAt(indices['overlay']++, matrix);
+                        if (bName === 'grass_block' && meshes['grass_block_overlay']) {
+                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay']++, matrix);
                         }
                     }
                 }
