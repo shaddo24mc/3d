@@ -15,7 +15,7 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Shadows completely disabled. They are too heavy for InstancedMesh terrain.
+// Shadows completely disabled for max performance!
 renderer.shadowMap.enabled = false; 
 
 // ----------------------------------------------------
@@ -810,6 +810,7 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
         : 4 + Math.floor(getDeterministicRandom(x, y, z) * 2);
         
     const treeMatrix = new THREE.Matrix4();
+    const treeColor = new THREE.Color();
     const logType = `${treeType}_log`;
     const leavesType = `${treeType}_leaves`;
     
@@ -818,6 +819,11 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
         let blockKey = `${x},${actualY},${z}`;
         if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
         treeMatrix.setPosition(x, actualY, z);
+        
+        let variation = getDeterministicRandom(x, actualY, z) * 0.05;
+        treeColor.setRGB(0.95 - variation, 0.95 - variation, 0.95 - variation);
+        chunkMeshes[logType].setColorAt(indices[logType], treeColor);
+        
         chunkMeshes[logType].setMatrixAt(indices[logType]++, treeMatrix);
     }
 
@@ -842,6 +848,11 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
+                    
+                    let variation = getDeterministicRandom(bX, bY, bZ) * 0.05;
+                    treeColor.setRGB(0.95 - variation, 0.95 - variation, 0.95 - variation);
+                    chunkMeshes[leavesType].setColorAt(indices[leavesType], treeColor);
+                    
                     chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
                 }
             }
@@ -870,6 +881,11 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
+                    
+                    let variation = getDeterministicRandom(bX, bY, bZ) * 0.05;
+                    treeColor.setRGB(0.95 - variation, 0.95 - variation, 0.95 - variation);
+                    chunkMeshes[leavesType].setColorAt(indices[leavesType], treeColor);
+                    
                     chunkMeshes[leavesType].setMatrixAt(indices[leavesType]++, treeMatrix);
                 }
             }
@@ -922,6 +938,7 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].chunkId = chunkId;
         meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         meshes[key].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxVisibleBlocks * 3), 3);
+        
         indices[key] = 0;
     }
 
@@ -1093,34 +1110,20 @@ function generateChunk(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        // --- IMPROVED MINECRAFT LIGHT LEVEL & AMBIENT OCCLUSION ---
+                        // --- IMPROVED MINECRAFT LIGHT LEVEL & SKYLIGHT ---
                         let localHighest = heightMap[x + z * chunkSize];
                         let lightLevel = 1.0;
 
-                        // Check neighbors for AO (fall back to self if on chunk edge)
-                        let nNorth = z > 0 ? heightMap[x + (z-1) * chunkSize] : localHighest;
-                        let nSouth = z < chunkSize - 1 ? heightMap[x + (z+1) * chunkSize] : localHighest;
-                        let nEast = x > 0 ? heightMap[(x-1) + z * chunkSize] : localHighest;
-                        let nWest = x < chunkSize - 1 ? heightMap[(x+1) + z * chunkSize] : localHighest;
-
-                        let maxLocalHeight = Math.max(localHighest, nNorth, nSouth, nEast, nWest);
-
-                        if (actualY <= localHighest && actualY < maxLocalHeight) {
-                            // Underground / Covered Shadowing
-                            let depth = maxLocalHeight - actualY;
-                            lightLevel = Math.max(0.15, 0.85 - (depth * 0.12)); 
+                        if (actualY < localHighest) {
+                            // Underground: Give a very dim fixed ambient light, unaffected by shadow-map lag
+                            let depth = localHighest - actualY;
+                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); 
                         } else {
-                            // Surface Ambient Occlusion: Darken corners based on neighboring block heights
-                            let ao = 0;
-                            if (nNorth > actualY) ao += 0.08;
-                            if (nSouth > actualY) ao += 0.08;
-                            if (nEast > actualY) ao += 0.08;
-                            if (nWest > actualY) ao += 0.08;
-                            
-                            // Subtle deterministic color variation so flat plains aren't entirely one shade
+                            // Surface: Uniform lighting so DirectionalLight can shade the faces naturally
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
-                            lightLevel = Math.max(0.2, 1.0 - ao - variation);
+                            lightLevel = Math.max(0.2, 1.0 - variation);
                         }
+                        
                         colorObj.setRGB(lightLevel, lightLevel, lightLevel);
 
                         matrix.setPosition(globalX, actualY, globalZ);
@@ -1226,30 +1229,18 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        // --- IMPROVED MINECRAFT LIGHT LEVEL & AMBIENT OCCLUSION ---
+                        // --- IMPROVED MINECRAFT LIGHT LEVEL & SKYLIGHT ---
                         let localHighest = heightMap[x + z * chunkSize];
                         let lightLevel = 1.0;
 
-                        let nNorth = z > 0 ? heightMap[x + (z-1) * chunkSize] : localHighest;
-                        let nSouth = z < chunkSize - 1 ? heightMap[x + (z+1) * chunkSize] : localHighest;
-                        let nEast = x > 0 ? heightMap[(x-1) + z * chunkSize] : localHighest;
-                        let nWest = x < chunkSize - 1 ? heightMap[(x+1) + z * chunkSize] : localHighest;
-
-                        let maxLocalHeight = Math.max(localHighest, nNorth, nSouth, nEast, nWest);
-
-                        if (actualY <= localHighest && actualY < maxLocalHeight) {
-                            let depth = maxLocalHeight - actualY;
-                            lightLevel = Math.max(0.15, 0.85 - (depth * 0.12)); 
+                        if (actualY < localHighest) {
+                            let depth = localHighest - actualY;
+                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); 
                         } else {
-                            let ao = 0;
-                            if (nNorth > actualY) ao += 0.08;
-                            if (nSouth > actualY) ao += 0.08;
-                            if (nEast > actualY) ao += 0.08;
-                            if (nWest > actualY) ao += 0.08;
-                            
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
-                            lightLevel = Math.max(0.2, 1.0 - ao - variation);
+                            lightLevel = Math.max(0.2, 1.0 - variation);
                         }
+                        
                         colorObj.setRGB(lightLevel, lightLevel, lightLevel);
 
                         matrix.setPosition(globalX, actualY, globalZ);
@@ -1288,7 +1279,8 @@ const dayCycleSpeed = (Math.PI * 2) / 1200;
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
+// Set up Sunlight (Directional shade without castShadow lags)
+const sunLight = new THREE.DirectionalLight(0xffffee, 1.0);
 scene.add(sunLight);
 
 const sunGeo = new THREE.BoxGeometry(6, 6, 6);
@@ -1296,7 +1288,8 @@ const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
 scene.add(sunMesh);
 
-const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2); 
+// Set up Moonlight
+const moonLight = new THREE.DirectionalLight(0xaaccff, 0.4); 
 scene.add(moonLight);
 
 const moonGeo = new THREE.BoxGeometry(4, 4, 4);
@@ -1344,8 +1337,8 @@ function updateDayNightCycle(delta) {
     if (cycle > 0.2) { 
         // --- DAY TIME ---
         skyColor.setHex(0x87ceeb); 
-        ambientLight.intensity = 0.5;
-        sunLight.intensity = 0.8;
+        ambientLight.intensity = 0.45;
+        sunLight.intensity = 0.9;
         moonLight.intensity = 0;
         starsMat.opacity = 0; 
     } 
@@ -1353,8 +1346,8 @@ function updateDayNightCycle(delta) {
         // --- SUNSET / SUNRISE ---
         let interp = cycle / 0.2; 
         skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x87ceeb), interp); 
-        ambientLight.intensity = 0.3 + (0.2 * interp);
-        sunLight.intensity = 0.8 * interp; 
+        ambientLight.intensity = 0.2 + (0.25 * interp);
+        sunLight.intensity = 0.9 * interp; 
         moonLight.intensity = 0;
         starsMat.opacity = 1 - interp; 
     } 
@@ -1362,17 +1355,17 @@ function updateDayNightCycle(delta) {
         // --- DUSK / DAWN ---
         let interp = Math.abs(cycle) / 0.2; 
         skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x000011), interp); 
-        ambientLight.intensity = 0.3 - (0.05 * interp);
+        ambientLight.intensity = 0.2 - (0.05 * interp);
         sunLight.intensity = 0;
-        moonLight.intensity = 0.3 * interp; 
+        moonLight.intensity = 0.4 * interp; 
         starsMat.opacity = interp;
     } 
     else { 
         // --- NIGHT TIME ---
         skyColor.setHex(0x000011); 
-        ambientLight.intensity = 0.25; // Dark, but not pitch black anymore
+        ambientLight.intensity = 0.15; 
         sunLight.intensity = 0;
-        moonLight.intensity = 0.3;
+        moonLight.intensity = 0.4;
         starsMat.opacity = 1; 
     }
 
