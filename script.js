@@ -60,11 +60,9 @@ function getItemImage(type) {
         snowy_grass_block: './textures/grass_block_snow.png',
         raw_iron: './items/raw_iron.png',
         raw_gold: './items/raw_gold.png',
-        raw_copper: './items/raw_copper.png', // Fixed typo here
-        redstone: './items/redstone_dust.png', // Fixed typo here
+        raw_copper: './items/raw_copper.png', 
+        redstone: './items/redstone_dust.png', 
         diamond_pickaxe: './items/diamond_pickaxe.png',
-        
-        // --- NEW ITEMS ADDED TO DROPS ---
         coal: './items/coal.png',
         diamond: './items/diamond.png',
         emerald: './items/emerald.png',
@@ -115,7 +113,6 @@ for (let i = 0; i < 9; i++) {
     countLabel.style.textShadow = '1px 1px 0 #000';
     slot.appendChild(countLabel);
     
-    // Allow clicking the HUD hotbar to select items
     slot.addEventListener('mousedown', () => {
         if (inventoryScreen.style.display === 'none') {
             selectedSlot = i;
@@ -134,17 +131,16 @@ inventoryScreen.style.position = 'absolute';
 inventoryScreen.style.top = '50%';
 inventoryScreen.style.left = '50%';
 inventoryScreen.style.transform = 'translate(-50%, -50%)';
-inventoryScreen.style.backgroundColor = '#c6c6c6'; // Classic MC gray
+inventoryScreen.style.backgroundColor = '#c6c6c6'; 
 inventoryScreen.style.border = '4px solid #555';
 inventoryScreen.style.padding = '20px';
-inventoryScreen.style.display = 'none'; // Hidden by default
+inventoryScreen.style.display = 'none'; 
 inventoryScreen.style.flexDirection = 'column';
 inventoryScreen.style.gap = '20px';
 inventoryScreen.style.boxShadow = 'inset -4px -4px 0 rgba(0,0,0,0.2), inset 4px 4px 0 rgba(255,255,255,0.5)';
 inventoryScreen.style.zIndex = '200';
 document.body.appendChild(inventoryScreen);
 
-// Title
 const invTitle = document.createElement('div');
 invTitle.innerText = "Inventory";
 invTitle.style.fontFamily = "monospace";
@@ -152,29 +148,24 @@ invTitle.style.fontWeight = "bold";
 invTitle.style.color = "#333";
 inventoryScreen.appendChild(invTitle);
 
-// Main Inventory Grid
 const mainGrid = document.createElement('div');
 mainGrid.style.display = 'grid';
 mainGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
 mainGrid.style.gap = '4px';
 inventoryScreen.appendChild(mainGrid);
 
-// Spacer
 const spacer = document.createElement('div');
 spacer.style.height = '10px';
 inventoryScreen.appendChild(spacer);
 
-// Hotbar Grid (Inside Inventory Menu)
 const invHotbarGrid = document.createElement('div');
 invHotbarGrid.style.display = 'grid';
 invHotbarGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
 invHotbarGrid.style.gap = '4px';
 inventoryScreen.appendChild(invHotbarGrid);
 
-// Create all 36 interactive slots
 const allSlotsUI = [];
 
-// Custom cursor attached to mouse for dragging items
 const heldItemUI = document.createElement('div');
 heldItemUI.style.position = 'absolute';
 heldItemUI.style.width = '44px';
@@ -220,14 +211,12 @@ for (let i = 0; i < INVENTORY_SIZE; i++) {
     countLabel.style.textShadow = '1px 1px 0 #000';
     slot.appendChild(countLabel);
     
-    // Click to swap/move items!
     slot.addEventListener('mousedown', (e) => {
         e.stopPropagation();
-        if (e.button === 0) { // Left click
+        if (e.button === 0) { 
             let tempType = inventory[i].type;
             let tempCount = inventory[i].count;
             
-            // If they are the same type, stack them!
             if (heldItem.type === inventory[i].type && heldItem.type !== null) {
                 let space = 64 - inventory[i].count;
                 let toMove = Math.min(space, heldItem.count);
@@ -235,7 +224,6 @@ for (let i = 0; i < INVENTORY_SIZE; i++) {
                 heldItem.count -= toMove;
                 if (heldItem.count <= 0) heldItem.type = null;
             } else {
-                // Otherwise, swap them
                 inventory[i].type = heldItem.type;
                 inventory[i].count = heldItem.count;
                 heldItem.type = tempType;
@@ -246,15 +234,14 @@ for (let i = 0; i < INVENTORY_SIZE; i++) {
     });
 
     if (i < 9) {
-        invHotbarGrid.appendChild(slot); // Slots 0-8 are Hotbar
+        invHotbarGrid.appendChild(slot); 
     } else {
-        mainGrid.appendChild(slot); // Slots 9-35 are Main Inventory
+        mainGrid.appendChild(slot); 
     }
     allSlotsUI.push({ div: slot, label: countLabel });
 }
 
 function updateInventoryUI() {
-    // Update Main HUD Hotbar
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
@@ -274,7 +261,6 @@ function updateInventoryUI() {
         }
     }
     
-    // Update Full E-Menu Grid
     for (let i = 0; i < INVENTORY_SIZE; i++) {
         const item = inventory[i];
         const ui = allSlotsUI[i];
@@ -284,7 +270,6 @@ function updateInventoryUI() {
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
-    // Update Mouse Cursor (Dragging item)
     if (heldItem.type) {
         heldItemUI.style.display = 'block';
         heldItemUI.style.backgroundImage = getItemImage(heldItem.type);
@@ -297,7 +282,6 @@ function updateInventoryUI() {
 }
 
 function addItemToInventory(type, amount) {
-    // 1. Try to add to an existing stack
     for (let i = 0; i < INVENTORY_SIZE; i++) {
         if (inventory[i].type === type && inventory[i].count < 64) {
             let space = 64 - inventory[i].count;
@@ -307,7 +291,6 @@ function addItemToInventory(type, amount) {
             if (amount <= 0) break;
         }
     }
-    // 2. If we still have some left, find an empty slot
     if (amount > 0) {
         for (let i = 0; i < INVENTORY_SIZE; i++) {
             if (inventory[i].type === null) {
@@ -321,7 +304,7 @@ function addItemToInventory(type, amount) {
     updateInventoryUI();
 }
 
-updateInventoryUI(); // Initial draw
+updateInventoryUI(); 
 
 // ----------------------------------------------------
 // 1. Centralized Block & Material System
@@ -339,7 +322,6 @@ const BLOCK_HARDNESS = {
 };
 
 const BLOCK_DROPS = {
-    // Surface Blocks
     grass_block: { item: 'dirt', count: 1 },
     snowy_grass_block: { item: 'dirt', count: 1 },
     dirt: { item: 'dirt', count: 1 },
@@ -348,24 +330,18 @@ const BLOCK_DROPS = {
     snow_block: { item: 'snowball', count: 4 },
     oak_sapling: { item: 'oak_sapling', count: 1 },
     spruce_sapling: { item: 'spruce_sapling', count: 1 },
-
-    // Stones
     stone: { item: 'cobblestone', count: 1 },
     deepslate: { item: 'cobbled_deepslate', count: 1 },
     cobblestone: { item: 'cobblestone', count: 1 },
     cobbled_deepslate: { item: 'cobbled_deepslate', count: 1 },
-
-    // Normal Ores
     coal_ore: { item: 'coal', count: 1 },
     iron_ore: { item: 'raw_iron', count: 1 },
-    copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) }, // Drops 2-5
+    copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) }, 
     gold_ore: { item: 'raw_gold', count: 1 },
     diamond_ore: { item: 'diamond', count: 1 },
-    lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) }, // Drops 4-9
-    redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) }, // Drops 4-5
+    lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) }, 
+    redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) }, 
     emerald_ore: { item: 'emerald', count: 1 },
-
-    // Deepslate Ores
     deepslate_coal_ore: { item: 'coal', count: 1 },
     deepslate_iron_ore: { item: 'raw_iron', count: 1 },
     deepslate_copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) },
@@ -374,15 +350,10 @@ const BLOCK_DROPS = {
     deepslate_lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) },
     deepslate_redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) },
     deepslate_emerald_ore: { item: 'emerald', count: 1 },
-
-    // Trees
     oak_log: { item: 'oak_log', count: 1 },
     spruce_log: { item: 'spruce_log', count: 1 },
-    // 5% chance to drop a sapling when breaking leaves, otherwise drops 0
     oak_leaves: { item: 'oak_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
     spruce_leaves: { item: 'spruce_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
-
-    // Unbreakable
     bedrock: null
 };
 
@@ -392,29 +363,15 @@ const BLOCK_TOOL_REQUIREMENT = {
     deepslate_coal_ore: 'pickaxe', deepslate_iron_ore: 'pickaxe', deepslate_copper_ore: 'pickaxe', deepslate_gold_ore: 'pickaxe', deepslate_redstone_ore: 'pickaxe', deepslate_emerald_ore: 'pickaxe', deepslate_lapis_ore: 'pickaxe', deepslate_diamond_ore: 'pickaxe'
 };
 
-// MINECRAFT 1.18+ ORE CONFIGURATION
 const ORE_CONFIG = {
     emerald_ore: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
     diamond_ore: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
-    lapis_ore:   [
-        { min: -64, max: 64,  peak: 0, threshold: 0.68 }, 
-        { min: -32, max: 32,  threshold: 0.65 } 
-    ],
+    lapis_ore:   [ { min: -64, max: 64,  peak: 0, threshold: 0.68 }, { min: -32, max: 32,  threshold: 0.65 } ],
     gold_ore:    [{ min: -64, max: 32,  peak: -16, threshold: 0.68 }],
-    redstone_ore:[
-        { min: -64, max: 15,  threshold: 0.65 },
-        { min: -64, max: -32, peak: -64, threshold: 0.62 }
-    ],
+    redstone_ore:[ { min: -64, max: 15,  threshold: 0.65 }, { min: -64, max: -32, peak: -64, threshold: 0.62 } ],
     copper_ore:  [{ min: -16, max: 112, peak: 48, threshold: 0.60 }],
-    iron_ore:    [
-        { min: -64, max: 72,  peak: 16, threshold: 0.55 },
-        { min: 80,  max: 320, peak: 232, threshold: 0.55 },
-        { min: -64, max: -32, threshold: 0.58 }
-    ],
-    coal_ore:    [
-        { min: 0,   max: 192, peak: 96, threshold: 0.50 },
-        { min: 136, max: 320, threshold: 0.55 }
-    ],
+    iron_ore:    [ { min: -64, max: 72,  peak: 16, threshold: 0.55 }, { min: 80,  max: 320, peak: 232, threshold: 0.55 }, { min: -64, max: -32, threshold: 0.58 } ],
+    coal_ore:    [ { min: 0,   max: 192, peak: 96, threshold: 0.50 }, { min: 136, max: 320, threshold: 0.55 } ],
 };
 
 const loader = new THREE.TextureLoader();
@@ -426,7 +383,6 @@ const loadTex = (url) => {
     return t;
 };
 
-// Textures
 const grassTop = loadTex('./textures/grass_block_top.png');
 const grassSide = loadTex('./textures/grass_block_side.png');
 const grassSideOverlay = loadTex('./textures/grass_block_side_overlay.png');
@@ -435,11 +391,9 @@ const stone = loadTex('./textures/stone.png');
 const logSide = loadTex('./textures/oak_log.png');
 const logTop = loadTex('./textures/oak_log_top.png');
 const leaves = loadTex('./textures/oak_leaves.png');
-
 const spruceLogSide = loadTex('./textures/spruce_log.png');
 const spruceLogTop = loadTex('./textures/spruce_log_top.png');
 const spruceLeaves = loadTex('./textures/spruce_leaves.png');
-
 const coalore = loadTex('./textures/coal_ore.png');
 const ironore = loadTex('./textures/iron_ore.png');
 const copperore = loadTex('./textures/copper_ore.png');
@@ -459,18 +413,14 @@ const deepslateemeraldore = loadTex('./textures/deepslate_emerald_ore.png');
 const deepslatelapisore = loadTex('./textures/deepslate_lapis_ore.png');
 const deepslatediamondore = loadTex('./textures/deepslate_diamond_ore.png');
 const bedrock = loadTex('./textures/bedrock.png');
-
 const sand = loadTex('./textures/sand.png'); 
 const snow = loadTex('./textures/snow.png');
 const snowyGrassSide = loadTex('./textures/grass_block_snow.png');
 const sandstonetop = loadTex('./textures/sandstone_top.png');
 const sandstoneside = loadTex('./textures/sandstone.png');
 const sandstonebottom = loadTex('./textures/sandstone_bottom.png');
-
 const oakSaplingTex = loadTex('./textures/oak_sapling.png');
 const spruceSaplingTex = loadTex('./textures/spruce_sapling.png');
-
-// --- NEW TEXTURES FOR DROPS ---
 const cobblestoneTex = loadTex('./textures/cobblestone.png');
 const cobbledDeepslateTex = loadTex('./textures/cobbled_deepslate.png');
 const coalTex = loadTex('./items/coal.png');
@@ -524,8 +474,6 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: sandstoneside})
     ],
     snow_block: new THREE.MeshStandardMaterial({ map: snow}), 
-
-    // --- MATERIALS FOR ITEMS & NEW BLOCKS ---
     cobblestone: new THREE.MeshStandardMaterial({ map: cobblestoneTex }),
     cobbled_deepslate: new THREE.MeshStandardMaterial({ map: cobbledDeepslateTex }),
     coal: new THREE.MeshStandardMaterial({ map: coalTex, transparent: true, alphaTest: 0.5 }),
@@ -537,7 +485,6 @@ const materials = {
     lapis_lazuli: new THREE.MeshStandardMaterial({ map: lapisTex, transparent: true, alphaTest: 0.5 }),
     redstone: new THREE.MeshStandardMaterial({ map: redstoneTex, transparent: true, alphaTest: 0.5 }),
     snowball: new THREE.MeshStandardMaterial({ map: snowballTex, transparent: true, alphaTest: 0.5 }),
-
     coal_ore: new THREE.MeshStandardMaterial({ map: coalore }),
     iron_ore: new THREE.MeshStandardMaterial({ map: ironore }),
     copper_ore: new THREE.MeshStandardMaterial({ map: copperore }),
@@ -613,13 +560,10 @@ const worldHeight = 384;
 const minworldY = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
-// --- Cross Geometry for Plants (X shape) ---
 const crossGeo = new THREE.BufferGeometry();
 const crossPositions = new Float32Array([
-    // Plane 1 (/)
     -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
      0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
-    // Plane 2 (\)
     -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
      0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
 ]);
@@ -643,7 +587,7 @@ const activeChunks = {};
 const chunkQueue = []; 
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
-const placedBlocks = new Map(); // <-- Our new memory bank for placed blocks!
+const placedBlocks = new Map(); 
 const chunksToRebuild = new Set(); 
 
 const TYPE = { 
@@ -653,7 +597,7 @@ const TYPE = {
     deepslate_copper_ore: 20, deepslate_gold_ore: 21, deepslate_redstone_ore: 22, 
     deepslate_emerald_ore: 23, deepslate_lapis_ore: 24, deepslate_diamond_ore: 25,
     oak_log: 26, oak_leaves: 27, spruce_log: 28, spruce_leaves: 29, oak_sapling: 30, spruce_sapling: 31,
-    cobblestone: 32, cobbled_deepslate: 33 // Added missing placeable blocks!
+    cobblestone: 32, cobbled_deepslate: 33 
 };
 const REVERSE_TYPE = [
     null, 'stone', 'dirt', 'grass_block', 'sand', 'sandstone', 'snow_block', 'snowy_grass_block', 
@@ -661,7 +605,7 @@ const REVERSE_TYPE = [
     'deepslate', 'bedrock', 'deepslate_coal_ore', 'deepslate_iron_ore', 'deepslate_copper_ore', 
     'deepslate_gold_ore', 'deepslate_redstone_ore', 'deepslate_emerald_ore', 'deepslate_lapis_ore', 
     'deepslate_diamond_ore', 'oak_log', 'oak_leaves', 'spruce_log', 'spruce_leaves', 'oak_sapling', 'spruce_sapling',
-    'cobblestone', 'cobbled_deepslate' // Added missing placeable blocks!
+    'cobblestone', 'cobbled_deepslate' 
 ];
 
 function getGlobalBlock(gx, gy, gz) {
@@ -683,14 +627,13 @@ function getGlobalBlock(gx, gy, gz) {
 function setGlobalBlock(gx, gy, gz, type) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return;
     
-    // Memory Bank Update: Always record the change before messing with chunks
     let blockKey = `${gx},${gy},${gz}`;
     if (type === 0) {
         brokenBlocks.add(blockKey);
-        placedBlocks.delete(blockKey); // If we break a block we placed, remove it from placed memory
+        placedBlocks.delete(blockKey); 
     } else {
         brokenBlocks.delete(blockKey);
-        placedBlocks.set(blockKey, type); // Save the block forever!
+        placedBlocks.set(blockKey, type); 
     }
 
     let cx = Math.floor(gx / chunkSize);
@@ -698,8 +641,6 @@ function setGlobalBlock(gx, gy, gz, type) {
     let chunkId = `${cx},${cz}`;
     let chunk = activeChunks[chunkId];
     
-    // If the chunk happens to be unloaded when we place/break something (like a growing tree over the border)
-    // We safely return. Since we already saved it in `placedBlocks`, it will build correctly when we walk over there!
     if (!chunk) return; 
     
     let lx = gx - (cx * chunkSize);
@@ -761,7 +702,6 @@ function doRandomTicks() {
                     }
                 }
             } else if (blockType === TYPE.oak_sapling || blockType === TYPE.spruce_sapling) {
-                // Tree Growth! (Roughly a 1% chance per random tick to grow)
                 if (Math.random() < 0.01) {
                     let gx = (cx * chunkSize) + lx;
                     let gy = ly + minworldY;
@@ -773,20 +713,17 @@ function doRandomTicks() {
     }
 }
 
-// Function to dynamically push a new tree into the world data
 function growTreeDynamic(x, y, z, treeType) {
-    setGlobalBlock(x, y, z, 0); // Clear sapling
+    setGlobalBlock(x, y, z, 0); 
     
     const trunkH = treeType === 'spruce' ? 6 + Math.floor(Math.random() * 4) : 4 + Math.floor(Math.random() * 2);
     const logType = TYPE[`${treeType}_log`];
     const leavesType = TYPE[`${treeType}_leaves`];
 
-    // TRUNK
     for (let i = 0; i < trunkH; i++) {
         setGlobalBlock(x, y + i, z, logType);
     }
 
-    // LEAVES
     if (treeType === 'spruce') {
         let leafHeight = trunkH - (1 + Math.floor(Math.random() * 2));
         let leafStart = y + trunkH - leafHeight;
@@ -876,17 +813,14 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
     const logType = `${treeType}_log`;
     const leavesType = `${treeType}_leaves`;
     
-    // TRUNK
     for (let i = 0; i < trunkH; i++) {
         let actualY = y + i;
         let blockKey = `${x},${actualY},${z}`;
-        // Skip logs if the player placed or broke something here!
         if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
         treeMatrix.setPosition(x, actualY, z);
         chunkMeshes[logType].setMatrixAt(indices[logType]++, treeMatrix);
     }
 
-    // LEAVES
     if (treeType === 'spruce') {
         let leafHeight = trunkH - (1 + Math.floor(getDeterministicRandom(x, y, z) * 2));
         let leafStart = y + trunkH - leafHeight;
@@ -905,7 +839,6 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     
                     const bX = x + lx; const bY = ly; const bZ = z + lz;
                     let blockKey = `${bX},${bY},${bZ}`;
-                    // Skip leaves if the player modified this spot
                     if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
@@ -934,7 +867,6 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     
                     const bX = x + lx; const bY = ly; const bZ = z + lz;
                     let blockKey = `${bX},${bY},${bZ}`;
-                    // Skip leaves if the player modified this spot
                     if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
@@ -989,7 +921,6 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
         meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        // Added instance color attribute for Lighting Engine!
         meshes[key].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxVisibleBlocks * 3), 3);
         indices[key] = 0;
     }
@@ -1021,14 +952,13 @@ function generateChunk(chunkX, chunkZ) {
                 let blockIdx = getIdx(x, y, z);
                 let blockKey = `${globalX},${actualY},${globalZ}`;
 
-                // VERY FIRST THING: Check if the player manually placed or broke something here!
                 if (placedBlocks.has(blockKey)) {
                     blocks[blockIdx] = placedBlocks.get(blockKey);
-                    continue; // Skip the natural math generator
+                    continue; 
                 }
                 if (brokenBlocks.has(blockKey)) {
-                    blocks[blockIdx] = 0; // Make sure it stays empty air
-                    continue; // Skip the natural math generator
+                    blocks[blockIdx] = 0; 
+                    continue; 
                 }
 
                 let cliffNoise = noise.perlin3(globalX / 50, actualY / 40, globalZ / 50) * 18;
@@ -1116,14 +1046,13 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // NEW ENGINE FEATURE: Build Chunk Heightmap for Lighting
+    // Build Chunk Heightmap for Lighting
     const heightMap = new Int16Array(chunkSize * chunkSize);
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let hY = worldHeight - 1;
             while (hY >= 0) {
                 let b = blocks[getIdx(x, hY, z)];
-                // Ignore transparent blocks so sunlight passes through leaves/saplings!
                 if (b !== 0 && b !== TYPE.oak_leaves && b !== TYPE.spruce_leaves && b !== TYPE.oak_sapling && b !== TYPE.spruce_sapling) break;
                 hY--;
             }
@@ -1141,6 +1070,8 @@ function generateChunk(chunkX, chunkZ) {
                 let typeId = blocks[getIdx(x, y, z)];
                 if (typeId === 0) continue;
                 let actualY = y + minworldY;
+                let globalX = startX + x;
+                let globalZ = startZ + z;
 
                 const isOpen = (nx, ny, nz) => {
                     if (ny < 0 || ny >= worldHeight) return true;
@@ -1162,25 +1093,39 @@ function generateChunk(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        // MINECRAFT LIGHT LEVEL CALCULATION!
+                        // --- IMPROVED MINECRAFT LIGHT LEVEL & AMBIENT OCCLUSION ---
                         let localHighest = heightMap[x + z * chunkSize];
-                        let lowestAdjacentH = localHighest;
-                        // Check side block heights to let light spill down cliffs
-                        if (x > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x-1) + z * chunkSize]);
-                        if (x < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x+1) + z * chunkSize]);
-                        if (z > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z-1) * chunkSize]);
-                        if (z < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z+1) * chunkSize]);
-
                         let lightLevel = 1.0;
-                        if (actualY <= lowestAdjacentH) {
-                            let depth = lowestAdjacentH - actualY;
-                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); // Deeper = Darker
+
+                        // Check neighbors for AO (fall back to self if on chunk edge)
+                        let nNorth = z > 0 ? heightMap[x + (z-1) * chunkSize] : localHighest;
+                        let nSouth = z < chunkSize - 1 ? heightMap[x + (z+1) * chunkSize] : localHighest;
+                        let nEast = x > 0 ? heightMap[(x-1) + z * chunkSize] : localHighest;
+                        let nWest = x < chunkSize - 1 ? heightMap[(x+1) + z * chunkSize] : localHighest;
+
+                        let maxLocalHeight = Math.max(localHighest, nNorth, nSouth, nEast, nWest);
+
+                        if (actualY <= localHighest && actualY < maxLocalHeight) {
+                            // Underground / Covered Shadowing
+                            let depth = maxLocalHeight - actualY;
+                            lightLevel = Math.max(0.15, 0.85 - (depth * 0.12)); 
+                        } else {
+                            // Surface Ambient Occlusion: Darken corners based on neighboring block heights
+                            let ao = 0;
+                            if (nNorth > actualY) ao += 0.08;
+                            if (nSouth > actualY) ao += 0.08;
+                            if (nEast > actualY) ao += 0.08;
+                            if (nWest > actualY) ao += 0.08;
+                            
+                            // Subtle deterministic color variation so flat plains aren't entirely one shade
+                            let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
+                            lightLevel = Math.max(0.2, 1.0 - ao - variation);
                         }
                         colorObj.setRGB(lightLevel, lightLevel, lightLevel);
 
-                        matrix.setPosition(startX + x, actualY, startZ + z);
+                        matrix.setPosition(globalX, actualY, globalZ);
                         meshes[bName].setMatrixAt(indices[bName], matrix);
-                        meshes[bName].setColorAt(indices[bName], colorObj); // Apply shade!
+                        meshes[bName].setColorAt(indices[bName], colorObj);
                         indices[bName]++;
 
                         if (bName === 'grass_block' && meshes['grass_block_overlay']) {
@@ -1200,7 +1145,7 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); // FIX: Allows Raycaster to correctly find newly placed blocks!
+        meshes[key].computeBoundingSphere(); 
         scene.add(meshes[key]);
         
         if (key !== 'grass_block_overlay') {
@@ -1230,7 +1175,6 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
     const matrix = new THREE.Matrix4();
     const colorObj = new THREE.Color();
 
-    // Rebuild Heightmap
     const heightMap = new Int16Array(chunkSize * chunkSize);
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -1241,7 +1185,6 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                 let actualY = hY + minworldY;
                 let globalZ = startZ + z;
                 
-                // Pretend broken blocks are air for the sunlight
                 if (brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) {
                     hY--; continue; 
                 }
@@ -1283,18 +1226,29 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        // Calculate lighting
+                        // --- IMPROVED MINECRAFT LIGHT LEVEL & AMBIENT OCCLUSION ---
                         let localHighest = heightMap[x + z * chunkSize];
-                        let lowestAdjacentH = localHighest;
-                        if (x > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x-1) + z * chunkSize]);
-                        if (x < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[(x+1) + z * chunkSize]);
-                        if (z > 0) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z-1) * chunkSize]);
-                        if (z < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z+1) * chunkSize]);
-
                         let lightLevel = 1.0;
-                        if (actualY <= lowestAdjacentH) {
-                            let depth = lowestAdjacentH - actualY;
-                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15));
+
+                        let nNorth = z > 0 ? heightMap[x + (z-1) * chunkSize] : localHighest;
+                        let nSouth = z < chunkSize - 1 ? heightMap[x + (z+1) * chunkSize] : localHighest;
+                        let nEast = x > 0 ? heightMap[(x-1) + z * chunkSize] : localHighest;
+                        let nWest = x < chunkSize - 1 ? heightMap[(x+1) + z * chunkSize] : localHighest;
+
+                        let maxLocalHeight = Math.max(localHighest, nNorth, nSouth, nEast, nWest);
+
+                        if (actualY <= localHighest && actualY < maxLocalHeight) {
+                            let depth = maxLocalHeight - actualY;
+                            lightLevel = Math.max(0.15, 0.85 - (depth * 0.12)); 
+                        } else {
+                            let ao = 0;
+                            if (nNorth > actualY) ao += 0.08;
+                            if (nSouth > actualY) ao += 0.08;
+                            if (nEast > actualY) ao += 0.08;
+                            if (nWest > actualY) ao += 0.08;
+                            
+                            let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
+                            lightLevel = Math.max(0.2, 1.0 - ao - variation);
                         }
                         colorObj.setRGB(lightLevel, lightLevel, lightLevel);
 
@@ -1327,115 +1281,101 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
 // ----------------------------------------------------
 // 5. Light & Engine Core (Day / Night Cycle)
 // ----------------------------------------------------
-// Setup Sun, Moon, and Sky variables
 let timeOfDay = Math.PI / 2; // Start at exactly noon
-const dayCycleSpeed = 0.05; // Make larger for faster days!
+// 20 minutes (1200 seconds) for a full 2-PI rotation cycle
+const dayCycleSpeed = (Math.PI * 2) / 1200; 
 
-// Basic Global Light
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
 scene.add(ambientLight);
 
-// The Sun Light
 const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
 scene.add(sunLight);
 
-// The Sun Object
 const sunGeo = new THREE.BoxGeometry(6, 6, 6);
-const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa }); // Unlit material so it always glows
+const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa }); 
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
 scene.add(sunMesh);
 
-// The Moon Light
-const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2); // Faint blue light for night
+const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2); 
 scene.add(moonLight);
 
-// The Moon Object
 const moonGeo = new THREE.BoxGeometry(4, 4, 4);
 const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff });
 const moonMesh = new THREE.Mesh(moonGeo, moonMat);
 scene.add(moonMesh);
 
-// The Stars
 const starsGeo = new THREE.BufferGeometry();
 const starVertices = [];
 for(let i=0; i<1500; i++) {
-    // Spread stars out far around the player
     let x = THREE.MathUtils.randFloatSpread(300);
     let y = THREE.MathUtils.randFloatSpread(300);
     let z = THREE.MathUtils.randFloatSpread(300);
-    // Cut out the center so stars don't float inside your face!
     if(Math.abs(x) > 50 || Math.abs(y) > 50 || Math.abs(z) > 50) {
         starVertices.push(x, y, z);
     }
 }
 starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-const starsMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.8, transparent: true, opacity: 0}); // Start invisible
+const starsMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.8, transparent: true, opacity: 0}); 
 const starsMesh = new THREE.Points(starsGeo, starsMat);
 scene.add(starsMesh);
 
 function updateDayNightCycle(delta) {
-    // Advance time
     timeOfDay += delta * dayCycleSpeed;
     if (timeOfDay > Math.PI * 2) timeOfDay -= Math.PI * 2;
 
     const orbitRadius = 150;
     
-    // Move the Sun
     sunMesh.position.x = camera.position.x + Math.cos(timeOfDay) * orbitRadius;
     sunMesh.position.y = camera.position.y + Math.sin(timeOfDay) * orbitRadius;
-    sunMesh.position.z = camera.position.z + 50; // Offset slightly so it's not perfectly overhead
+    sunMesh.position.z = camera.position.z + 50; 
     sunLight.position.copy(sunMesh.position);
 
-    // Move the Moon (exactly opposite of the Sun)
     moonMesh.position.x = camera.position.x + Math.cos(timeOfDay + Math.PI) * orbitRadius;
     moonMesh.position.y = camera.position.y + Math.sin(timeOfDay + Math.PI) * orbitRadius;
     moonMesh.position.z = camera.position.z + 50;
     moonLight.position.copy(moonMesh.position);
 
-    // Follow the player with the stars and slowly rotate them
     starsMesh.position.copy(camera.position);
     starsMesh.rotation.z = timeOfDay * 0.5;
 
-    // Calculate sky colors based on the cycle (1 is noon, -1 is midnight, 0 is dawn/dusk)
     let cycle = Math.sin(timeOfDay); 
     let skyColor = new THREE.Color();
 
     if (cycle > 0.2) { 
         // --- DAY TIME ---
-        skyColor.setHex(0x87ceeb); // Light Blue Sky
+        skyColor.setHex(0x87ceeb); 
         ambientLight.intensity = 0.5;
         sunLight.intensity = 0.8;
         moonLight.intensity = 0;
-        starsMat.opacity = 0; // Hide stars
+        starsMat.opacity = 0; 
     } 
     else if (cycle > 0.0) { 
         // --- SUNSET / SUNRISE ---
-        let interp = cycle / 0.2; // 0 to 1 value
-        skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x87ceeb), interp); // Orange -> Blue
-        ambientLight.intensity = 0.2 + (0.3 * interp);
-        sunLight.intensity = 0.8 * interp; // Fade sun light out
+        let interp = cycle / 0.2; 
+        skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x87ceeb), interp); 
+        ambientLight.intensity = 0.3 + (0.2 * interp);
+        sunLight.intensity = 0.8 * interp; 
         moonLight.intensity = 0;
-        starsMat.opacity = 1 - interp; // Fade stars in
+        starsMat.opacity = 1 - interp; 
     } 
     else if (cycle > -0.2) { 
         // --- DUSK / DAWN ---
-        let interp = Math.abs(cycle) / 0.2; // 0 to 1 value
-        skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x000011), interp); // Orange -> Dark Blue
-        ambientLight.intensity = 0.2 - (0.1 * interp);
+        let interp = Math.abs(cycle) / 0.2; 
+        skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x000011), interp); 
+        ambientLight.intensity = 0.3 - (0.05 * interp);
         sunLight.intensity = 0;
-        moonLight.intensity = 0.2 * interp; // Fade moon light in
+        moonLight.intensity = 0.3 * interp; 
         starsMat.opacity = interp;
     } 
     else { 
         // --- NIGHT TIME ---
-        skyColor.setHex(0x000011); // Super Dark Blue
-        ambientLight.intensity = 0.1; // Dark! Cave blocks get pitch black now!
+        skyColor.setHex(0x000011); 
+        ambientLight.intensity = 0.25; // Dark, but not pitch black anymore
         sunLight.intensity = 0;
-        moonLight.intensity = 0.2;
-        starsMat.opacity = 1; // Stars fully visible
+        moonLight.intensity = 0.3;
+        starsMat.opacity = 1; 
     }
 
-    // Apply the sky color to the background and the fog so mountains look correct
     scene.fog.color.copy(skyColor);
     renderer.setClearColor(skyColor);
 }
@@ -1483,7 +1423,6 @@ for (let y = 127; y >= 0; y--) {
 
 camera.position.set(spawnX, safeSpawnY + 2, spawnZ);
 
-// Custom hand
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); handGeo.translate(0, 0.4, 0); 
 const playerHand = new THREE.Mesh(handGeo, new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 }));
 playerHand.position.set(0.4, -0.4, -0.1);
@@ -1491,12 +1430,11 @@ playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0);
 camera.add(playerHand); scene.add(camera);
 
 let yaw = 0, pitch = 0, keys = {};
-let isLeftMouseDown = false; // Decoupled mouse tracker to prevent mining freeze/loops
+let isLeftMouseDown = false; 
 
 const raycaster = new THREE.Raycaster(); raycaster.far = 6;
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
 
-// --- Dropped Items System ---
 const droppedItems = [];
 const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
 
@@ -1507,7 +1445,6 @@ function spawnDroppedItem(x, y, z, blockName) {
     const mesh = new THREE.Mesh(itemGeometry, mat);
     mesh.position.set(x, y, z);
     
-    // Give it a random physical "pop" out of the broken block
     const velocity = new THREE.Vector3(
         (Math.random() - 0.5) * 4,
         3 + Math.random() * 2,
@@ -1538,7 +1475,6 @@ function startMining(hit) {
     const blockName = hit.object.name;
     let requiredTime = BLOCK_HARDNESS[blockName] || 1000;
 
-    // Bonus: Make mining 5x faster if holding the right tool!
     const heldItemType = inventory[selectedSlot].type;
     if (heldItemType && heldItemType.includes('pickaxe') && BLOCK_TOOL_REQUIREMENT[blockName] === 'pickaxe') {
         requiredTime /= 5; 
@@ -1562,7 +1498,6 @@ function updateMining() {
     if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
         mining.active = false; 
         destroyMesh.visible = false;
-        // If we look at a new block while holding click, it'll seamlessly catch it next frame!
         return;
     }
 
@@ -1581,7 +1516,6 @@ function updateMining() {
         
         setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
         
-        // --- Drop Logic ---
         const heldItemType = inventory[selectedSlot].type;
         const isHoldingPickaxe = heldItemType && heldItemType.includes('pickaxe');
         const requiresPickaxe = BLOCK_TOOL_REQUIREMENT[blockName] === 'pickaxe';
@@ -1605,26 +1539,22 @@ function updateMining() {
             chunksToRebuild.add(mining.targetMesh.chunkId);
         }
 
-        // FIX: Cleanly end the mining sequence so it doesn't get stuck in a CPU loop finding the next block
         mining.active = false;
         destroyMesh.visible = false;
     }
 }
 
-// Stop right-click from opening the browser context menu
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 document.addEventListener('mousedown', (e) => {
-    // Prevent locking pointer if clicking the UI
     if (e.target.closest('#inventory-screen') || e.target.closest('#hotbar')) return; 
     
     if (!document.pointerLockElement && inventoryScreen.style.display === 'none') {
         renderer.domElement.requestPointerLock();
     } else if (document.pointerLockElement) {
         if (e.button === 0) {
-            isLeftMouseDown = true; // Decoupled trigger to fix game-freeze bugs
+            isLeftMouseDown = true; 
         } else if (e.button === 2) { 
-            // Right Click = Place Block
             const hit = getTarget(); 
             if (!hit) return;
             
@@ -1632,7 +1562,6 @@ document.addEventListener('mousedown', (e) => {
             hit.object.getMatrixAt(hit.instanceId, mat);
             const p = new THREE.Vector3().setFromMatrixPosition(mat);
             
-            // Calculate empty space directly attached to the face you clicked
             const placeX = Math.round(p.x + hit.face.normal.x);
             const placeY = Math.round(p.y + hit.face.normal.y);
             const placeZ = Math.round(p.z + hit.face.normal.z);
@@ -1643,7 +1572,6 @@ document.addEventListener('mousedown', (e) => {
                 if (selectedItem.type && TYPE[selectedItem.type]) {
                     setGlobalBlock(placeX, placeY, placeZ, TYPE[selectedItem.type]);
                     
-                    // Consume the item from inventory!
                     selectedItem.count--;
                     if (selectedItem.count <= 0) {
                         selectedItem.type = null;
@@ -1674,20 +1602,16 @@ document.addEventListener('mousemove', (e) => {
 window.addEventListener('keydown', (e) => {
     keys[e.key.toLowerCase()] = true;
     
-    // Open/Close Inventory with 'E'
     if (e.key.toLowerCase() === 'e') {
         if (inventoryScreen.style.display === 'none') {
-            // Open Menu
             inventoryScreen.style.display = 'flex';
             crosshair.style.display = 'none';
             document.exitPointerLock();
-            keys = {}; // Stop the player from continuously walking
+            keys = {}; 
         } else {
-            // Close Menu
             inventoryScreen.style.display = 'none';
             crosshair.style.display = 'block';
             
-            // Toss dragging item back into inventory if closed
             if (heldItem.type) {
                 addItemToInventory(heldItem.type, heldItem.count);
                 heldItem = { type: null, count: 0 };
@@ -1697,7 +1621,6 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
-    // Select hotbar slots with 1-9 number keys
     if (e.key >= '1' && e.key <= '9' && inventoryScreen.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
         updateInventoryUI();
@@ -1706,12 +1629,10 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
-// Cycle hotbar with mouse scroll wheel
-let lastScrollTime = 0; // Tracks when you last scrolled
+let lastScrollTime = 0; 
 window.addEventListener('wheel', (e) => {
     if (document.pointerLockElement && inventoryScreen.style.display === 'none') {
         const now = Date.now();
-        // 150ms cooldown prevents double-triggering
         if (now - lastScrollTime < 50) return; 
         lastScrollTime = now;
 
@@ -1738,7 +1659,7 @@ function animate() {
     const delta = clock.getDelta(); 
 
     updateChunks();
-    updateDayNightCycle(delta); // Run our new weather system!
+    updateDayNightCycle(delta); 
 
     if (chunkQueue.length > 0) {
         const next = chunkQueue.shift();
@@ -1746,7 +1667,6 @@ function animate() {
         generateChunk(cx, cz);
     }
 
-    // Safely trigger mining on the main loop so it doesn't cause recursive freezing!
     if (isLeftMouseDown && !mining.active && document.pointerLockElement && inventoryScreen.style.display === 'none') {
         const hit = getTarget();
         if (hit) startMining(hit);
@@ -1761,43 +1681,38 @@ function animate() {
     }
     chunksToRebuild.clear();
     
-    // --- Update Dropped Items ---
     for (let i = droppedItems.length - 1; i >= 0; i--) {
         let item = droppedItems[i];
         item.lifeTime += delta;
         
         item.velocity.y -= 15 * delta; 
         
-        // Calculate potential next position
         let nx = item.mesh.position.x + item.velocity.x * delta;
         let ny = item.mesh.position.y + item.velocity.y * delta;
         let nz = item.mesh.position.z + item.velocity.z * delta;
 
         let bX = Math.round(nx);
-        let bY = Math.round(ny - 0.25); // Check the block right below the item
+        let bY = Math.round(ny - 0.25); 
         let bZ = Math.round(nz);
 
         let blockBelow = getGlobalBlock(bX, bY, bZ);
 
-        // 1. Unloaded Chunk Check (Freeze items so they don't fall into the void)
         if (blockBelow === null) {
             item.velocity.set(0, 0, 0);
             nx = item.mesh.position.x;
             ny = item.mesh.position.y;
             nz = item.mesh.position.z;
         } 
-        // 2. Floor Collision
         else if (blockBelow !== 0) {
-            ny = bY + 0.5 + 0.125; // Top of the block + half item size
+            ny = bY + 0.5 + 0.125; 
             item.velocity.y = 0;
-            item.velocity.x *= 0.5; // Friction slows it down
+            item.velocity.x *= 0.5; 
             item.velocity.z *= 0.5;
         } 
-        // 3. Wall Collision (Prevent flying sideways into a wall and falling down)
         else {
             let wallBlock = getGlobalBlock(bX, Math.round(ny), bZ);
             if (wallBlock !== 0 && wallBlock !== null) {
-                item.velocity.x *= -0.5; // Bounce back
+                item.velocity.x *= -0.5; 
                 item.velocity.z *= -0.5;
                 nx = item.mesh.position.x;
                 nz = item.mesh.position.z;
@@ -1805,9 +1720,8 @@ function animate() {
         }
 
         item.mesh.position.set(nx, ny, nz);
-
         item.mesh.rotation.y += delta * 2;
-        // Make it bob up and down when resting on the ground
+        
         if (item.velocity.y === 0) {
             item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
         }
@@ -1819,14 +1733,12 @@ function animate() {
             droppedItems.splice(i, 1);
             addItemToInventory(item.blockName, 1);
         } else if (item.mesh.position.y < minworldY - 20) {
-            // Despawn if it somehow falls deep into the void (Cleanup for lag)
             scene.remove(item.mesh);
             item.mesh.geometry.dispose();
             droppedItems.splice(i, 1);
         }
     }
 
-    // Animate Hand
     if (mining.active) {
         const t = Date.now() * 0.025; 
         playerHand.rotation.x = (-Math.PI / 3) + Math.sin(t) * 0.25;
@@ -1838,7 +1750,6 @@ function animate() {
         playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.4, 0.2);
     }
 
-    // --- Fly Mode Movement ---
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
     
