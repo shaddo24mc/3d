@@ -476,15 +476,15 @@ const materials = {
     snow_block: new THREE.MeshStandardMaterial({ map: snow}), 
     cobblestone: new THREE.MeshStandardMaterial({ map: cobblestoneTex }),
     cobbled_deepslate: new THREE.MeshStandardMaterial({ map: cobbledDeepslateTex }),
-    coal: new THREE.MeshStandardMaterial({ map: coalTex, transparent: true, alphaTest: 0.5 }),
-    raw_iron: new THREE.MeshStandardMaterial({ map: rawIronTex, transparent: true, alphaTest: 0.5 }),
-    raw_copper: new THREE.MeshStandardMaterial({ map: rawCopperTex, transparent: true, alphaTest: 0.5 }),
-    raw_gold: new THREE.MeshStandardMaterial({ map: rawGoldTex, transparent: true, alphaTest: 0.5 }),
-    diamond: new THREE.MeshStandardMaterial({ map: diamondTex, transparent: true, alphaTest: 0.5 }),
-    emerald: new THREE.MeshStandardMaterial({ map: emeraldTex, transparent: true, alphaTest: 0.5 }),
-    lapis_lazuli: new THREE.MeshStandardMaterial({ map: lapisTex, transparent: true, alphaTest: 0.5 }),
-    redstone: new THREE.MeshStandardMaterial({ map: redstoneTex, transparent: true, alphaTest: 0.5 }),
-    snowball: new THREE.MeshStandardMaterial({ map: snowballTex, transparent: true, alphaTest: 0.5 }),
+    coal: new THREE.MeshStandardMaterial({ map: coalTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    raw_iron: new THREE.MeshStandardMaterial({ map: rawIronTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    raw_copper: new THREE.MeshStandardMaterial({ map: rawCopperTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    raw_gold: new THREE.MeshStandardMaterial({ map: rawGoldTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    diamond: new THREE.MeshStandardMaterial({ map: diamondTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    emerald: new THREE.MeshStandardMaterial({ map: emeraldTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    lapis_lazuli: new THREE.MeshStandardMaterial({ map: lapisTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    redstone: new THREE.MeshStandardMaterial({ map: redstoneTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    snowball: new THREE.MeshStandardMaterial({ map: snowballTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
     coal_ore: new THREE.MeshStandardMaterial({ map: coalore }),
     iron_ore: new THREE.MeshStandardMaterial({ map: ironore }),
     copper_ore: new THREE.MeshStandardMaterial({ map: copperore }),
@@ -1430,12 +1430,15 @@ let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, re
 
 const droppedItems = [];
 const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+const flatItemGeometry = new THREE.PlaneGeometry(0.35, 0.35);
+const FLAT_ITEMS = new Set(['coal', 'raw_iron', 'raw_copper', 'raw_gold', 'diamond', 'emerald', 'lapis_lazuli', 'redstone', 'snowball', 'oak_sapling', 'spruce_sapling']);
 
 function spawnDroppedItem(x, y, z, blockName) {
     if (!materials[blockName]) return; 
     let mat = materials[blockName];
 
-    const mesh = new THREE.Mesh(itemGeometry, mat);
+    const isFlat = FLAT_ITEMS.has(blockName);
+    const mesh = new THREE.Mesh(isFlat ? flatItemGeometry : itemGeometry, mat);
     mesh.position.set(x, y, z);
     
     const velocity = new THREE.Vector3(
