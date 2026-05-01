@@ -1719,7 +1719,7 @@ function animate() {
         item.mesh.rotation.y += delta * 2;
         
         if (item.velocity.y === 0) {
-            item.mesh.position.y += Math.sin(item.lifeTime * 3) * 0.005;
+            item.mesh.position.y += Math.sin(item.lifeTime * 3) * 0.02;
         }
         
         const dist = camera.position.distanceTo(item.mesh.position);
