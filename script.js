@@ -866,7 +866,7 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
             }
         }
     } else {
-        for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
+        for (let ly = y + trunkH - 2; ly <= y + trunkH + 1; ly++) {
             let radius = (ly > y + trunkH - 1) ? 1 : 2; 
             for (let lx = -radius; lx <= radius; lx++) {
                 for (let lz = -radius; lz <= radius; lz++) {
@@ -1719,7 +1719,7 @@ function animate() {
         item.mesh.rotation.y += delta * 2;
         
         if (item.velocity.y === 0) {
-            item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
+            item.mesh.position.y += Math.sin(item.lifeTime * 4) * 1;
         }
         
         const dist = camera.position.distanceTo(item.mesh.position);
