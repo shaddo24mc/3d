@@ -1098,7 +1098,7 @@ function generateChunk(chunkX, chunkZ) {
                     }
                     let gx = startX + nx; let gy = ny + minworldY; let gz = startZ + nz;
                     let b = getGlobalBlock(gx, gy, gz);
-                    if (b === null) return true; 
+                    if (b === null) return false; // Treat unloaded chunks as solid to hide chunk borders!
                     return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
                 };
 
@@ -1115,12 +1115,22 @@ function generateChunk(chunkX, chunkZ) {
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
+                            // Check if the block directly above is solid (this blocks vertical light)
+                            let isCeiling = false;
+                            if (y + 1 < worldHeight) {
+                                let bAbove = blocks[getIdx(x, y + 1, z)];
+                                if (bAbove !== 0 && bAbove !== TYPE.oak_leaves && bAbove !== TYPE.spruce_leaves && bAbove !== TYPE.oak_sapling && bAbove !== TYPE.spruce_sapling) {
+                                    isCeiling = true;
+                                }
+                            }
+
                             // Start with strict vertical depth
                             let minLightDist = localHighest - actualY; 
 
                             // Check surrounding columns to let light "bleed" in horizontally
-                            for (let dx = -6; dx <= 6; dx++) {
-                                for (let dz = -6; dz <= 6; dz++) {
+                            // Radius reduced to [-3, 3] to fix lag!
+                            for (let dx = -3; dx <= 3; dx++) {
+                                for (let dz = -3; dz <= 3; dz++) {
                                     if (dx === 0 && dz === 0) continue;
                                     
                                     let nx = x + dx;
@@ -1144,8 +1154,12 @@ function generateChunk(chunkX, chunkZ) {
                                 }
                             }
                             
-                            // Decrease light gradually (0.066 is roughly 1/15th of max light)
-                            lightLevel = Math.max(0.08, 1.0 - (minLightDist * 0.066));
+                            if (isCeiling) {
+                                minLightDist += 6; // Heavy shadow penalty for cave ceilings so light doesn't shine through
+                            }
+                            
+                            // Decrease light gradually (0.10 is 1/10th of max light)
+                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.10));
                         } else {
                             // Surface: Uniform lighting so DirectionalLight can shade the faces naturally
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
@@ -1185,6 +1199,16 @@ function generateChunk(chunkX, chunkZ) {
     }
     
     activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
+    
+    // Trigger neighbor rebuild to gracefully uncull chunk borders
+    const n1 = `${chunkX - 1},${chunkZ}`;
+    if (activeChunks[n1]) chunksToRebuild.add(n1);
+    const n2 = `${chunkX + 1},${chunkZ}`;
+    if (activeChunks[n2]) chunksToRebuild.add(n2);
+    const n3 = `${chunkX},${chunkZ - 1}`;
+    if (activeChunks[n3]) chunksToRebuild.add(n3);
+    const n4 = `${chunkX},${chunkZ + 1}`;
+    if (activeChunks[n4]) chunksToRebuild.add(n4);
 }
 
 // ----------------------------------------------------
@@ -1245,7 +1269,7 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                         return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
                     }
                     let b = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
-                    if (b === null) return true; 
+                    if (b === null) return false; // Treat unloaded chunks as solid to hide chunk borders!
                     return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
                 };
 
@@ -1262,12 +1286,22 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
+                            // Check if the block directly above is solid (this blocks vertical light)
+                            let isCeiling = false;
+                            if (y + 1 < worldHeight) {
+                                let bAbove = blocks[getIdx(x, y + 1, z)];
+                                if (bAbove !== 0 && bAbove !== TYPE.oak_leaves && bAbove !== TYPE.spruce_leaves && bAbove !== TYPE.oak_sapling && bAbove !== TYPE.spruce_sapling) {
+                                    isCeiling = true;
+                                }
+                            }
+
                             // Start with strict vertical depth
                             let minLightDist = localHighest - actualY; 
 
                             // Check surrounding columns to let light "bleed" in horizontally
-                            for (let dx = -6; dx <= 6; dx++) {
-                                for (let dz = -6; dz <= 6; dz++) {
+                            // Radius reduced to [-3, 3] to fix lag!
+                            for (let dx = -3; dx <= 3; dx++) {
+                                for (let dz = -3; dz <= 3; dz++) {
                                     if (dx === 0 && dz === 0) continue;
                                     
                                     let nx = x + dx;
@@ -1289,8 +1323,12 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                                 }
                             }
                             
-                            // Decrease light gradually (0.066 is roughly 1/15th of max light)
-                            lightLevel = Math.max(0.08, 1.0 - (minLightDist * 0.066));
+                            if (isCeiling) {
+                                minLightDist += 6; // Heavy shadow penalty for cave ceilings
+                            }
+                            
+                            // Decrease light gradually
+                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.10));
                         } else {
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
                             lightLevel = Math.max(0.2, 1.0 - variation);
