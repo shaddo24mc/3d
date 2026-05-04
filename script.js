@@ -583,8 +583,6 @@ const chunkQueue = [];
 const interactableMeshes = [];
 const chunksToRebuild = new Set(); 
 
-// --- PERFORMANCE OPTIMIZATION: Chunk Modifications Map ---
-// Instead of creating millions of coordinate strings, we store local overrides inside Map objects tied to chunks.
 const worldMods = {};
 
 const TYPE = { 
@@ -605,8 +603,6 @@ const REVERSE_TYPE = [
     'cobblestone', 'cobbled_deepslate' 
 ];
 
-// --- PERFORMANCE OPTIMIZATION: Transparency Array Map ---
-// Fast memory lookup instead of checking multi-type strings/enums.
 const isTransparent = new Uint8Array(256);
 isTransparent[0] = 1;
 isTransparent[TYPE.oak_leaves] = 1;
@@ -615,11 +611,10 @@ isTransparent[TYPE.snow_block] = 1;
 isTransparent[TYPE.oak_sapling] = 1;
 isTransparent[TYPE.spruce_sapling] = 1;
 
-// --- PERFORMANCE OPTIMIZATION: Precalculated Light Radii ---
-// Eliminates Math.abs calls inside the lighting loops!
+// --- PERFORMANCE OPTIMIZATION: Shrink Light Loop Radius ---
 const lightRadiusOffsets = [];
-for (let dx = -3; dx <= 3; dx++) {
-    for (let dz = -3; dz <= 3; dz++) {
+for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
         if (dx === 0 && dz === 0) continue;
         lightRadiusOffsets.push({ dx, dz, dist: Math.abs(dx) + Math.abs(dz) });
     }
@@ -653,7 +648,6 @@ function setGlobalBlock(gx, gy, gz, type) {
     let ly = gy - minworldY;
     let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
 
-    // Save modifications to the map
     if (!worldMods[chunkId]) worldMods[chunkId] = new Map();
     worldMods[chunkId].set(idx, type);
 
@@ -680,8 +674,6 @@ function doRandomTicks() {
         const cx = parseInt(parts[0]);
         const cz = parseInt(parts[1]);
         
-        // PERFORMANCE FIX: Reduced from 250 to 20. 
-        // Since this runs ~60 times a second, 20 is more than enough to spread grass/grow trees without lagging!
         for (let i = 0; i < 20; i++) {
             let lx = Math.floor(Math.random() * chunkSize);
             let lz = Math.floor(Math.random() * chunkSize);
@@ -833,7 +825,6 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
     for (let i = 0; i < trunkH; i++) {
         let actualY = y + i;
         
-        // Fast coordinate blockMod check instead of string
         let cCx = Math.floor(x / chunkSize);
         let cCz = Math.floor(z / chunkSize);
         let cId = cCx + ',' + cCz;
@@ -933,9 +924,6 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
     }
 }
 
-// ----------------------------------------------------
-// 4. Chunk Generator
-// ----------------------------------------------------
 function fbm2(x, z, octaves = 4, scale = 400) {
     let total = 0;
     let frequency = 1;
@@ -967,7 +955,10 @@ function generateChunk(chunkX, chunkZ) {
 
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
-    const maxVisibleBlocks = 25000; 
+    
+    // --- PERFORMANCE OPTIMIZATION: Reduced Memory Footprint ---
+    // Downsized from 25,000 to save memory bandwith.
+    const maxVisibleBlocks = 12000; 
 
     const meshes = {};
     const indices = {};
@@ -978,7 +969,6 @@ function generateChunk(chunkX, chunkZ) {
         meshes[key].chunkId = chunkId;
         meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         meshes[key].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxVisibleBlocks * 3), 3);
-        
         indices[key] = 0;
     }
 
@@ -1019,15 +1009,13 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
-                    // PERFORMANCE: Only evaluate expensive 3D cave noise if underground!
                     if (actualY < baseHeight - 4) {
                         let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
                         if (isCave) { continue; }
                     }
 
-                    // PERFORMANCE: Only evaluate densityAbove if we are near the surface block limits
                     let actualYAbove = actualY + 1;
-                    let densityAbove = 10; // Assume solid rock 
+                    let densityAbove = 10; 
                     if (actualY >= baseHeight - 12) {
                         densityAbove = (baseHeight - actualYAbove) + 
                                        (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
@@ -1086,7 +1074,6 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // --- PASS 1.5: Fix exposed dirt from caves & Evaluate top layer for trees ---
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x;
@@ -1103,7 +1090,6 @@ function generateChunk(chunkX, chunkZ) {
                 let idx = getIdx(x, y, z);
                 let b = blocks[idx];
                 
-                // Convert exposed dirt to biome's top block (grass, sand, snow)
                 if (b === TYPE.dirt && y < worldHeight - 1) {
                     if (blocks[getIdx(x, y + 1, z)] === 0) {
                         b = TYPE[localBiome.topBlock] || TYPE.grass_block;
@@ -1124,14 +1110,12 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // Apply any manual block modifications made by the player! Fast array overwrite!
     if (worldMods[chunkId]) {
         for (let [idx, type] of worldMods[chunkId].entries()) {
             blocks[idx] = type;
         }
     }
 
-    // Build Chunk Heightmap for Lighting
     const heightMap = new Int16Array(chunkSize * chunkSize);
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -1145,8 +1129,6 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // --- PERFORMANCE OPTIMIZATION: Neighbor Chunk Cache ---
-    // Drastically reduces string hashing during light map rendering
     const localChunkCache = {};
     const getNeighborHeight = (nx, nz, fallback) => {
         if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
@@ -1169,7 +1151,6 @@ function generateChunk(chunkX, chunkZ) {
         return chMap ? chMap[lnx + lnz * chunkSize] : fallback;
     };
 
-    // PASS 2: MESH GENERATION & CULLING
     const matrix = new THREE.Matrix4();
     const colorObj = new THREE.Color();
     
@@ -1229,7 +1210,7 @@ function generateChunk(chunkX, chunkZ) {
                                 }
                             }
                             
-                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.15));
+                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.20));
                         } else {
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
                             lightLevel = Math.max(0.2, 1.0 - variation);
@@ -1255,11 +1236,15 @@ function generateChunk(chunkX, chunkZ) {
 
     for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices, t.treeType);
 
+    // --- PERFORMANCE OPTIMIZATION: Bounding Sphere Hack ---
+    // Instead of computing sphere for millions of vertices mathematically, we instantly set a fake sphere covering the chunk!
+    const boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + chunkSize / 2, 128, startZ + chunkSize / 2), 256);
+
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); 
+        meshes[key].boundingSphere = boundingSphere; 
         scene.add(meshes[key]);
         
         if (key !== 'grass_block_overlay') {
@@ -1279,9 +1264,6 @@ function generateChunk(chunkX, chunkZ) {
     if (activeChunks[n4]) chunksToRebuild.add(n4);
 }
 
-// ----------------------------------------------------
-// 4.5. Chunk Rebuilding (Unculling)
-// ----------------------------------------------------
 function rebuildChunkGeometry(chunkX, chunkZ) {
     const chunkId = chunkX + ',' + chunkZ;
     const chunkData = activeChunks[chunkId];
@@ -1389,7 +1371,7 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                                 }
                             }
                             
-                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.15));
+                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.20));
                         } else {
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
                             lightLevel = Math.max(0.2, 1.0 - variation);
@@ -1415,11 +1397,13 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
 
     for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices, t.treeType);
 
+    const boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + chunkSize / 2, 128, startZ + chunkSize / 2), 256);
+
     for (const key in meshes) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); 
+        meshes[key].boundingSphere = boundingSphere;
     }
     
     chunkData.heightMap = heightMap;
@@ -1429,13 +1413,11 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
 // 5. Light & Engine Core (Day / Night Cycle)
 // ----------------------------------------------------
 let timeOfDay = Math.PI / 2; // Start at exactly noon
-// 20 minutes (1200 seconds) for a full 2-PI rotation cycle
 const dayCycleSpeed = (Math.PI * 2) / 1200; 
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
 scene.add(ambientLight);
 
-// Set up Sunlight (Directional shade without castShadow lags)
 const sunLight = new THREE.DirectionalLight(0xffffee, 1.0);
 scene.add(sunLight);
 
@@ -1444,7 +1426,6 @@ const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
 const sunMesh = new THREE.Mesh(sunGeo, sunMat);
 scene.add(sunMesh);
 
-// Set up Moonlight
 const moonLight = new THREE.DirectionalLight(0xaaccff, 0.4); 
 scene.add(moonLight);
 
@@ -1491,7 +1472,6 @@ function updateDayNightCycle(delta) {
     let skyColor = new THREE.Color();
 
     if (cycle > 0.2) { 
-        // --- DAY TIME ---
         skyColor.setHex(0x87ceeb); 
         ambientLight.intensity = 0.45;
         sunLight.intensity = 0.9;
@@ -1499,7 +1479,6 @@ function updateDayNightCycle(delta) {
         starsMat.opacity = 0; 
     } 
     else if (cycle > 0.0) { 
-        // --- SUNSET / SUNRISE ---
         let interp = cycle / 0.2; 
         skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x87ceeb), interp); 
         ambientLight.intensity = 0.2 + (0.25 * interp);
@@ -1508,7 +1487,6 @@ function updateDayNightCycle(delta) {
         starsMat.opacity = 1 - interp; 
     } 
     else if (cycle > -0.2) { 
-        // --- DUSK / DAWN ---
         let interp = Math.abs(cycle) / 0.2; 
         skyColor.setHex(0xffaa00).lerp(new THREE.Color(0x000011), interp); 
         ambientLight.intensity = 0.2 - (0.05 * interp);
@@ -1517,7 +1495,6 @@ function updateDayNightCycle(delta) {
         starsMat.opacity = interp;
     } 
     else { 
-        // --- NIGHT TIME ---
         skyColor.setHex(0x000011); 
         ambientLight.intensity = 0.15; 
         sunLight.intensity = 0;
@@ -1607,7 +1584,19 @@ function spawnDroppedItem(x, y, z, blockName) {
     droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
 }
 
+// --- PERFORMANCE OPTIMIZATION: Raycast Cache & Debounce ---
+let lastRaycast = { time: 0, hit: null, x: 0, ry: 0, rx: 0 };
 function getTarget() {
+    const now = Date.now();
+    // Cache the raycast for a few milliseconds unless the camera angle changes! 
+    // This stops it from calculating 25,000 mesh intersections 60 times a second.
+    if (now - lastRaycast.time < 30 && 
+        Math.abs(camera.position.x - lastRaycast.x) < 0.01 &&
+        Math.abs(camera.rotation.y - lastRaycast.ry) < 0.01 &&
+        Math.abs(camera.rotation.x - lastRaycast.rx) < 0.01) {
+        return lastRaycast.hit;
+    }
+
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     
     const pX = Math.floor(camera.position.x / chunkSize);
@@ -1616,13 +1605,18 @@ function getTarget() {
     const nearbyMeshes = interactableMeshes.filter(m => {
         if (!m.chunkId) return false;
         let parts = m.chunkId.split(',');
-        const cx = parseInt(parts[0]);
-        const cz = parseInt(parts[1]);
-        return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
+        return Math.abs(parseInt(parts[0]) - pX) <= 1 && Math.abs(parseInt(parts[1]) - pZ) <= 1;
     });
 
     const hit = raycaster.intersectObjects(nearbyMeshes);
-    return hit.length > 0 ? hit[0] : null;
+    
+    lastRaycast.time = now;
+    lastRaycast.hit = hit.length > 0 ? hit[0] : null;
+    lastRaycast.x = camera.position.x;
+    lastRaycast.ry = camera.rotation.y;
+    lastRaycast.rx = camera.rotation.x;
+    
+    return lastRaycast.hit;
 }
 
 function startMining(hit) {
@@ -1815,12 +1809,18 @@ function animate() {
     updateChunks();
     updateDayNightCycle(delta); 
 
-    if (chunkQueue.length > 0) {
+    // --- PERFORMANCE OPTIMIZATION: Frame Time-Slicing ---
+    // Only ever rebuild or generate a MAX of ONE chunk per frame.
+    // This totally eliminates the massive freezing spikes!
+    if (chunksToRebuild.size > 0) {
+        let chunkId = chunksToRebuild.values().next().value;
+        let parts = chunkId.split(',');
+        rebuildChunkGeometry(parseInt(parts[0]), parseInt(parts[1]));
+        chunksToRebuild.delete(chunkId);
+    } else if (chunkQueue.length > 0) {
         const next = chunkQueue.shift();
         let parts = next.split(',');
-        const cx = parseInt(parts[0]);
-        const cz = parseInt(parts[1]);
-        generateChunk(cx, cz);
+        generateChunk(parseInt(parts[0]), parseInt(parts[1]));
     }
 
     if (isLeftMouseDown && !mining.active && document.pointerLockElement && inventoryScreen.style.display === 'none') {
@@ -1830,14 +1830,6 @@ function animate() {
 
     updateMining();
     doRandomTicks();
-
-    for (let chunkId of chunksToRebuild) {
-        let parts = chunkId.split(',');
-        const cx = parseInt(parts[0]);
-        const cz = parseInt(parts[1]);
-        rebuildChunkGeometry(cx, cz);
-    }
-    chunksToRebuild.clear();
     
     for (let i = droppedItems.length - 1; i >= 0; i--) {
         let item = droppedItems[i];
