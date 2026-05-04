@@ -750,7 +750,7 @@ function growTreeDynamic(x, y, z, treeType) {
             else if (currentRadius === 2) currentRadius = 1; 
         }
     } else {
-        for (let ly = y + trunkH - 3; ly <= y + trunkH + 1; ly++) {
+        for (let ly = y + trunkH - 2; ly <= y + trunkH + 1; ly++) {
             let radius = (ly > y + trunkH - 1) ? 1 : 2; 
             for (let lx = -radius; lx <= radius; lx++) {
                 for (let lz = -radius; lz <= radius; lz++) {
@@ -1115,9 +1115,37 @@ function generateChunk(chunkX, chunkZ) {
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
-                            // Underground: Give a very dim fixed ambient light, unaffected by shadow-map lag
-                            let depth = localHighest - actualY;
-                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); 
+                            // Start with strict vertical depth
+                            let minLightDist = localHighest - actualY; 
+
+                            // Check surrounding columns to let light "bleed" in horizontally
+                            for (let dx = -6; dx <= 6; dx++) {
+                                for (let dz = -6; dz <= 6; dz++) {
+                                    if (dx === 0 && dz === 0) continue;
+                                    
+                                    let nx = x + dx;
+                                    let nz = z + dz;
+                                    let nHighest;
+                                    
+                                    // Make sure we stay within the chunk's height map
+                                    if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
+                                        nHighest = heightMap[nx + nz * chunkSize];
+                                    } else {
+                                        nHighest = localHighest; // Fallback for chunk borders
+                                    }
+                                    
+                                    // Calculate manhattan distance to the light source
+                                    let dist = Math.abs(dx) + Math.abs(dz);
+                                    if (actualY < nHighest) {
+                                        dist += (nHighest - actualY); 
+                                    }
+                                    
+                                    if (dist < minLightDist) minLightDist = dist;
+                                }
+                            }
+                            
+                            // Decrease light gradually (0.066 is roughly 1/15th of max light)
+                            lightLevel = Math.max(0.08, 1.0 - (minLightDist * 0.066));
                         } else {
                             // Surface: Uniform lighting so DirectionalLight can shade the faces naturally
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
@@ -1234,8 +1262,35 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
-                            let depth = localHighest - actualY;
-                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); 
+                            // Start with strict vertical depth
+                            let minLightDist = localHighest - actualY; 
+
+                            // Check surrounding columns to let light "bleed" in horizontally
+                            for (let dx = -6; dx <= 6; dx++) {
+                                for (let dz = -6; dz <= 6; dz++) {
+                                    if (dx === 0 && dz === 0) continue;
+                                    
+                                    let nx = x + dx;
+                                    let nz = z + dz;
+                                    let nHighest;
+                                    
+                                    if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
+                                        nHighest = heightMap[nx + nz * chunkSize];
+                                    } else {
+                                        nHighest = localHighest; // Fallback
+                                    }
+                                    
+                                    let dist = Math.abs(dx) + Math.abs(dz);
+                                    if (actualY < nHighest) {
+                                        dist += (nHighest - actualY); 
+                                    }
+                                    
+                                    if (dist < minLightDist) minLightDist = dist;
+                                }
+                            }
+                            
+                            // Decrease light gradually (0.066 is roughly 1/15th of max light)
+                            lightLevel = Math.max(0.08, 1.0 - (minLightDist * 0.066));
                         } else {
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
                             lightLevel = Math.max(0.2, 1.0 - variation);
