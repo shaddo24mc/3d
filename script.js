@@ -1086,29 +1086,48 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // Apply any manual block modifications made by the player! Fast array overwrite!
-    if (worldMods[chunkId]) {
-        for (let [idx, type] of worldMods[chunkId].entries()) {
-            blocks[idx] = type;
-        }
-    }
-
+    // --- PASS 1.5: Fix exposed dirt from caves & Evaluate top layer for trees ---
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             let globalX = startX + x;
             let globalZ = startZ + z;
+            
+            let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 400);
+            let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 400);
+            let biomeJitterX = noise.perlin2(globalX / 8, globalZ / 8) * 0.08;
+            let biomeJitterZ = noise.perlin2(globalX / 8 + 5000, globalZ / 8 + 5000) * 0.08;
+            let localBiome = getBiome(tempMap + biomeJitterX, moistMap + biomeJitterZ, 0); 
+            
+            let foundTop = false;
             for (let y = worldHeight - 1; y >= 0; y--) {
-                let b = blocks[getIdx(x, y, z)];
-                if (b !== 0) { 
+                let idx = getIdx(x, y, z);
+                let b = blocks[idx];
+                
+                // Convert exposed dirt to biome's top block (grass, sand, snow)
+                if (b === TYPE.dirt && y < worldHeight - 1) {
+                    if (blocks[getIdx(x, y + 1, z)] === 0) {
+                        b = TYPE[localBiome.topBlock] || TYPE.grass_block;
+                        blocks[idx] = b;
+                    }
+                }
+
+                if (b !== 0 && !foundTop) { 
+                    foundTop = true;
                     if ((b === TYPE.grass_block || b === TYPE.snowy_grass_block) && localBiome.treeChance > 0) {
                         let actualY = y + minworldY;
                         if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
                             treesToSpawn.push({ x, y, z, actualY, treeType: localBiome.treeType });
                         }
                     }
-                    break; 
                 }
             }
+        }
+    }
+
+    // Apply any manual block modifications made by the player! Fast array overwrite!
+    if (worldMods[chunkId]) {
+        for (let [idx, type] of worldMods[chunkId].entries()) {
+            blocks[idx] = type;
         }
     }
 
