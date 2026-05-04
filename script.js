@@ -1115,20 +1115,16 @@ function generateChunk(chunkX, chunkZ) {
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
-                            // Check if the block directly above is solid (this blocks vertical light)
                             let isCeiling = false;
                             if (y + 1 < worldHeight) {
                                 let bAbove = blocks[getIdx(x, y + 1, z)];
                                 if (bAbove !== 0 && bAbove !== TYPE.oak_leaves && bAbove !== TYPE.spruce_leaves && bAbove !== TYPE.oak_sapling && bAbove !== TYPE.spruce_sapling) {
-                                    isCeiling = true;
+                                    isCeiling = true; // We are a cave ceiling or wall
                                 }
                             }
 
-                            // Start with strict vertical depth
-                            let minLightDist = localHighest - actualY; 
+                            let minLightDist = 999; 
 
-                            // Check surrounding columns to let light "bleed" in horizontally
-                            // Radius reduced to [-3, 3] to fix lag!
                             for (let dx = -3; dx <= 3; dx++) {
                                 for (let dz = -3; dz <= 3; dz++) {
                                     if (dx === 0 && dz === 0) continue;
@@ -1137,29 +1133,40 @@ function generateChunk(chunkX, chunkZ) {
                                     let nz = z + dz;
                                     let nHighest;
                                     
-                                    // Make sure we stay within the chunk's height map
                                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                                         nHighest = heightMap[nx + nz * chunkSize];
                                     } else {
-                                        nHighest = localHighest; // Fallback for chunk borders
+                                        // Attempt to fetch from a loaded neighbor chunk to fix edge lighting!
+                                        let nCx = chunkX; let nCz = chunkZ;
+                                        let lnx = nx; let lnz = nz;
+                                        if (nx < 0) { nCx--; lnx = nx + chunkSize; }
+                                        else if (nx >= chunkSize) { nCx++; lnx = nx - chunkSize; }
+                                        if (nz < 0) { nCz--; lnz = nz + chunkSize; }
+                                        else if (nz >= chunkSize) { nCz++; lnz = nz - chunkSize; }
+                                        
+                                        let nChunkId = `${nCx},${nCz}`;
+                                        if (activeChunks[nChunkId] && activeChunks[nChunkId].heightMap) {
+                                            nHighest = activeChunks[nChunkId].heightMap[lnx + lnz * chunkSize];
+                                        } else {
+                                            nHighest = localHighest; // Fallback
+                                        }
                                     }
                                     
-                                    // Calculate manhattan distance to the light source
                                     let dist = Math.abs(dx) + Math.abs(dz);
-                                    if (actualY < nHighest) {
-                                        dist += (nHighest - actualY); 
-                                    }
                                     
-                                    if (dist < minLightDist) minLightDist = dist;
+                                    // Valid Light Source Check
+                                    if (nHighest <= actualY) {
+                                        // Option A: Column is pure sky at our height
+                                        if (dist < minLightDist) minLightDist = dist;
+                                    } else if (!isCeiling && nHighest <= actualY + 3) {
+                                        // Option B: We are a floor, light can spill down short stairs/shafts
+                                        dist += (nHighest - actualY); 
+                                        if (dist < minLightDist) minLightDist = dist;
+                                    }
                                 }
                             }
                             
-                            if (isCeiling) {
-                                minLightDist += 6; // Heavy shadow penalty for cave ceilings so light doesn't shine through
-                            }
-                            
-                            // Decrease light gradually (0.10 is 1/10th of max light)
-                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.10));
+                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.15));
                         } else {
                             // Surface: Uniform lighting so DirectionalLight can shade the faces naturally
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
@@ -1198,7 +1205,8 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
     
-    activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
+    // Save heightMap so neighboring chunks can pull from it!
+    activeChunks[chunkId] = { meshes, blocks, treesToSpawn, heightMap };
     
     // Trigger neighbor rebuild to gracefully uncull chunk borders
     const n1 = `${chunkX - 1},${chunkZ}`;
@@ -1286,20 +1294,16 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
-                            // Check if the block directly above is solid (this blocks vertical light)
                             let isCeiling = false;
                             if (y + 1 < worldHeight) {
                                 let bAbove = blocks[getIdx(x, y + 1, z)];
                                 if (bAbove !== 0 && bAbove !== TYPE.oak_leaves && bAbove !== TYPE.spruce_leaves && bAbove !== TYPE.oak_sapling && bAbove !== TYPE.spruce_sapling) {
-                                    isCeiling = true;
+                                    isCeiling = true; // We are a cave ceiling or wall
                                 }
                             }
 
-                            // Start with strict vertical depth
-                            let minLightDist = localHighest - actualY; 
+                            let minLightDist = 999; 
 
-                            // Check surrounding columns to let light "bleed" in horizontally
-                            // Radius reduced to [-3, 3] to fix lag!
                             for (let dx = -3; dx <= 3; dx++) {
                                 for (let dz = -3; dz <= 3; dz++) {
                                     if (dx === 0 && dz === 0) continue;
@@ -1311,24 +1315,37 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                                         nHighest = heightMap[nx + nz * chunkSize];
                                     } else {
-                                        nHighest = localHighest; // Fallback
+                                        // Attempt to fetch from a loaded neighbor chunk
+                                        let nCx = chunkX; let nCz = chunkZ;
+                                        let lnx = nx; let lnz = nz;
+                                        if (nx < 0) { nCx--; lnx = nx + chunkSize; }
+                                        else if (nx >= chunkSize) { nCx++; lnx = nx - chunkSize; }
+                                        if (nz < 0) { nCz--; lnz = nz + chunkSize; }
+                                        else if (nz >= chunkSize) { nCz++; lnz = nz - chunkSize; }
+                                        
+                                        let nChunkId = `${nCx},${nCz}`;
+                                        if (activeChunks[nChunkId] && activeChunks[nChunkId].heightMap) {
+                                            nHighest = activeChunks[nChunkId].heightMap[lnx + lnz * chunkSize];
+                                        } else {
+                                            nHighest = localHighest; // Fallback
+                                        }
                                     }
                                     
                                     let dist = Math.abs(dx) + Math.abs(dz);
-                                    if (actualY < nHighest) {
-                                        dist += (nHighest - actualY); 
-                                    }
                                     
-                                    if (dist < minLightDist) minLightDist = dist;
+                                    // Valid Light Source Check
+                                    if (nHighest <= actualY) {
+                                        // Option A: Column is pure sky at our height
+                                        if (dist < minLightDist) minLightDist = dist;
+                                    } else if (!isCeiling && nHighest <= actualY + 3) {
+                                        // Option B: We are a floor, light can spill down short stairs/shafts
+                                        dist += (nHighest - actualY); 
+                                        if (dist < minLightDist) minLightDist = dist;
+                                    }
                                 }
                             }
                             
-                            if (isCeiling) {
-                                minLightDist += 6; // Heavy shadow penalty for cave ceilings
-                            }
-                            
-                            // Decrease light gradually
-                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.10));
+                            lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.15));
                         } else {
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
                             lightLevel = Math.max(0.2, 1.0 - variation);
@@ -1360,6 +1377,9 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
         meshes[key].computeBoundingSphere(); 
     }
+    
+    // Store updated heightmap for cross-chunk calculations!
+    chunkData.heightMap = heightMap;
 }
 
 // ----------------------------------------------------
