@@ -433,97 +433,100 @@ for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`./textures/destroy_stage_${i}.png`)); 
 }
 
+// --- PERFORMANCE OPTIMIZATION: MeshLambertMaterial ---
+// Replaced the extremely heavy Standard (PBR) shader with Lambert.
+// Provides identical sun shading for voxel blocks at a fraction of the GPU cost!
 const grass_color = 0x8db753;
 const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-const fringeMat = new THREE.MeshStandardMaterial({ 
+const fringeMat = new THREE.MeshLambertMaterial({ 
     map: grassSideOverlay, color: grass_color, transparent: true, alphaTest: 0.5 
 });
 
 const materials = {
     grass_block: [
-        new THREE.MeshStandardMaterial({ map: grassSide }),
-        new THREE.MeshStandardMaterial({ map: grassSide }),
-        new THREE.MeshStandardMaterial({ map: grassTop, color: grass_color }),
-        new THREE.MeshStandardMaterial({ map: dirt }),
-        new THREE.MeshStandardMaterial({ map: grassSide }),
-        new THREE.MeshStandardMaterial({ map: grassSide })
+        new THREE.MeshLambertMaterial({ map: grassSide }),
+        new THREE.MeshLambertMaterial({ map: grassSide }),
+        new THREE.MeshLambertMaterial({ map: grassTop, color: grass_color }),
+        new THREE.MeshLambertMaterial({ map: dirt }),
+        new THREE.MeshLambertMaterial({ map: grassSide }),
+        new THREE.MeshLambertMaterial({ map: grassSide })
     ],
     snowy_grass_block: [
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
-        new THREE.MeshStandardMaterial({ map: snow }), 
-        new THREE.MeshStandardMaterial({ map: dirt }),
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide })
+        new THREE.MeshLambertMaterial({ map: snowyGrassSide }),
+        new THREE.MeshLambertMaterial({ map: snowyGrassSide }),
+        new THREE.MeshLambertMaterial({ map: snow }), 
+        new THREE.MeshLambertMaterial({ map: dirt }),
+        new THREE.MeshLambertMaterial({ map: snowyGrassSide }),
+        new THREE.MeshLambertMaterial({ map: snowyGrassSide })
     ],
     grass_block_overlay: [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat],
-    dirt: new THREE.MeshStandardMaterial({ map: dirt }),
-    stone: new THREE.MeshStandardMaterial({ map: stone }),
-    sand: new THREE.MeshStandardMaterial({ map: sand }),
+    dirt: new THREE.MeshLambertMaterial({ map: dirt }),
+    stone: new THREE.MeshLambertMaterial({ map: stone }),
+    sand: new THREE.MeshLambertMaterial({ map: sand }),
     sandstone: [
-        new THREE.MeshStandardMaterial({ map: sandstoneside}),
-        new THREE.MeshStandardMaterial({ map: sandstoneside}),
-        new THREE.MeshStandardMaterial({ map: sandstonetop}),
-        new THREE.MeshStandardMaterial({ map: sandstonebottom}),
-        new THREE.MeshStandardMaterial({ map: sandstoneside}),
-        new THREE.MeshStandardMaterial({ map: sandstoneside})
+        new THREE.MeshLambertMaterial({ map: sandstoneside}),
+        new THREE.MeshLambertMaterial({ map: sandstoneside}),
+        new THREE.MeshLambertMaterial({ map: sandstonetop}),
+        new THREE.MeshLambertMaterial({ map: sandstonebottom}),
+        new THREE.MeshLambertMaterial({ map: sandstoneside}),
+        new THREE.MeshLambertMaterial({ map: sandstoneside})
     ],
-    snow_block: new THREE.MeshStandardMaterial({ map: snow}), 
-    cobblestone: new THREE.MeshStandardMaterial({ map: cobblestoneTex }),
-    cobbled_deepslate: new THREE.MeshStandardMaterial({ map: cobbledDeepslateTex }),
-    coal: new THREE.MeshStandardMaterial({ map: coalTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    raw_iron: new THREE.MeshStandardMaterial({ map: rawIronTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    raw_copper: new THREE.MeshStandardMaterial({ map: rawCopperTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    raw_gold: new THREE.MeshStandardMaterial({ map: rawGoldTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    diamond: new THREE.MeshStandardMaterial({ map: diamondTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    emerald: new THREE.MeshStandardMaterial({ map: emeraldTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    lapis_lazuli: new THREE.MeshStandardMaterial({ map: lapisTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    redstone: new THREE.MeshStandardMaterial({ map: redstoneTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    snowball: new THREE.MeshStandardMaterial({ map: snowballTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    coal_ore: new THREE.MeshStandardMaterial({ map: coalore }),
-    iron_ore: new THREE.MeshStandardMaterial({ map: ironore }),
-    copper_ore: new THREE.MeshStandardMaterial({ map: copperore }),
-    gold_ore: new THREE.MeshStandardMaterial({map: goldore}),
-    redstone_ore: new THREE.MeshStandardMaterial({map: redstoneore}),
-    emerald_ore: new THREE.MeshStandardMaterial({map: emeraldore}),
-    lapis_ore: new THREE.MeshStandardMaterial({map: lapisore}),
-    diamond_ore: new THREE.MeshStandardMaterial({map: diamondore}),
+    snow_block: new THREE.MeshLambertMaterial({ map: snow}), 
+    cobblestone: new THREE.MeshLambertMaterial({ map: cobblestoneTex }),
+    cobbled_deepslate: new THREE.MeshLambertMaterial({ map: cobbledDeepslateTex }),
+    coal: new THREE.MeshLambertMaterial({ map: coalTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    raw_iron: new THREE.MeshLambertMaterial({ map: rawIronTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    raw_copper: new THREE.MeshLambertMaterial({ map: rawCopperTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    raw_gold: new THREE.MeshLambertMaterial({ map: rawGoldTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    diamond: new THREE.MeshLambertMaterial({ map: diamondTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    emerald: new THREE.MeshLambertMaterial({ map: emeraldTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    lapis_lazuli: new THREE.MeshLambertMaterial({ map: lapisTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    redstone: new THREE.MeshLambertMaterial({ map: redstoneTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    snowball: new THREE.MeshLambertMaterial({ map: snowballTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    coal_ore: new THREE.MeshLambertMaterial({ map: coalore }),
+    iron_ore: new THREE.MeshLambertMaterial({ map: ironore }),
+    copper_ore: new THREE.MeshLambertMaterial({ map: copperore }),
+    gold_ore: new THREE.MeshLambertMaterial({map: goldore}),
+    redstone_ore: new THREE.MeshLambertMaterial({map: redstoneore}),
+    emerald_ore: new THREE.MeshLambertMaterial({map: emeraldore}),
+    lapis_ore: new THREE.MeshLambertMaterial({map: lapisore}),
+    diamond_ore: new THREE.MeshLambertMaterial({map: diamondore}),
     deepslate: [
-        new THREE.MeshStandardMaterial({ map: deepslate }),
-        new THREE.MeshStandardMaterial({ map: deepslate }),
-        new THREE.MeshStandardMaterial({ map: deepslatetop}),
-        new THREE.MeshStandardMaterial({ map: deepslatetop}),
-        new THREE.MeshStandardMaterial({ map: deepslate }),
-        new THREE.MeshStandardMaterial({ map: deepslate })
+        new THREE.MeshLambertMaterial({ map: deepslate }),
+        new THREE.MeshLambertMaterial({ map: deepslate }),
+        new THREE.MeshLambertMaterial({ map: deepslatetop}),
+        new THREE.MeshLambertMaterial({ map: deepslatetop}),
+        new THREE.MeshLambertMaterial({ map: deepslate }),
+        new THREE.MeshLambertMaterial({ map: deepslate })
     ],
-    deepslate_coal_ore: new THREE.MeshStandardMaterial({ map: deepslatecoalore}),
-    deepslate_copper_ore: new THREE.MeshStandardMaterial({ map: deepslatecopperore}),
-    deepslate_iron_ore: new THREE.MeshStandardMaterial({ map: deepslateironore}),
-    deepslate_gold_ore: new THREE.MeshStandardMaterial({ map: deepslategoldore}),
-    deepslate_redstone_ore: new THREE.MeshStandardMaterial({ map: deepslateredstoneore}),
-    deepslate_emerald_ore: new THREE.MeshStandardMaterial({ map: deepslateemeraldore}),
-    deepslate_lapis_ore: new THREE.MeshStandardMaterial({ map: deepslatelapisore}),
-    deepslate_diamond_ore: new THREE.MeshStandardMaterial({ map: deepslatediamondore}),
-    bedrock: new THREE.MeshStandardMaterial({ map: bedrock}),
-    oak_leaves: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
-    oak_sapling: new THREE.MeshStandardMaterial({ map: oakSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    deepslate_coal_ore: new THREE.MeshLambertMaterial({ map: deepslatecoalore}),
+    deepslate_copper_ore: new THREE.MeshLambertMaterial({ map: deepslatecopperore}),
+    deepslate_iron_ore: new THREE.MeshLambertMaterial({ map: deepslateironore}),
+    deepslate_gold_ore: new THREE.MeshLambertMaterial({ map: deepslategoldore}),
+    deepslate_redstone_ore: new THREE.MeshLambertMaterial({ map: deepslateredstoneore}),
+    deepslate_emerald_ore: new THREE.MeshLambertMaterial({ map: deepslateemeraldore}),
+    deepslate_lapis_ore: new THREE.MeshLambertMaterial({ map: deepslatelapisore}),
+    deepslate_diamond_ore: new THREE.MeshLambertMaterial({ map: deepslatediamondore}),
+    bedrock: new THREE.MeshLambertMaterial({ map: bedrock}),
+    oak_leaves: new THREE.MeshLambertMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
+    oak_sapling: new THREE.MeshLambertMaterial({ map: oakSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
     oak_log: [
-        new THREE.MeshStandardMaterial({ map: logSide }),
-        new THREE.MeshStandardMaterial({ map: logSide }),
-        new THREE.MeshStandardMaterial({ map: logTop }),
-        new THREE.MeshStandardMaterial({ map: logTop }),
-        new THREE.MeshStandardMaterial({ map: logSide }),
-        new THREE.MeshStandardMaterial({ map: logSide })
+        new THREE.MeshLambertMaterial({ map: logSide }),
+        new THREE.MeshLambertMaterial({ map: logSide }),
+        new THREE.MeshLambertMaterial({ map: logTop }),
+        new THREE.MeshLambertMaterial({ map: logTop }),
+        new THREE.MeshLambertMaterial({ map: logSide }),
+        new THREE.MeshLambertMaterial({ map: logSide })
     ],
-    spruce_leaves: new THREE.MeshStandardMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), 
-    spruce_sapling: new THREE.MeshStandardMaterial({ map: spruceSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+    spruce_leaves: new THREE.MeshLambertMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), 
+    spruce_sapling: new THREE.MeshLambertMaterial({ map: spruceSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
     spruce_log: [
-        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
-        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
-        new THREE.MeshStandardMaterial({ map: spruceLogTop }),
-        new THREE.MeshStandardMaterial({ map: spruceLogTop }),
-        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
-        new THREE.MeshStandardMaterial({ map: spruceLogSide })
+        new THREE.MeshLambertMaterial({ map: spruceLogSide }),
+        new THREE.MeshLambertMaterial({ map: spruceLogSide }),
+        new THREE.MeshLambertMaterial({ map: spruceLogTop }),
+        new THREE.MeshLambertMaterial({ map: spruceLogTop }),
+        new THREE.MeshLambertMaterial({ map: spruceLogSide }),
+        new THREE.MeshLambertMaterial({ map: spruceLogSide })
     ]
 };
 
@@ -611,13 +614,32 @@ isTransparent[TYPE.snow_block] = 1;
 isTransparent[TYPE.oak_sapling] = 1;
 isTransparent[TYPE.spruce_sapling] = 1;
 
-// --- PERFORMANCE OPTIMIZATION: Shrink Light Loop Radius ---
-const lightRadiusOffsets = [];
+// --- PERFORMANCE OPTIMIZATION: Typed Arrays for Light Loops ---
+// Objects in tight loops trigger JavaScript garbage collection spikes. 
+// Flat Int8Arrays are calculated near-instantly by the CPU.
+const lightDX = new Int8Array(24);
+const lightDZ = new Int8Array(24);
+const lightDist = new Int8Array(24);
+let lIdx = 0;
 for (let dx = -2; dx <= 2; dx++) {
     for (let dz = -2; dz <= 2; dz++) {
         if (dx === 0 && dz === 0) continue;
-        lightRadiusOffsets.push({ dx, dz, dist: Math.abs(dx) + Math.abs(dz) });
+        lightDX[lIdx] = dx;
+        lightDZ[lIdx] = dz;
+        lightDist[lIdx] = Math.abs(dx) + Math.abs(dz);
+        lIdx++;
     }
+}
+
+// --- PERFORMANCE OPTIMIZATION: Dynamic Memory Allocation ---
+// Pre-allocating 12,000 blocks for rare ores eats hundreds of megabytes of VRAM.
+// This limits buffers to only what is realistically needed per chunk!
+function getMaxBlocks(key) {
+    if (key === 'stone' || key === 'deepslate') return 25000;
+    if (key === 'dirt' || key === 'sand' || key === 'sandstone') return 10000;
+    if (key === 'grass_block' || key === 'snowy_grass_block' || key === 'grass_block_overlay' || key === 'snow_block') return 6000;
+    if (key === 'oak_leaves' || key === 'spruce_leaves') return 6000;
+    return 1500; 
 }
 
 function getGlobalBlock(gx, gy, gz) {
@@ -956,19 +978,16 @@ function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
     
-    // --- PERFORMANCE OPTIMIZATION: Reduced Memory Footprint ---
-    // Downsized from 25,000 to save memory bandwith.
-    const maxVisibleBlocks = 12000; 
-
     const meshes = {};
     const indices = {};
     for (const [key, mat] of Object.entries(materials)) {
+        let maxBlocks = getMaxBlocks(key); // Use dynamic limits
         let geo = (key === 'oak_sapling' || key === 'spruce_sapling') ? crossGeo : geometry;
-        meshes[key] = new THREE.InstancedMesh(geo, mat, maxVisibleBlocks);
+        meshes[key] = new THREE.InstancedMesh(geo, mat, maxBlocks);
         meshes[key].name = key;
         meshes[key].chunkId = chunkId;
         meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        meshes[key].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxVisibleBlocks * 3), 3);
+        meshes[key].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(maxBlocks * 3), 3);
         indices[key] = 0;
     }
 
@@ -1129,27 +1148,36 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    const localChunkCache = {};
-    const getNeighborHeight = (nx, nz, fallback) => {
-        if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
-            return heightMap[nx + nz * chunkSize];
+    // --- PERFORMANCE OPTIMIZATION: Expanded Heightmap Cache ---
+    // Grabs surrounding neighbor heights ONCE per chunk instead of thousands of times per block!
+    const paddedSize = chunkSize + 4;
+    const expandedHeightMap = new Int16Array(paddedSize * paddedSize);
+    for (let ex = -2; ex < chunkSize + 2; ex++) {
+        for (let ez = -2; ez < chunkSize + 2; ez++) {
+            let h = minworldY;
+            if (ex >= 0 && ex < chunkSize && ez >= 0 && ez < chunkSize) {
+                h = heightMap[ex + ez * chunkSize];
+            } else {
+                let nCx = chunkX; let nCz = chunkZ;
+                let lnx = ex; let lnz = ez;
+                if (ex < 0) { nCx--; lnx += chunkSize; }
+                else if (ex >= chunkSize) { nCx++; lnx -= chunkSize; }
+                if (ez < 0) { nCz--; lnz += chunkSize; }
+                else if (ez >= chunkSize) { nCz++; lnz -= chunkSize; }
+                
+                let nId = nCx + "," + nCz;
+                let nChunk = activeChunks[nId];
+                if (nChunk && nChunk.heightMap) {
+                    h = nChunk.heightMap[lnx + lnz * chunkSize];
+                } else {
+                    let clampX = Math.max(0, Math.min(chunkSize - 1, ex));
+                    let clampZ = Math.max(0, Math.min(chunkSize - 1, ez));
+                    h = heightMap[clampX + clampZ * chunkSize];
+                }
+            }
+            expandedHeightMap[(ex + 2) + (ez + 2) * paddedSize] = h;
         }
-        let nCx = chunkX, nCz = chunkZ;
-        let lnx = nx, lnz = nz;
-        if (nx < 0) { nCx--; lnx += chunkSize; }
-        else if (nx >= chunkSize) { nCx++; lnx -= chunkSize; }
-        if (nz < 0) { nCz--; lnz += chunkSize; }
-        else if (nz >= chunkSize) { nCz++; lnz -= chunkSize; }
-        
-        let cId = nCx + "," + nCz;
-        let chMap = localChunkCache[cId];
-        if (chMap === undefined) {
-            let ch = activeChunks[cId];
-            chMap = ch ? ch.heightMap : null;
-            localChunkCache[cId] = chMap;
-        }
-        return chMap ? chMap[lnx + lnz * chunkSize] : fallback;
-    };
+    }
 
     const matrix = new THREE.Matrix4();
     const colorObj = new THREE.Color();
@@ -1182,7 +1210,8 @@ function generateChunk(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        let localHighest = heightMap[x + z * chunkSize];
+                        // Ultra-fast array fetch!
+                        let localHighest = expandedHeightMap[(x + 2) + (z + 2) * paddedSize];
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
@@ -1196,11 +1225,10 @@ function generateChunk(chunkX, chunkZ) {
 
                             let minLightDist = 999; 
 
-                            for (let i = 0; i < lightRadiusOffsets.length; i++) {
-                                let { dx, dz, dist } = lightRadiusOffsets[i];
-                                let nx = x + dx;
-                                let nz = z + dz;
-                                let nHighest = getNeighborHeight(nx, nz, localHighest);
+                            for (let i = 0; i < 24; i++) {
+                                let dist = lightDist[i];
+                                // Direct flat array index calculation (0 math overhead!)
+                                let nHighest = expandedHeightMap[(x + lightDX[i] + 2) + (z + lightDZ[i] + 2) * paddedSize];
                                 
                                 if (nHighest <= actualY) {
                                     if (dist < minLightDist) minLightDist = dist;
@@ -1236,8 +1264,6 @@ function generateChunk(chunkX, chunkZ) {
 
     for (let t of treesToSpawn) spawnTree(startX + t.x, t.actualY + 1, startZ + t.z, meshes, indices, t.treeType);
 
-    // --- PERFORMANCE OPTIMIZATION: Bounding Sphere Hack ---
-    // Instead of computing sphere for millions of vertices mathematically, we instantly set a fake sphere covering the chunk!
     const boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + chunkSize / 2, 128, startZ + chunkSize / 2), 256);
 
     for (const key in meshes) {
@@ -1293,27 +1319,34 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
         }
     }
 
-    const localChunkCache = {};
-    const getNeighborHeight = (nx, nz, fallback) => {
-        if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
-            return heightMap[nx + nz * chunkSize];
+    const paddedSize = chunkSize + 4;
+    const expandedHeightMap = new Int16Array(paddedSize * paddedSize);
+    for (let ex = -2; ex < chunkSize + 2; ex++) {
+        for (let ez = -2; ez < chunkSize + 2; ez++) {
+            let h = minworldY;
+            if (ex >= 0 && ex < chunkSize && ez >= 0 && ez < chunkSize) {
+                h = heightMap[ex + ez * chunkSize];
+            } else {
+                let nCx = chunkX; let nCz = chunkZ;
+                let lnx = ex; let lnz = ez;
+                if (ex < 0) { nCx--; lnx += chunkSize; }
+                else if (ex >= chunkSize) { nCx++; lnx -= chunkSize; }
+                if (ez < 0) { nCz--; lnz += chunkSize; }
+                else if (ez >= chunkSize) { nCz++; lnz -= chunkSize; }
+                
+                let nId = nCx + "," + nCz;
+                let nChunk = activeChunks[nId];
+                if (nChunk && nChunk.heightMap) {
+                    h = nChunk.heightMap[lnx + lnz * chunkSize];
+                } else {
+                    let clampX = Math.max(0, Math.min(chunkSize - 1, ex));
+                    let clampZ = Math.max(0, Math.min(chunkSize - 1, ez));
+                    h = heightMap[clampX + clampZ * chunkSize];
+                }
+            }
+            expandedHeightMap[(ex + 2) + (ez + 2) * paddedSize] = h;
         }
-        let nCx = chunkX, nCz = chunkZ;
-        let lnx = nx, lnz = nz;
-        if (nx < 0) { nCx--; lnx += chunkSize; }
-        else if (nx >= chunkSize) { nCx++; lnx -= chunkSize; }
-        if (nz < 0) { nCz--; lnz += chunkSize; }
-        else if (nz >= chunkSize) { nCz++; lnz -= chunkSize; }
-        
-        let cId = nCx + "," + nCz;
-        let chMap = localChunkCache[cId];
-        if (chMap === undefined) {
-            let ch = activeChunks[cId];
-            chMap = ch ? ch.heightMap : null;
-            localChunkCache[cId] = chMap;
-        }
-        return chMap ? chMap[lnx + lnz * chunkSize] : fallback;
-    };
+    }
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -1343,7 +1376,7 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        let localHighest = heightMap[x + z * chunkSize];
+                        let localHighest = expandedHeightMap[(x + 2) + (z + 2) * paddedSize];
                         let lightLevel = 1.0;
 
                         if (actualY < localHighest) {
@@ -1357,11 +1390,9 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
 
                             let minLightDist = 999; 
 
-                            for (let i = 0; i < lightRadiusOffsets.length; i++) {
-                                let { dx, dz, dist } = lightRadiusOffsets[i];
-                                let nx = x + dx;
-                                let nz = z + dz;
-                                let nHighest = getNeighborHeight(nx, nz, localHighest);
+                            for (let i = 0; i < 24; i++) {
+                                let dist = lightDist[i];
+                                let nHighest = expandedHeightMap[(x + lightDX[i] + 2) + (z + lightDZ[i] + 2) * paddedSize];
                                 
                                 if (nHighest <= actualY) {
                                     if (dist < minLightDist) minLightDist = dist;
@@ -1550,7 +1581,7 @@ for (let y = 127; y >= 0; y--) {
 camera.position.set(spawnX, safeSpawnY + 2, spawnZ);
 
 const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); handGeo.translate(0, 0.4, 0); 
-const playerHand = new THREE.Mesh(handGeo, new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 }));
+const playerHand = new THREE.Mesh(handGeo, new THREE.MeshLambertMaterial({ color: 0xd2a77d }));
 playerHand.position.set(0.4, -0.4, -0.1);
 playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
 camera.add(playerHand); scene.add(camera);
@@ -1584,12 +1615,9 @@ function spawnDroppedItem(x, y, z, blockName) {
     droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
 }
 
-// --- PERFORMANCE OPTIMIZATION: Raycast Cache & Debounce ---
 let lastRaycast = { time: 0, hit: null, x: 0, ry: 0, rx: 0 };
 function getTarget() {
     const now = Date.now();
-    // Cache the raycast for a few milliseconds unless the camera angle changes! 
-    // This stops it from calculating 25,000 mesh intersections 60 times a second.
     if (now - lastRaycast.time < 30 && 
         Math.abs(camera.position.x - lastRaycast.x) < 0.01 &&
         Math.abs(camera.rotation.y - lastRaycast.ry) < 0.01 &&
@@ -1809,9 +1837,6 @@ function animate() {
     updateChunks();
     updateDayNightCycle(delta); 
 
-    // --- PERFORMANCE OPTIMIZATION: Frame Time-Slicing ---
-    // Only ever rebuild or generate a MAX of ONE chunk per frame.
-    // This totally eliminates the massive freezing spikes!
     if (chunksToRebuild.size > 0) {
         let chunkId = chunksToRebuild.values().next().value;
         let parts = chunkId.split(',');
