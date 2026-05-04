@@ -2,7 +2,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
 scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 
-// Performance: Limit pixel ratio to 1 (prevents massive slowdowns on Retina/mobile screens)
+// Performance: Limit pixel ratio to 1
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
@@ -21,7 +21,6 @@ renderer.shadowMap.enabled = false;
 // ----------------------------------------------------
 // UI: Crosshair, Hotbar, & Full Inventory
 // ----------------------------------------------------
-// Crosshair
 const crosshair = document.createElement('div');
 crosshair.style.position = 'absolute';
 crosshair.style.top = '50%';
@@ -29,16 +28,15 @@ crosshair.style.left = '50%';
 crosshair.style.width = '20px';
 crosshair.style.height = '20px';
 crosshair.style.transform = 'translate(-50%, -50%)';
-crosshair.style.pointerEvents = 'none'; // So clicks pass through to the game
+crosshair.style.pointerEvents = 'none'; 
 crosshair.style.zIndex = '100';
 crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
 document.body.appendChild(crosshair);
 
-// --- Inventory State ---
-const INVENTORY_SIZE = 36; // 0-8 is Hotbar, 9-35 is Main Inventory
+const INVENTORY_SIZE = 36; 
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
-// Starting items for testing!
+// Starting items
 inventory[0] = { type: 'stone', count: 64 };
 inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
@@ -48,9 +46,8 @@ inventory[5] = { type: 'sand', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
 let selectedSlot = 0;
-let heldItem = { type: null, count: 0 }; // For moving items around the inventory
+let heldItem = { type: null, count: 0 }; 
 
-// Helper to get image paths (You can add more here as you gather pictures!)
 function getItemImage(type) {
     if (!type) return 'none';
     const customTextures = {
@@ -76,7 +73,6 @@ function getItemImage(type) {
     return `url(${customTextures[type] || `./textures/${type}.png`})`;
 }
 
-// --- Hotbar UI (Bottom of screen) ---
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.style.position = 'absolute';
@@ -124,7 +120,6 @@ for (let i = 0; i < 9; i++) {
     hotbarSlotsUI.push({ div: slot, label: countLabel });
 }
 
-// --- Full Inventory UI (Press 'E') ---
 const inventoryScreen = document.createElement('div');
 inventoryScreen.id = 'inventory-screen';
 inventoryScreen.style.position = 'absolute';
@@ -586,9 +581,11 @@ const mapOffsetZ = Math.floor(Math.random() * 1000000);
 const activeChunks = {};
 const chunkQueue = []; 
 const interactableMeshes = [];
-const brokenBlocks = new Set(); 
-const placedBlocks = new Map(); 
 const chunksToRebuild = new Set(); 
+
+// --- PERFORMANCE OPTIMIZATION: Chunk Modifications Map ---
+// Instead of creating millions of coordinate strings, we store local overrides inside Map objects tied to chunks.
+const worldMods = {};
 
 const TYPE = { 
     stone: 1, dirt: 2, grass_block: 3, sand: 4, sandstone: 5, snow_block: 6, snowy_grass_block: 7, 
@@ -608,11 +605,31 @@ const REVERSE_TYPE = [
     'cobblestone', 'cobbled_deepslate' 
 ];
 
+// --- PERFORMANCE OPTIMIZATION: Transparency Array Map ---
+// Fast memory lookup instead of checking multi-type strings/enums.
+const isTransparent = new Uint8Array(256);
+isTransparent[0] = 1;
+isTransparent[TYPE.oak_leaves] = 1;
+isTransparent[TYPE.spruce_leaves] = 1;
+isTransparent[TYPE.snow_block] = 1;
+isTransparent[TYPE.oak_sapling] = 1;
+isTransparent[TYPE.spruce_sapling] = 1;
+
+// --- PERFORMANCE OPTIMIZATION: Precalculated Light Radii ---
+// Eliminates Math.abs calls inside the lighting loops!
+const lightRadiusOffsets = [];
+for (let dx = -3; dx <= 3; dx++) {
+    for (let dz = -3; dz <= 3; dz++) {
+        if (dx === 0 && dz === 0) continue;
+        lightRadiusOffsets.push({ dx, dz, dist: Math.abs(dx) + Math.abs(dz) });
+    }
+}
+
 function getGlobalBlock(gx, gy, gz) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return null;
     let cx = Math.floor(gx / chunkSize);
     let cz = Math.floor(gz / chunkSize);
-    let chunkId = `${cx},${cz}`;
+    let chunkId = cx + ',' + cz;
     let chunk = activeChunks[chunkId];
     if (!chunk) return null; 
     
@@ -627,36 +644,31 @@ function getGlobalBlock(gx, gy, gz) {
 function setGlobalBlock(gx, gy, gz, type) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return;
     
-    let blockKey = `${gx},${gy},${gz}`;
-    if (type === 0) {
-        brokenBlocks.add(blockKey);
-        placedBlocks.delete(blockKey); 
-    } else {
-        brokenBlocks.delete(blockKey);
-        placedBlocks.set(blockKey, type); 
-    }
-
     let cx = Math.floor(gx / chunkSize);
     let cz = Math.floor(gz / chunkSize);
-    let chunkId = `${cx},${cz}`;
-    let chunk = activeChunks[chunkId];
-    
-    if (!chunk) return; 
+    let chunkId = cx + ',' + cz;
     
     let lx = gx - (cx * chunkSize);
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+
+    // Save modifications to the map
+    if (!worldMods[chunkId]) worldMods[chunkId] = new Map();
+    worldMods[chunkId].set(idx, type);
+
+    let chunk = activeChunks[chunkId];
+    if (!chunk) return; 
     
     if (chunk.blocks[idx] !== type) {
         chunk.blocks[idx] = type;
     }
     
     chunksToRebuild.add(chunkId);
-    if (lx === 0) chunksToRebuild.add(`${cx - 1},${cz}`);
-    if (lx === chunkSize - 1) chunksToRebuild.add(`${cx + 1},${cz}`);
-    if (lz === 0) chunksToRebuild.add(`${cx},${cz - 1}`);
-    if (lz === chunkSize - 1) chunksToRebuild.add(`${cx},${cz + 1}`);
+    if (lx === 0) chunksToRebuild.add((cx - 1) + ',' + cz);
+    if (lx === chunkSize - 1) chunksToRebuild.add((cx + 1) + ',' + cz);
+    if (lz === 0) chunksToRebuild.add(cx + ',' + (cz - 1));
+    if (lz === chunkSize - 1) chunksToRebuild.add(cx + ',' + (cz + 1));
 }
 
 function doRandomTicks() {
@@ -664,9 +676,13 @@ function doRandomTicks() {
         const chunk = activeChunks[chunkId];
         if (!chunk || !chunk.blocks) continue;
 
-        const [cx, cz] = chunkId.split(',').map(Number);
+        let parts = chunkId.split(',');
+        const cx = parseInt(parts[0]);
+        const cz = parseInt(parts[1]);
         
-        for (let i = 0; i < 250; i++) {
+        // PERFORMANCE FIX: Reduced from 250 to 20. 
+        // Since this runs ~60 times a second, 20 is more than enough to spread grass/grow trees without lagging!
+        for (let i = 0; i < 20; i++) {
             let lx = Math.floor(Math.random() * chunkSize);
             let lz = Math.floor(Math.random() * chunkSize);
             let ly = Math.floor(Math.random() * worldHeight);
@@ -681,10 +697,10 @@ function doRandomTicks() {
 
                 let above = getGlobalBlock(gx, gy + 1, gz);
                 
-                if (above !== null && above !== 0 && above !== TYPE.oak_leaves && above !== TYPE.spruce_leaves && above !== TYPE.snow_block && above !== TYPE.oak_sapling && above !== TYPE.spruce_sapling) {
+                if (above !== null && isTransparent[above] !== 1) {
                     setGlobalBlock(gx, gy, gz, TYPE.dirt);
                 } 
-                else if (above === 0 || above === TYPE.oak_leaves || above === TYPE.spruce_leaves || above === TYPE.snow_block) {
+                else if (above === null || isTransparent[above] === 1) {
                     let ox = Math.floor(Math.random() * 3) - 1; 
                     let oz = Math.floor(Math.random() * 3) - 1;
                     let oy = Math.floor(Math.random() * 5) - 3; 
@@ -696,7 +712,7 @@ function doRandomTicks() {
                     let target = getGlobalBlock(tx, ty, tz);
                     if (target === TYPE.dirt) {
                         let targetAbove = getGlobalBlock(tx, ty + 1, tz);
-                        if (targetAbove === 0 || targetAbove === TYPE.oak_leaves || targetAbove === TYPE.spruce_leaves || targetAbove === TYPE.snow_block || targetAbove === TYPE.oak_sapling || targetAbove === TYPE.spruce_sapling) {
+                        if (targetAbove === null || isTransparent[targetAbove] === 1) {
                             setGlobalBlock(tx, ty, tz, blockType);
                         }
                     }
@@ -816,8 +832,18 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
     
     for (let i = 0; i < trunkH; i++) {
         let actualY = y + i;
-        let blockKey = `${x},${actualY},${z}`;
-        if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
+        
+        // Fast coordinate blockMod check instead of string
+        let cCx = Math.floor(x / chunkSize);
+        let cCz = Math.floor(z / chunkSize);
+        let cId = cCx + ',' + cCz;
+        let lx = x - (cCx * chunkSize);
+        let lz = z - (cCz * chunkSize);
+        let ly = actualY - minworldY;
+        let bIdx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+        
+        if (worldMods[cId] && worldMods[cId].has(bIdx)) continue;
+        
         treeMatrix.setPosition(x, actualY, z);
         
         let variation = getDeterministicRandom(x, actualY, z) * 0.05;
@@ -844,8 +870,15 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     if (lx === 0 && lz === 0 && ly < y + trunkH) continue; 
                     
                     const bX = x + lx; const bY = ly; const bZ = z + lz;
-                    let blockKey = `${bX},${bY},${bZ}`;
-                    if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
+                    
+                    let cCx = Math.floor(bX / chunkSize);
+                    let cCz = Math.floor(bZ / chunkSize);
+                    let cId = cCx + ',' + cCz;
+                    let slx = bX - (cCx * chunkSize);
+                    let slz = bZ - (cCz * chunkSize);
+                    let sly = bY - minworldY;
+                    let bIdx = slx + slz * chunkSize + sly * (chunkSize * chunkSize);
+                    if (worldMods[cId] && worldMods[cId].has(bIdx)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
                     
@@ -877,8 +910,15 @@ function spawnTree(x, y, z, chunkMeshes, indices, treeType = 'oak') {
                     if (lx === 0 && lz === 0 && ly < y + trunkH) continue;
                     
                     const bX = x + lx; const bY = ly; const bZ = z + lz;
-                    let blockKey = `${bX},${bY},${bZ}`;
-                    if (brokenBlocks.has(blockKey) || placedBlocks.has(blockKey)) continue;
+                    
+                    let cCx = Math.floor(bX / chunkSize);
+                    let cCz = Math.floor(bZ / chunkSize);
+                    let cId = cCx + ',' + cCz;
+                    let slx = bX - (cCx * chunkSize);
+                    let slz = bZ - (cCz * chunkSize);
+                    let sly = bY - minworldY;
+                    let bIdx = slx + slz * chunkSize + sly * (chunkSize * chunkSize);
+                    if (worldMods[cId] && worldMods[cId].has(bIdx)) continue;
 
                     treeMatrix.setPosition(bX, bY, bZ);
                     
@@ -922,7 +962,7 @@ function fbm3(x, y, z, octaves = 2, scale = 40) {
 }
 
 function generateChunk(chunkX, chunkZ) {
-    const chunkId = `${chunkX},${chunkZ}`;
+    const chunkId = chunkX + ',' + chunkZ;
     if (activeChunks[chunkId]) return;
 
     const startX = chunkX * chunkSize;
@@ -967,16 +1007,6 @@ function generateChunk(chunkX, chunkZ) {
             for (let y = 0; y < worldHeight; y++) {
                 let actualY = y + minworldY;
                 let blockIdx = getIdx(x, y, z);
-                let blockKey = `${globalX},${actualY},${globalZ}`;
-
-                if (placedBlocks.has(blockKey)) {
-                    blocks[blockIdx] = placedBlocks.get(blockKey);
-                    continue; 
-                }
-                if (brokenBlocks.has(blockKey)) {
-                    blocks[blockIdx] = 0; 
-                    continue; 
-                }
 
                 let cliffNoise = noise.perlin3(globalX / 50, actualY / 40, globalZ / 50) * 18;
                 let detailNoise = noise.perlin3(globalX / 15, actualY / 15, globalZ / 15) * 5;
@@ -989,20 +1019,26 @@ function generateChunk(chunkX, chunkZ) {
                         }
                     }
 
+                    // PERFORMANCE: Only evaluate expensive 3D cave noise if underground!
+                    if (actualY < baseHeight - 4) {
+                        let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
+                        if (isCave) { continue; }
+                    }
+
+                    // PERFORMANCE: Only evaluate densityAbove if we are near the surface block limits
                     let actualYAbove = actualY + 1;
-                    let densityAbove = (baseHeight - actualYAbove) + 
+                    let densityAbove = 10; // Assume solid rock 
+                    if (actualY >= baseHeight - 12) {
+                        densityAbove = (baseHeight - actualYAbove) + 
                                        (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
                                        (noise.perlin3(globalX / 15, actualYAbove / 15, globalZ / 15) * 5);
+                    }
 
                     let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
                     
                     if (stoneType === 'stone' && densityAbove < 10 && localBiome.deepSubBlock !== 'stone') {
                         stoneType = localBiome.deepSubBlock;
                     }
-
-                    let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
-
-                    if (isCave) continue;
 
                     let baseBlockType = stoneType;
                     if (densityAbove <= 0) { 
@@ -1047,7 +1083,20 @@ function generateChunk(chunkX, chunkZ) {
                     blocks[blockIdx] = TYPE[blockType] || TYPE.stone;
                 }
             } 
+        }
+    }
 
+    // Apply any manual block modifications made by the player! Fast array overwrite!
+    if (worldMods[chunkId]) {
+        for (let [idx, type] of worldMods[chunkId].entries()) {
+            blocks[idx] = type;
+        }
+    }
+
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            let globalX = startX + x;
+            let globalZ = startZ + z;
             for (let y = worldHeight - 1; y >= 0; y--) {
                 let b = blocks[getIdx(x, y, z)];
                 if (b !== 0) { 
@@ -1070,12 +1119,36 @@ function generateChunk(chunkX, chunkZ) {
             let hY = worldHeight - 1;
             while (hY >= 0) {
                 let b = blocks[getIdx(x, hY, z)];
-                if (b !== 0 && b !== TYPE.oak_leaves && b !== TYPE.spruce_leaves && b !== TYPE.oak_sapling && b !== TYPE.spruce_sapling) break;
+                if (b !== 0 && isTransparent[b] !== 1) break;
                 hY--;
             }
             heightMap[x + z * chunkSize] = hY + minworldY;
         }
     }
+
+    // --- PERFORMANCE OPTIMIZATION: Neighbor Chunk Cache ---
+    // Drastically reduces string hashing during light map rendering
+    const localChunkCache = {};
+    const getNeighborHeight = (nx, nz, fallback) => {
+        if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
+            return heightMap[nx + nz * chunkSize];
+        }
+        let nCx = chunkX, nCz = chunkZ;
+        let lnx = nx, lnz = nz;
+        if (nx < 0) { nCx--; lnx += chunkSize; }
+        else if (nx >= chunkSize) { nCx++; lnx -= chunkSize; }
+        if (nz < 0) { nCz--; lnz += chunkSize; }
+        else if (nz >= chunkSize) { nCz++; lnz -= chunkSize; }
+        
+        let cId = nCx + "," + nCz;
+        let chMap = localChunkCache[cId];
+        if (chMap === undefined) {
+            let ch = activeChunks[cId];
+            chMap = ch ? ch.heightMap : null;
+            localChunkCache[cId] = chMap;
+        }
+        return chMap ? chMap[lnx + lnz * chunkSize] : fallback;
+    };
 
     // PASS 2: MESH GENERATION & CULLING
     const matrix = new THREE.Matrix4();
@@ -1093,13 +1166,12 @@ function generateChunk(chunkX, chunkZ) {
                 const isOpen = (nx, ny, nz) => {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
-                        let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
-                        return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
+                        return isTransparent[blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)]] === 1;
                     }
                     let gx = startX + nx; let gy = ny + minworldY; let gz = startZ + nz;
                     let b = getGlobalBlock(gx, gy, gz);
-                    if (b === null) return false; // Treat unloaded chunks as solid to hide chunk borders!
-                    return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
+                    if (b === null) return false; 
+                    return isTransparent[b] === 1;
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
@@ -1110,7 +1182,6 @@ function generateChunk(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        // --- IMPROVED MINECRAFT LIGHT LEVEL & SKYLIGHT ---
                         let localHighest = heightMap[x + z * chunkSize];
                         let lightLevel = 1.0;
 
@@ -1118,57 +1189,29 @@ function generateChunk(chunkX, chunkZ) {
                             let isCeiling = false;
                             if (y + 1 < worldHeight) {
                                 let bAbove = blocks[getIdx(x, y + 1, z)];
-                                if (bAbove !== 0 && bAbove !== TYPE.oak_leaves && bAbove !== TYPE.spruce_leaves && bAbove !== TYPE.oak_sapling && bAbove !== TYPE.spruce_sapling) {
-                                    isCeiling = true; // We are a cave ceiling or wall
+                                if (bAbove !== 0 && isTransparent[bAbove] !== 1) {
+                                    isCeiling = true; 
                                 }
                             }
 
                             let minLightDist = 999; 
 
-                            for (let dx = -3; dx <= 3; dx++) {
-                                for (let dz = -3; dz <= 3; dz++) {
-                                    if (dx === 0 && dz === 0) continue;
-                                    
-                                    let nx = x + dx;
-                                    let nz = z + dz;
-                                    let nHighest;
-                                    
-                                    if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
-                                        nHighest = heightMap[nx + nz * chunkSize];
-                                    } else {
-                                        // Attempt to fetch from a loaded neighbor chunk to fix edge lighting!
-                                        let nCx = chunkX; let nCz = chunkZ;
-                                        let lnx = nx; let lnz = nz;
-                                        if (nx < 0) { nCx--; lnx = nx + chunkSize; }
-                                        else if (nx >= chunkSize) { nCx++; lnx = nx - chunkSize; }
-                                        if (nz < 0) { nCz--; lnz = nz + chunkSize; }
-                                        else if (nz >= chunkSize) { nCz++; lnz = nz - chunkSize; }
-                                        
-                                        let nChunkId = `${nCx},${nCz}`;
-                                        if (activeChunks[nChunkId] && activeChunks[nChunkId].heightMap) {
-                                            nHighest = activeChunks[nChunkId].heightMap[lnx + lnz * chunkSize];
-                                        } else {
-                                            nHighest = localHighest; // Fallback
-                                        }
-                                    }
-                                    
-                                    let dist = Math.abs(dx) + Math.abs(dz);
-                                    
-                                    // Valid Light Source Check
-                                    if (nHighest <= actualY) {
-                                        // Option A: Column is pure sky at our height
-                                        if (dist < minLightDist) minLightDist = dist;
-                                    } else if (!isCeiling && nHighest <= actualY + 3) {
-                                        // Option B: We are a floor, light can spill down short stairs/shafts
-                                        dist += (nHighest - actualY); 
-                                        if (dist < minLightDist) minLightDist = dist;
-                                    }
+                            for (let i = 0; i < lightRadiusOffsets.length; i++) {
+                                let { dx, dz, dist } = lightRadiusOffsets[i];
+                                let nx = x + dx;
+                                let nz = z + dz;
+                                let nHighest = getNeighborHeight(nx, nz, localHighest);
+                                
+                                if (nHighest <= actualY) {
+                                    if (dist < minLightDist) minLightDist = dist;
+                                } else if (!isCeiling && nHighest <= actualY + 3) {
+                                    let totalDist = dist + (nHighest - actualY); 
+                                    if (totalDist < minLightDist) minLightDist = totalDist;
                                 }
                             }
                             
                             lightLevel = Math.max(0.05, 1.0 - (minLightDist * 0.15));
                         } else {
-                            // Surface: Uniform lighting so DirectionalLight can shade the faces naturally
                             let variation = getDeterministicRandom(globalX, actualY, globalZ) * 0.04;
                             lightLevel = Math.max(0.2, 1.0 - variation);
                         }
@@ -1205,17 +1248,15 @@ function generateChunk(chunkX, chunkZ) {
         }
     }
     
-    // Save heightMap so neighboring chunks can pull from it!
     activeChunks[chunkId] = { meshes, blocks, treesToSpawn, heightMap };
     
-    // Trigger neighbor rebuild to gracefully uncull chunk borders
-    const n1 = `${chunkX - 1},${chunkZ}`;
+    const n1 = (chunkX - 1) + ',' + chunkZ;
     if (activeChunks[n1]) chunksToRebuild.add(n1);
-    const n2 = `${chunkX + 1},${chunkZ}`;
+    const n2 = (chunkX + 1) + ',' + chunkZ;
     if (activeChunks[n2]) chunksToRebuild.add(n2);
-    const n3 = `${chunkX},${chunkZ - 1}`;
+    const n3 = chunkX + ',' + (chunkZ - 1);
     if (activeChunks[n3]) chunksToRebuild.add(n3);
-    const n4 = `${chunkX},${chunkZ + 1}`;
+    const n4 = chunkX + ',' + (chunkZ + 1);
     if (activeChunks[n4]) chunksToRebuild.add(n4);
 }
 
@@ -1223,7 +1264,7 @@ function generateChunk(chunkX, chunkZ) {
 // 4.5. Chunk Rebuilding (Unculling)
 // ----------------------------------------------------
 function rebuildChunkGeometry(chunkX, chunkZ) {
-    const chunkId = `${chunkX},${chunkZ}`;
+    const chunkId = chunkX + ',' + chunkZ;
     const chunkData = activeChunks[chunkId];
     if (!chunkData) return;
 
@@ -1244,19 +1285,34 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
             let hY = worldHeight - 1;
             while (hY >= 0) {
                 let b = blocks[getIdx(x, hY, z)];
-                let globalX = startX + x;
-                let actualY = hY + minworldY;
-                let globalZ = startZ + z;
-                
-                if (brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) {
-                    hY--; continue; 
-                }
-                if (b !== 0 && b !== TYPE.oak_leaves && b !== TYPE.spruce_leaves && b !== TYPE.oak_sapling && b !== TYPE.spruce_sapling) break;
+                if (b !== 0 && isTransparent[b] !== 1) break;
                 hY--;
             }
             heightMap[x + z * chunkSize] = hY + minworldY;
         }
     }
+
+    const localChunkCache = {};
+    const getNeighborHeight = (nx, nz, fallback) => {
+        if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
+            return heightMap[nx + nz * chunkSize];
+        }
+        let nCx = chunkX, nCz = chunkZ;
+        let lnx = nx, lnz = nz;
+        if (nx < 0) { nCx--; lnx += chunkSize; }
+        else if (nx >= chunkSize) { nCx++; lnx -= chunkSize; }
+        if (nz < 0) { nCz--; lnz += chunkSize; }
+        else if (nz >= chunkSize) { nCz++; lnz -= chunkSize; }
+        
+        let cId = nCx + "," + nCz;
+        let chMap = localChunkCache[cId];
+        if (chMap === undefined) {
+            let ch = activeChunks[cId];
+            chMap = ch ? ch.heightMap : null;
+            localChunkCache[cId] = chMap;
+        }
+        return chMap ? chMap[lnx + lnz * chunkSize] : fallback;
+    };
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -1268,17 +1324,14 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                 let actualY = y + minworldY;
                 let globalZ = startZ + z;
 
-                if (brokenBlocks.has(`${globalX},${actualY},${globalZ}`)) continue;
-
                 const isOpen = (nx, ny, nz) => {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
-                        let b = blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)];
-                        return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
+                        return isTransparent[blocks[nx + nz * chunkSize + ny * (chunkSize * chunkSize)]] === 1;
                     }
                     let b = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
-                    if (b === null) return false; // Treat unloaded chunks as solid to hide chunk borders!
-                    return b === 0 || b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.snow_block || b === TYPE.oak_sapling || b === TYPE.spruce_sapling;
+                    if (b === null) return false; 
+                    return isTransparent[b] === 1;
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
@@ -1289,7 +1342,6 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName]) {
                         
-                        // --- IMPROVED MINECRAFT LIGHT LEVEL & SKYLIGHT ---
                         let localHighest = heightMap[x + z * chunkSize];
                         let lightLevel = 1.0;
 
@@ -1297,51 +1349,24 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                             let isCeiling = false;
                             if (y + 1 < worldHeight) {
                                 let bAbove = blocks[getIdx(x, y + 1, z)];
-                                if (bAbove !== 0 && bAbove !== TYPE.oak_leaves && bAbove !== TYPE.spruce_leaves && bAbove !== TYPE.oak_sapling && bAbove !== TYPE.spruce_sapling) {
-                                    isCeiling = true; // We are a cave ceiling or wall
+                                if (bAbove !== 0 && isTransparent[bAbove] !== 1) {
+                                    isCeiling = true; 
                                 }
                             }
 
                             let minLightDist = 999; 
 
-                            for (let dx = -3; dx <= 3; dx++) {
-                                for (let dz = -3; dz <= 3; dz++) {
-                                    if (dx === 0 && dz === 0) continue;
-                                    
-                                    let nx = x + dx;
-                                    let nz = z + dz;
-                                    let nHighest;
-                                    
-                                    if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
-                                        nHighest = heightMap[nx + nz * chunkSize];
-                                    } else {
-                                        // Attempt to fetch from a loaded neighbor chunk
-                                        let nCx = chunkX; let nCz = chunkZ;
-                                        let lnx = nx; let lnz = nz;
-                                        if (nx < 0) { nCx--; lnx = nx + chunkSize; }
-                                        else if (nx >= chunkSize) { nCx++; lnx = nx - chunkSize; }
-                                        if (nz < 0) { nCz--; lnz = nz + chunkSize; }
-                                        else if (nz >= chunkSize) { nCz++; lnz = nz - chunkSize; }
-                                        
-                                        let nChunkId = `${nCx},${nCz}`;
-                                        if (activeChunks[nChunkId] && activeChunks[nChunkId].heightMap) {
-                                            nHighest = activeChunks[nChunkId].heightMap[lnx + lnz * chunkSize];
-                                        } else {
-                                            nHighest = localHighest; // Fallback
-                                        }
-                                    }
-                                    
-                                    let dist = Math.abs(dx) + Math.abs(dz);
-                                    
-                                    // Valid Light Source Check
-                                    if (nHighest <= actualY) {
-                                        // Option A: Column is pure sky at our height
-                                        if (dist < minLightDist) minLightDist = dist;
-                                    } else if (!isCeiling && nHighest <= actualY + 3) {
-                                        // Option B: We are a floor, light can spill down short stairs/shafts
-                                        dist += (nHighest - actualY); 
-                                        if (dist < minLightDist) minLightDist = dist;
-                                    }
+                            for (let i = 0; i < lightRadiusOffsets.length; i++) {
+                                let { dx, dz, dist } = lightRadiusOffsets[i];
+                                let nx = x + dx;
+                                let nz = z + dz;
+                                let nHighest = getNeighborHeight(nx, nz, localHighest);
+                                
+                                if (nHighest <= actualY) {
+                                    if (dist < minLightDist) minLightDist = dist;
+                                } else if (!isCeiling && nHighest <= actualY + 3) {
+                                    let totalDist = dist + (nHighest - actualY); 
+                                    if (totalDist < minLightDist) minLightDist = totalDist;
                                 }
                             }
                             
@@ -1378,7 +1403,6 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
         meshes[key].computeBoundingSphere(); 
     }
     
-    // Store updated heightmap for cross-chunk calculations!
     chunkData.heightMap = heightMap;
 }
 
@@ -1498,7 +1522,7 @@ function updateChunks() {
     const chunksToKeep = new Set();
     for (let x = pX - renderDistance; x <= pX + renderDistance; x++) {
         for (let z = pZ - renderDistance; z <= pZ + renderDistance; z++) {
-            const id = `${x},${z}`;
+            const id = x + ',' + z;
             chunksToKeep.add(id);
             if (!activeChunks[id] && !chunkQueue.includes(id)) chunkQueue.push(id);
         }
@@ -1572,7 +1596,9 @@ function getTarget() {
     
     const nearbyMeshes = interactableMeshes.filter(m => {
         if (!m.chunkId) return false;
-        const [cx, cz] = m.chunkId.split(',').map(Number);
+        let parts = m.chunkId.split(',');
+        const cx = parseInt(parts[0]);
+        const cz = parseInt(parts[1]);
         return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
     });
 
@@ -1772,7 +1798,9 @@ function animate() {
 
     if (chunkQueue.length > 0) {
         const next = chunkQueue.shift();
-        const [cx, cz] = next.split(',').map(Number);
+        let parts = next.split(',');
+        const cx = parseInt(parts[0]);
+        const cz = parseInt(parts[1]);
         generateChunk(cx, cz);
     }
 
@@ -1785,7 +1813,9 @@ function animate() {
     doRandomTicks();
 
     for (let chunkId of chunksToRebuild) {
-        let [cx, cz] = chunkId.split(',').map(Number);
+        let parts = chunkId.split(',');
+        const cx = parseInt(parts[0]);
+        const cz = parseInt(parts[1]);
         rebuildChunkGeometry(cx, cz);
     }
     chunksToRebuild.clear();
