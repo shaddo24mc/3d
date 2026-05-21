@@ -1,0 +1,15 @@
+name: Unzip Textures
+on: workflow_dispatch
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          unzip entity.zip -d assets/minecraft/textures/
+          rm entity.zip
+          git config user.name "Automated Bot"
+          git config user.email "bot@github.com"
+          git add .
+          git commit -m "Successfully extracted all 80 asset folders"
+          git push
