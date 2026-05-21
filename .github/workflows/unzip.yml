@@ -6,7 +6,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          unzip gui.zip -d assets/minecraft/textures/
+          unzip gui.zip -d assets/minecraft/textures/gui/
           rm gui.zip
           git config user.name "Automated Bot"
           git config user.email "bot@github.com"
