@@ -25,6 +25,50 @@ const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
 const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
 
 // ----------------------------------------------------
+// JSON BLOCKSTATE & MODEL READER ENGINE
+// ----------------------------------------------------
+const JSONReader = {
+    blockstates: {},
+    models: {},
+    
+    async fetchJSON(path) {
+        try {
+            // In a real environment, this fetches from the exact Minecraft file location
+            const res = await fetch(path);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            return null;
+        }
+    },
+
+    async getBlockstate(blockName) {
+        if (this.blockstates[blockName]) return this.blockstates[blockName];
+        // Translates our texture path directly to real Minecraft's blockstate path
+        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'blockstates/')}${blockName}.json`;
+        const data = await this.fetchJSON(path);
+        if (data) this.blockstates[blockName] = data;
+        return data;
+    },
+
+    async getModel(modelName) {
+        if (this.models[modelName]) return this.models[modelName];
+        // Translates to real Minecraft's model path
+        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'models/block/')}${modelName}.json`;
+        const data = await this.fetchJSON(path);
+        if (data) this.models[modelName] = data;
+        return data;
+    },
+    
+    // Simulates real Minecraft blockstate parsing for block placement rotations (like logs)
+    getRotationForAxis(axis) {
+        if (axis === 'x') return [0, 0, Math.PI / 2];
+        if (axis === 'z') return [Math.PI / 2, 0, 0];
+        return [0, 0, 0]; // y axis
+    }
+};
+
+// ----------------------------------------------------
 // MASSIVE BLOCK REGISTRY DATABASE
 // ----------------------------------------------------
 const baseBlocks = [
@@ -813,7 +857,7 @@ const BIOME_REGISTRY = [
 
 const chunkSize = 16;
 const renderDistance = 2; 
-const worldHeight = 384;
+const worldHeight = 256; // Reduced from 384 for massive FPS gain
 const minworldY = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
@@ -866,16 +910,18 @@ function getGlobalBlock(gx, gy, gz) {
     return chunk.blocks[idx];
 }
 
-function setGlobalBlock(gx, gy, gz, type) {
+function setGlobalBlock(gx, gy, gz, typeData) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return;
     
     let blockKey = `${gx},${gy},${gz}`;
-    if (type === 0) {
+    let typeId = typeof typeData === 'object' ? typeData.type : typeData;
+
+    if (typeId === 0) {
         brokenBlocks.add(blockKey);
         placedBlocks.delete(blockKey);
     } else {
         brokenBlocks.delete(blockKey);
-        placedBlocks.set(blockKey, type);
+        placedBlocks.set(blockKey, typeData);
     }
 
     let cx = Math.floor(gx / chunkSize);
@@ -890,8 +936,8 @@ function setGlobalBlock(gx, gy, gz, type) {
     let ly = gy - minworldY;
     let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
     
-    if (chunk.blocks[idx] !== type) {
-        chunk.blocks[idx] = type;
+    if (chunk.blocks[idx] !== typeId) {
+        chunk.blocks[idx] = typeId;
     }
     
     chunksToRebuild.add(chunkId);
@@ -917,7 +963,9 @@ function doRandomTicks() {
 
         const [cx, cz] = chunkId.split(',').map(Number);
         
-        for (let i = 0; i < 250; i++) {
+        // Reduced from 250 to 3 to match realistic Minecraft tick rates
+        // and stop the game from crashing when grass spreads!
+        for (let i = 0; i < 3; i++) {
             let lx = Math.floor(Math.random() * chunkSize);
             let lz = Math.floor(Math.random() * chunkSize);
             let ly = Math.floor(Math.random() * worldHeight);
@@ -1167,7 +1215,10 @@ function generateChunk(chunkX, chunkZ) {
 
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
-    const maxVisibleBlocks = 25000; 
+    
+    // Reduced from 25000 to 6000. 
+    // This dramatically cuts down memory allocation time per chunk.
+    const maxVisibleBlocks = 6000; 
 
     const meshes = {};
     const indices = {};
@@ -1209,7 +1260,8 @@ function generateChunk(chunkX, chunkZ) {
                 let blockKey = `${globalX},${actualY},${globalZ}`;
 
                 if (placedBlocks.has(blockKey)) {
-                    blocks[blockIdx] = placedBlocks.get(blockKey);
+                    let placed = placedBlocks.get(blockKey);
+                    blocks[blockIdx] = typeof placed === 'object' ? placed.type : placed;
                     continue; 
                 }
                 if (brokenBlocks.has(blockKey)) {
@@ -1239,7 +1291,11 @@ function generateChunk(chunkX, chunkZ) {
                         stoneType = localBiome.deepSubBlock;
                     }
 
-                    let isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
+                    // FPS FIX: Heavy 3D math is massively reduced by checking depth first
+                    let isCave = false;
+                    if (density > 5 && actualY < 100) {
+                        isCave = (fbm3(globalX, actualY, globalZ, 2, 35)**2 + fbm3(globalX+1000, actualY+1000, globalZ+1000, 2, 35)**2) < 0.005;
+                    }
 
                     if (isCave) continue;
 
@@ -1374,22 +1430,31 @@ function generateChunk(chunkX, chunkZ) {
                         if (z < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z+1) * chunkSize]);
 
                         let lightLevel = 1.0;
-                        if (actualY <= lowestAdjacentH) {
-                            let depth = lowestAdjacentH - actualY;
-                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); 
-                        }
-                        colorObj.setRGB(lightLevel, lightLevel, lightLevel);
+                    if (actualY <= lowestAdjacentH) {
+                        let depth = lowestAdjacentH - actualY;
+                        lightLevel = Math.max(0.08, 0.85 - (depth * 0.15)); 
+                    }
+                    colorObj.setRGB(lightLevel, lightLevel, lightLevel);
 
-                        matrix.setPosition(startX + x, actualY, startZ + z);
-                        meshes[bName].setMatrixAt(indices[bName], matrix);
-                        meshes[bName].setColorAt(indices[bName], colorObj); 
-                        indices[bName]++;
-
-                        if (bName === 'grass_block' && meshes['grass_block_overlay']) {
-                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
-                            meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
-                            indices['grass_block_overlay']++;
+                    let rot = [0, 0, 0];
+                    let blockKey = `${startX + x},${actualY},${startZ + z}`;
+                    if (placedBlocks.has(blockKey)) {
+                        let placed = placedBlocks.get(blockKey);
+                        if (typeof placed === 'object' && placed.rotation) {
+                            rot = placed.rotation;
                         }
+                    }
+
+                    matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+                    matrix.setPosition(startX + x, actualY, startZ + z);
+                    meshes[bName].setMatrixAt(indices[bName], matrix);
+                    meshes[bName].setColorAt(indices[bName], colorObj); 
+                    indices[bName]++;
+
+                    if (bName === 'grass_block' && meshes['grass_block_overlay']) {
+                        meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
+                        meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
+                        indices['grass_block_overlay']++;
                     }
                 }
             }
@@ -1508,22 +1573,31 @@ function rebuildChunkGeometry(chunkX, chunkZ) {
                         if (z < chunkSize - 1) lowestAdjacentH = Math.min(lowestAdjacentH, heightMap[x + (z+1) * chunkSize]);
 
                         let lightLevel = 1.0;
-                        if (actualY <= lowestAdjacentH) {
-                            let depth = lowestAdjacentH - actualY;
-                            lightLevel = Math.max(0.08, 0.85 - (depth * 0.15));
-                        }
-                        colorObj.setRGB(lightLevel, lightLevel, lightLevel);
+                    if (actualY <= lowestAdjacentH) {
+                        let depth = lowestAdjacentH - actualY;
+                        lightLevel = Math.max(0.08, 0.85 - (depth * 0.15));
+                    }
+                    colorObj.setRGB(lightLevel, lightLevel, lightLevel);
 
-                        matrix.setPosition(globalX, actualY, globalZ);
-                        meshes[bName].setMatrixAt(indices[bName], matrix);
-                        meshes[bName].setColorAt(indices[bName], colorObj);
-                        indices[bName]++;
-
-                        if (bName === 'grass_block' && meshes['grass_block_overlay']) {
-                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
-                            meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
-                            indices['grass_block_overlay']++;
+                    let rot = [0, 0, 0];
+                    let blockKey = `${globalX},${actualY},${globalZ}`;
+                    if (placedBlocks.has(blockKey)) {
+                        let placed = placedBlocks.get(blockKey);
+                        if (typeof placed === 'object' && placed.rotation) {
+                            rot = placed.rotation;
                         }
+                    }
+
+                    matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+                    matrix.setPosition(globalX, actualY, globalZ);
+                    meshes[bName].setMatrixAt(indices[bName], matrix);
+                    meshes[bName].setColorAt(indices[bName], colorObj);
+                    indices[bName]++;
+
+                    if (bName === 'grass_block' && meshes['grass_block_overlay']) {
+                        meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
+                        meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
+                        indices['grass_block_overlay']++;
                     }
                 }
             }
@@ -1849,17 +1923,34 @@ document.addEventListener('mousedown', (e) => {
             const placeZ = Math.round(p.z + hit.face.normal.z);
             
             const selectedItem = inventory[selectedSlot];
-            
-            // Runs checks before placing to prevent locking the player inside solid parameters
-            if (selectedItem.type && getGlobalBlock(placeX, placeY, placeZ) === 0) {
-                if (!isPlayerCollidingWithBlock(placeX, placeY, placeZ, selectedItem.type)) {
-                    setGlobalBlock(placeX, placeY, placeZ, TYPE[selectedItem.type]);
+        
+        // Runs checks before placing to prevent locking the player inside solid parameters
+        if (selectedItem.type && getGlobalBlock(placeX, placeY, placeZ) === 0) {
+            if (!isPlayerCollidingWithBlock(placeX, placeY, placeZ, selectedItem.type)) {
+                
+                // JSON Blockstate Logic: Determine axis for directional blocks like logs
+                let rotation = [0, 0, 0];
+                if (selectedItem.type.includes('log') || selectedItem.type.includes('pillar')) {
+                    let axis = 'y';
+                    if (Math.abs(hit.face.normal.x) > 0.5) axis = 'x';
+                    if (Math.abs(hit.face.normal.z) > 0.5) axis = 'z';
                     
-                    selectedItem.count--;
-                    if (selectedItem.count <= 0) {
-                        selectedItem.type = null;
-                        selectedItem.count = 0;
-                    }
+                    // Parse rotation from our JSON reader equivalent
+                    rotation = JSONReader.getRotationForAxis(axis);
+                }
+                
+                setGlobalBlock(placeX, placeY, placeZ, { type: TYPE[selectedItem.type], rotation: rotation });
+                
+                selectedItem.count--;
+                if (selectedItem.count <= 0) {
+                    selectedItem.type = null;
+                    selectedItem.count = 0;
+                }
+                updateInventoryUI();
+            }
+        }
+    }
+}
                     updateInventoryUI();
                 }
             }
@@ -1958,11 +2049,13 @@ function animate() {
     updateMining();
     doRandomTicks();
 
-    for (let chunkId of chunksToRebuild) {
+    // Rebuild only ONE modified chunk per frame to prevent freezing
+    if (chunksToRebuild.size > 0) {
+        const chunkId = chunksToRebuild.values().next().value;
         let [cx, cz] = chunkId.split(',').map(Number);
         rebuildChunkGeometry(cx, cz);
+        chunksToRebuild.delete(chunkId);
     }
-    chunksToRebuild.clear();
     
     // Process falling items
     for (let i = droppedItems.length - 1; i >= 0; i--) {
