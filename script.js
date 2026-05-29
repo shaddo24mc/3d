@@ -154,7 +154,7 @@ const CROSS_BLOCKS = new Set([
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
 
-const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon']);
+const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor']);
 const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; // Air is transparent
 ALL_BLOCKS.forEach((b) => {
@@ -662,6 +662,13 @@ const lapisTex = loadTex('lapis_lazuli', true);
 const redstoneTex = loadTex('redstone_dust', true);
 const snowballTex = loadTex('snowball', true);
 
+const sculkShriekerTop = loadTex('sculk_shrieker_top');
+const sculkShriekerBottom = loadTex('sculk_shrieker_bottom');
+const sculkShriekerSide = loadTex('sculk_shrieker_side');
+const sculkSensorTop = loadTex('sculk_sensor_top');
+const sculkSensorBottom = loadTex('sculk_sensor_bottom');
+const sculkSensorSide = loadTex('sculk_sensor_side');
+
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`destroy_stage_${i}`)); 
@@ -761,6 +768,22 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: spruceLogTop }),
         new THREE.MeshStandardMaterial({ map: spruceLogSide }),
         new THREE.MeshStandardMaterial({ map: spruceLogSide })
+    ],
+    sculk_shrieker: [
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerTop, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerBottom, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 })
+    ],
+    sculk_sensor: [
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorTop, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorBottom, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 })
     ]
 };
 
@@ -1059,10 +1082,57 @@ function fbm3(x, y, z, octaves = 2, scale = 40) {
 }
 
 function getBlockCapacity(key) {
-    if (key === 'stone' || key === 'deepslate') return 24000;
-    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'snowy_grass_block' || key === 'sand' || key === 'bedrock' || key === 'grass_block_overlay') return 8000;
-    if (key.includes('leaves') || key.includes('log')) return 4000;
-    return 2000;
+    if (key === 'stone' || key === 'deepslate') return 45000;
+    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'snowy_grass_block' || key === 'sand' || key === 'bedrock' || key === 'grass_block_overlay') return 15000;
+    if (key.includes('leaves') || key.includes('log')) return 8000;
+    return 4000;
+}
+
+// Function geometrically fuses JSON elements together
+function mergeBufferGeometries(geos) {
+    let vertexCount = 0;
+    let indexCount = 0;
+    for (let g of geos) {
+        vertexCount += g.attributes.position.count;
+        indexCount += g.index ? g.index.count : g.attributes.position.count;
+    }
+    
+    let posArray = new Float32Array(vertexCount * 3);
+    let normArray = new Float32Array(vertexCount * 3);
+    let uvArray = new Float32Array(vertexCount * 2);
+    let indArray = new Uint32Array(indexCount);
+    
+    let vOff = 0;
+    let iOff = 0;
+    let groupStart = 0;
+    const mergedGeo = new THREE.BufferGeometry();
+    
+    for (let g of geos) {
+        posArray.set(g.attributes.position.array, vOff * 3);
+        normArray.set(g.attributes.normal.array, vOff * 3);
+        uvArray.set(g.attributes.uv.array, vOff * 2);
+        
+        if (g.index) {
+            for(let i=0; i<g.index.count; i++) indArray[iOff + i] = g.index.array[i] + vOff;
+        } else {
+            for(let i=0; i<g.attributes.position.count; i++) indArray[iOff + i] = i + vOff;
+        }
+        
+        for (let grp of g.groups) {
+            mergedGeo.addGroup(groupStart + grp.start, grp.count, grp.materialIndex);
+        }
+        
+        vOff += g.attributes.position.count;
+        iOff += g.index ? g.index.count : g.attributes.position.count;
+        groupStart += g.index ? g.index.count : g.attributes.position.count;
+    }
+    
+    mergedGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    mergedGeo.setAttribute('normal', new THREE.BufferAttribute(normArray, 3));
+    mergedGeo.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+    mergedGeo.setIndex(new THREE.BufferAttribute(indArray, 1));
+    
+    return mergedGeo;
 }
 
 // ----------------------------------------------------
@@ -1111,8 +1181,14 @@ function computeChunkLight(blocks) {
                 let nIdx = getIdx(nx, ny, nz);
                 let b = blocks[nIdx];
                 if ((b === 0 || isTransparent[b]) && lightMap[nIdx] < nextLight) {
-                    lightMap[nIdx] = nextLight;
-                    queue[tail++] = nIdx;
+                    let drop = 1;
+                    if (b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.water) drop = 2;
+                    let targetLight = light - drop;
+                    
+                    if (targetLight > lightMap[nIdx]) {
+                        lightMap[nIdx] = targetLight;
+                        queue[tail++] = nIdx;
+                    }
                 }
             }
         };
@@ -1128,70 +1204,70 @@ function computeChunkLight(blocks) {
 }
 
 // ----------------------------------------------------
-// Async Chunk Generation Pipeline
+// DYNAMIC ASSET PIPELINE (Textures & Model Bounds)
 // ----------------------------------------------------
-async function generateChunk(chunkX, chunkZ) {
-    const chunkId = `${chunkX},${chunkZ}`;
-    if (activeChunks[chunkId]) return;
-    
-    // Flag to prevent updates from crashing during generation
-    activeChunks[chunkId] = { pending: true };
+const customGeometries = {};
 
-    const startX = chunkX * chunkSize;
-    const startZ = chunkZ * chunkSize;
-    
-    const blocks = new Uint8Array(chunkSize * chunkSize * worldHeight);
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
-    const treesToSpawn = [];
+// Asynchronously builds missing materials and shapes customized 3D geometry
+// bounds for non-standard blocks by directly parsing JSON Elements arrays
+async function loadCustomModel(bName) {
+    if (customGeometries[bName]) return; 
 
-    // PASS 1: Base Terrain Generation
-    for (let x = 0; x < chunkSize; x++) {
-        for (let z = 0; z < chunkSize; z++) {
-            let globalX = startX + x;
-            let globalZ = startZ + z;
+    // AUTO-TEXTURE: Automatically map texture by block name to fix gray textures!
+    if (!materials[bName]) {
+        const tex = loadTex(bName);
+        if (CROSS_BLOCKS.has(bName)) {
+            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: false });
+        } else if (TRANSPARENT_BLOCKS.has(bName)) {
+            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
+        } else {
+            materials[bName] = new THREE.MeshStandardMaterial({ map: tex });
+        }
+    }
 
-            let tempMap = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 2, 400);
-            let moistMap = fbm2(globalX + mapOffsetX + 10000, globalZ + mapOffsetZ + 10000, 2, 400);
+    if (CROSS_BLOCKS.has(bName)) {
+        customGeometries[bName] = crossGeo;
+        return;
+    }
+
+    customGeometries[bName] = geometry; // Fallback perfect cube
+
+    // ACTUAL JSON MODEL PARSING - dynamically shapes the BoxGeometry based on JSON arrays!
+    try {
+        let modelPath = bName;
+        const state = await JSONReader.getBlockstate(bName);
+        if (state && state.variants && state.variants[""]) {
+            let variant = state.variants[""];
+            if (Array.isArray(variant)) variant = variant[0];
+            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+        }
+
+        const model = await JSONReader.getModel(modelPath);
+        if (model && model.elements && model.elements.length > 0) {
+            const elementGeometries = [];
+            for (let el of model.elements) {
+                const w = (el.to[0] - el.from[0]) / 16;
+                const h = (el.to[1] - el.from[1]) / 16;
+                const d = (el.to[2] - el.from[2]) / 16;
+                // Protect against flat planes (0 thickness) which break BoxGeometry
+                const geo = new THREE.BoxGeometry(Math.max(0.001, w), Math.max(0.001, h), Math.max(0.001, d));
+                geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
+                elementGeometries.push(geo);
+            }
             
-            let biomeJitterX = noise.perlin2(globalX / 8, globalZ / 8) * 0.08;
-            let biomeJitterZ = noise.perlin2(globalX / 8 + 5000, globalZ / 8 + 5000) * 0.08;
-            
-            let localBiome = getBiome(tempMap + biomeJitterX, moistMap + biomeJitterZ, 0); 
-            
-            let blendedScale = getInterpolatedHeightScale(globalX, globalZ);
-            let rawElevation = fbm2(globalX + mapOffsetX, globalZ + mapOffsetZ, 4, 300);
-            let baseHeight = ((rawElevation + 1) / 2) * blendedScale + 62;
+            if (elementGeometries.length === 1) {
+                customGeometries[bName] = elementGeometries[0];
+            } else if (elementGeometries.length > 1) {
+                customGeometries[bName] = mergeBufferGeometries(elementGeometries);
+            }
+        }
+    } catch(e) {
+        // Silently fallback to the standard block geometry if model isn't configured
+    }
+}
 
-            for (let y = 0; y < worldHeight; y++) {
-                let actualY = y + minworldY;
-                let blockIdx = getIdx(x, y, z);
-                let blockKey = `${globalX},${actualY},${globalZ}`;
-
-                if (placedBlocks.has(blockKey)) {
-                    let placed = placedBlocks.get(blockKey);
-                    blocks[blockIdx] = typeof placed === 'object' ? placed.type : placed;
-                    continue; 
-                }
-                if (brokenBlocks.has(blockKey)) {
-                    blocks[blockIdx] = 0; 
-                    continue; 
-                }
-
-                let cliffNoise = noise.perlin3(globalX / 50, actualY / 40, globalZ / 50) * 18;
-                let detailNoise = noise.perlin3(globalX / 15, actualY / 15, globalZ / 15) * 5;
-                let density = (baseHeight - actualY) + cliffNoise + detailNoise;
-
-                if (density > 0) {
-                    if (actualY <= minworldY + 4) {
-                        if (getDeterministicRandom(globalX, actualY, globalZ) < ((minworldY + 5) - actualY) / 5) {
-                            blocks[blockIdx] = TYPE.bedrock; continue;
-                        }
-                    }
-
-                    let actualYAbove = actualY + 1;
-                    let densityAbove = (baseHeight - actualYAbove) + 
-                                       (noise.perlin3(globalX / 50, actualYAbove / 40, globalZ / 50) * 18) + 
-                                       (noise.perlin3(globalX / 15, actualYAbove / 15, globalZ / 15) * 5);
+// ----------------------------------------------------
+// Core Functions: Blocks & Snowy Block Status
 
                     let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
                     
@@ -1398,24 +1474,31 @@ async function generateChunk(chunkX, chunkZ) {
                     if (meshes[bName] && indices[bName] < meshes[bName].maxCapacity) {
                         
                         let maxAdjLight = 0;
-                        const checkL = (nx, ny, nz) => {
-                            if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
-                                let nIdx = getIdx(nx, ny, nz);
-                                if (blocks[nIdx] === 0 || isTransparent[blocks[nIdx]]) {
-                                    maxAdjLight = Math.max(maxAdjLight, lightMap[nIdx]);
-                                }
-                            } else {
-                                let gy = ny + minworldY;
-                                let gb = getGlobalBlock(startX + nx, gy, startZ + nz);
-                                if (gb === null || gb === 0 || isTransparent[gb]) {
-                                    maxAdjLight = Math.max(maxAdjLight, gy > 62 ? 15 : 0);
-                                }
-                            }
-                        };
+                        let selfBlock = blocks[getIdx(x, y, z)];
                         
-                        checkL(x-1, y, z); checkL(x+1, y, z);
-                        checkL(x, y-1, z); checkL(x, y+1, z);
-                        checkL(x, y, z-1); checkL(x, y, z+1);
+                        if (isTransparent[selfBlock]) {
+                            // Transparent blocks like leaves glow with their internal light value!
+                            maxAdjLight = lightMap[getIdx(x, y, z)];
+                        } else {
+                            const checkL = (nx, ny, nz) => {
+                                if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
+                                    let nIdx = getIdx(nx, ny, nz);
+                                    if (blocks[nIdx] === 0 || isTransparent[blocks[nIdx]]) {
+                                        maxAdjLight = Math.max(maxAdjLight, lightMap[nIdx]);
+                                    }
+                                } else {
+                                    let gy = ny + minworldY;
+                                    let gb = getGlobalBlock(startX + nx, gy, startZ + nz);
+                                    if (gb === null || gb === 0 || isTransparent[gb]) {
+                                        maxAdjLight = Math.max(maxAdjLight, gy > 62 ? 15 : 0);
+                                    }
+                                }
+                            };
+                            
+                            checkL(x-1, y, z); checkL(x+1, y, z);
+                            checkL(x, y-1, z); checkL(x, y+1, z);
+                            checkL(x, y, z-1); checkL(x, y, z+1);
+                        }
 
                         let lightLevel = Math.max(0.05, maxAdjLight / 15.0);
                         lightLevel = Math.pow(lightLevel, 1.4); 
@@ -1537,24 +1620,30 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                     if (meshes[bName] && indices[bName] < meshes[bName].maxCapacity) {
                         
                         let maxAdjLight = 0;
-                        const checkL = (nx, ny, nz) => {
-                            if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
-                                let nIdx = getIdx(nx, ny, nz);
-                                if (blocks[nIdx] === 0 || isTransparent[blocks[nIdx]]) {
-                                    maxAdjLight = Math.max(maxAdjLight, lightMap[nIdx]);
-                                }
-                            } else {
-                                let gy = ny + minworldY;
-                                let gb = getGlobalBlock(startX + nx, gy, startZ + nz);
-                                if (gb === null || gb === 0 || isTransparent[gb]) {
-                                    maxAdjLight = Math.max(maxAdjLight, gy > 62 ? 15 : 0);
-                                }
-                            }
-                        };
+                        let selfBlock = blocks[getIdx(x, y, z)];
                         
-                        checkL(x-1, y, z); checkL(x+1, y, z);
-                        checkL(x, y-1, z); checkL(x, y+1, z);
-                        checkL(x, y, z-1); checkL(x, y, z+1);
+                        if (isTransparent[selfBlock]) {
+                            maxAdjLight = lightMap[getIdx(x, y, z)];
+                        } else {
+                            const checkL = (nx, ny, nz) => {
+                                if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
+                                    let nIdx = getIdx(nx, ny, nz);
+                                    if (blocks[nIdx] === 0 || isTransparent[blocks[nIdx]]) {
+                                        maxAdjLight = Math.max(maxAdjLight, lightMap[nIdx]);
+                                    }
+                                } else {
+                                    let gy = ny + minworldY;
+                                    let gb = getGlobalBlock(startX + nx, gy, startZ + nz);
+                                    if (gb === null || gb === 0 || isTransparent[gb]) {
+                                        maxAdjLight = Math.max(maxAdjLight, gy > 62 ? 15 : 0);
+                                    }
+                                }
+                            };
+                            
+                            checkL(x-1, y, z); checkL(x+1, y, z);
+                            checkL(x, y-1, z); checkL(x, y+1, z);
+                            checkL(x, y, z-1); checkL(x, y, z+1);
+                        }
 
                         let lightLevel = Math.max(0.05, maxAdjLight / 15.0);
                         lightLevel = Math.pow(lightLevel, 1.4);
