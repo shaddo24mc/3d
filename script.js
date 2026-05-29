@@ -184,8 +184,8 @@ const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, coun
 inventory[0] = { type: 'stone', count: 64 };
 inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
-inventory[3] = { type: 'oak_log', count: 64 };
-inventory[4] = { type: 'spruce_log', count: 64 };
+inventory[3] = { type: 'sculk_shrieker', count: 64 };
+inventory[4] = { type: 'sculk_sensor', count: 64 };
 inventory[5] = { type: 'sand', count: 64 };
 inventory[6] = { type: 'snow_block', count: 64 };
 inventory[7] = { type: 'cobblestone', count: 64 };
@@ -673,6 +673,7 @@ const fringeMat = new THREE.MeshStandardMaterial({
     map: grassSideOverlay, color: grass_color, transparent: true, alphaTest: 0.5 
 });
 
+// Hardcoded explicit material mappings for primary blocks
 const materials = {
     grass_block: [
         new THREE.MeshStandardMaterial({ map: grassSide }),
@@ -763,12 +764,6 @@ const materials = {
     ]
 };
 
-ALL_BLOCKS.forEach(bName => {
-    if (!materials[bName]) {
-        materials[bName] = new THREE.MeshStandardMaterial({ color: 0x9c9c9c });
-    }
-});
-
 const destroyGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
 const destroyMat = new THREE.MeshBasicMaterial({ 
     map: destroyTextures[0], transparent: true, depthWrite: false, color: 0xA9A9A9, opacity: 0.8
@@ -794,6 +789,7 @@ const worldHeight = 256;
 const minworldY = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
+// Standard cross geometry used for saplings, grass, flowers
 const crossGeo = new THREE.BufferGeometry();
 const crossPositions = new Float32Array([
     -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
@@ -825,6 +821,73 @@ const placedBlocks = new Map();
 const chunksToRebuild = new Set(); 
 
 // ----------------------------------------------------
+// DYNAMIC ASSET PIPELINE (Textures & Model Bounds)
+// ----------------------------------------------------
+const customGeometries = {};
+
+// Asynchronously builds missing materials and shapes customized 3D geometry
+// bounds for non-standard blocks by directly parsing JSON Elements arrays
+async function loadCustomModel(bName) {
+    if (customGeometries[bName]) return; 
+
+    // AUTO-TEXTURE: Automatically map texture by block name to fix gray textures!
+    if (!materials[bName]) {
+        const tex = loadTex(bName);
+        if (CROSS_BLOCKS.has(bName)) {
+            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: false });
+        } else if (TRANSPARENT_BLOCKS.has(bName)) {
+            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
+        } else {
+            materials[bName] = new THREE.MeshStandardMaterial({ map: tex });
+        }
+    }
+
+    if (CROSS_BLOCKS.has(bName)) {
+        customGeometries[bName] = crossGeo;
+        return;
+    }
+
+    customGeometries[bName] = geometry; // Fallback perfect cube
+
+    // ACTUAL JSON MODEL PARSING - dynamically shapes the BoxGeometry based on JSON arrays!
+    try {
+        let modelPath = bName;
+        const state = await JSONReader.getBlockstate(bName);
+        if (state && state.variants && state.variants[""]) {
+            let variant = state.variants[""];
+            if (Array.isArray(variant)) variant = variant[0];
+            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+        }
+
+        const model = await JSONReader.getModel(modelPath);
+        if (model && model.elements && model.elements.length > 0) {
+            let minX = 16, minY = 16, minZ = 16;
+            let maxX = 0, maxY = 0, maxZ = 0;
+            
+            // Mathematically unwrap the exact bounding parameters from the model
+            for (let el of model.elements) {
+                minX = Math.min(minX, el.from[0]); minY = Math.min(minY, el.from[1]); minZ = Math.min(minZ, el.from[2]);
+                maxX = Math.max(maxX, el.to[0]); maxY = Math.max(maxY, el.to[1]); maxZ = Math.max(maxZ, el.to[2]);
+            }
+            
+            // If the model dictates it is smaller than a 16x16x16 cube (e.g. Sculk Shrieker is 8 units high)
+            if (minX !== 0 || minY !== 0 || minZ !== 0 || maxX !== 16 || maxY !== 16 || maxZ !== 16) {
+                const w = (maxX - minX) / 16;
+                const h = (maxY - minY) / 16;
+                const d = (maxZ - minZ) / 16;
+                const geo = new THREE.BoxGeometry(w, h, d);
+                
+                // Align block positioning flush against other full cubes
+                geo.translate((minX + maxX)/32 - 0.5, (minY + maxY)/32 - 0.5, (minZ + maxZ)/32 - 0.5);
+                customGeometries[bName] = geo;
+            }
+        }
+    } catch(e) {
+        // Silently fallback to the standard block geometry if model isn't configured
+    }
+}
+
+// ----------------------------------------------------
 // Core Functions: Blocks & Snowy Block Status
 // ----------------------------------------------------
 function getGlobalBlock(gx, gy, gz) {
@@ -833,7 +896,7 @@ function getGlobalBlock(gx, gy, gz) {
     let cz = Math.floor(gz / chunkSize);
     let chunkId = `${cx},${cz}`;
     let chunk = activeChunks[chunkId];
-    if (!chunk) return null; 
+    if (!chunk || chunk.pending) return null; 
     
     let lx = gx - (cx * chunkSize);
     let lz = gz - (cz * chunkSize);
@@ -862,7 +925,7 @@ function setGlobalBlock(gx, gy, gz, typeData) {
     let chunkId = `${cx},${cz}`;
     let chunk = activeChunks[chunkId];
     
-    if (!chunk) return; 
+    if (!chunk || chunk.pending) return; 
     
     let lx = gx - (cx * chunkSize);
     let lz = gz - (cz * chunkSize);
@@ -891,7 +954,7 @@ function checkIsSnowy(gx, gy, gz) {
 function doRandomTicks() {
     for (const chunkId in activeChunks) {
         const chunk = activeChunks[chunkId];
-        if (!chunk || !chunk.blocks) continue;
+        if (!chunk || chunk.pending || !chunk.blocks) continue;
 
         const [cx, cz] = chunkId.split(',').map(Number);
         
@@ -1065,29 +1128,18 @@ function computeChunkLight(blocks) {
 }
 
 // ----------------------------------------------------
-// Chunk Generation Pipeline
+// Async Chunk Generation Pipeline
 // ----------------------------------------------------
-function generateChunk(chunkX, chunkZ) {
+async function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
+    
+    // Flag to prevent updates from crashing during generation
+    activeChunks[chunkId] = { pending: true };
 
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
-
-    const meshes = {};
-    const indices = {};
-    for (const [key, mat] of Object.entries(materials)) {
-        let geo = (key === 'oak_sapling' || key === 'spruce_sapling') ? crossGeo : geometry;
-        let cap = getBlockCapacity(key);
-        meshes[key] = new THREE.InstancedMesh(geo, mat, cap);
-        meshes[key].name = key;
-        meshes[key].chunkId = chunkId;
-        meshes[key].maxCapacity = cap;
-        meshes[key].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        meshes[key].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-        indices[key] = 0;
-    }
-
+    
     const blocks = new Uint8Array(chunkSize * chunkSize * worldHeight);
     const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
     const treesToSpawn = [];
@@ -1195,7 +1247,6 @@ function generateChunk(chunkX, chunkZ) {
                 }
             } 
 
-            // Find surface for trees
             for (let y = worldHeight - 1; y >= 0; y--) {
                 let b = blocks[getIdx(x, y, z)];
                 if (b !== 0) { 
@@ -1274,7 +1325,49 @@ function generateChunk(chunkX, chunkZ) {
     // PASS 1.6: Run the 3D Voxel Lighting Engine
     const lightMap = computeChunkLight(blocks);
 
-    // PASS 2: MESH GENERATION & VISUALS
+    // Preload dependencies ONLY for the blocks physically detected inside this exact chunk.
+    const uniqueTypes = new Set();
+    for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i] !== 0) uniqueTypes.add(blocks[i]);
+    }
+    
+    for (let typeId of uniqueTypes) {
+        let bName = REVERSE_TYPE[typeId];
+        if (!customGeometries[bName]) await loadCustomModel(bName);
+    }
+
+    // PASS 2: DYNAMIC MESH GENERATION & CULLING
+    const meshes = {};
+    const indices = {};
+    
+    // Only construct 3D InstancedMeshes buffers for block variants actively living in this chunk 
+    for (let typeId of uniqueTypes) {
+        let bName = REVERSE_TYPE[typeId];
+        let geo = customGeometries[bName];
+        let mat = materials[bName];
+        let cap = getBlockCapacity(bName);
+        
+        meshes[bName] = new THREE.InstancedMesh(geo, mat, cap);
+        meshes[bName].name = bName;
+        meshes[bName].chunkId = chunkId;
+        meshes[bName].maxCapacity = cap;
+        meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+        indices[bName] = 0;
+        
+        // Ensure overlay mesh propagates 
+        if (bName === 'grass_block') {
+            let oName = 'grass_block_overlay';
+            meshes[oName] = new THREE.InstancedMesh(geometry, materials[oName], cap);
+            meshes[oName].name = oName;
+            meshes[oName].chunkId = chunkId;
+            meshes[oName].maxCapacity = cap;
+            meshes[oName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            meshes[oName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+            indices[oName] = 0;
+        }
+    }
+
     const matrix = new THREE.Matrix4();
     const colorObj = new THREE.Color();
     
@@ -1304,7 +1397,6 @@ function generateChunk(chunkX, chunkZ) {
                     let bName = REVERSE_TYPE[typeId];
                     if (meshes[bName] && indices[bName] < meshes[bName].maxCapacity) {
                         
-                        // Lighting Check - Take ambient light from open surrounding sides
                         let maxAdjLight = 0;
                         const checkL = (nx, ny, nz) => {
                             if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
@@ -1313,7 +1405,6 @@ function generateChunk(chunkX, chunkZ) {
                                     maxAdjLight = Math.max(maxAdjLight, lightMap[nIdx]);
                                 }
                             } else {
-                                // Default ambient guessing for out-of-bounds cross-chunks
                                 let gy = ny + minworldY;
                                 let gb = getGlobalBlock(startX + nx, gy, startZ + nz);
                                 if (gb === null || gb === 0 || isTransparent[gb]) {
@@ -1326,7 +1417,6 @@ function generateChunk(chunkX, chunkZ) {
                         checkL(x, y-1, z); checkL(x, y+1, z);
                         checkL(x, y, z-1); checkL(x, y, z+1);
 
-                        // Emulate Minecraft's light gamma curve
                         let lightLevel = Math.max(0.05, maxAdjLight / 15.0);
                         lightLevel = Math.pow(lightLevel, 1.4); 
                         lightLevel = Math.max(0.08, lightLevel);
@@ -1371,26 +1461,49 @@ function generateChunk(chunkX, chunkZ) {
 }
 
 // ----------------------------------------------------
-// Chunk Rebuilding (Dynamic Block Breaking/Placing)
+// Async Chunk Rebuilding (Dynamic Block Updates)
 // ----------------------------------------------------
-function rebuildChunkGeometry(chunkX, chunkZ) {
+async function rebuildChunkGeometry(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     const chunkData = activeChunks[chunkId];
-    if (!chunkData) return;
+    if (!chunkData || chunkData.pending) return;
 
     const { meshes, blocks } = chunkData;
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
     const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
 
+    const lightMap = computeChunkLight(blocks);
+
+    const uniqueTypes = new Set();
+    for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i] !== 0) uniqueTypes.add(blocks[i]);
+    }
+
+    for (let typeId of uniqueTypes) {
+        let bName = REVERSE_TYPE[typeId];
+        if (!customGeometries[bName]) await loadCustomModel(bName);
+        
+        if (!meshes[bName]) {
+            let geo = customGeometries[bName];
+            let mat = materials[bName];
+            let cap = getBlockCapacity(bName);
+            meshes[bName] = new THREE.InstancedMesh(geo, mat, cap);
+            meshes[bName].name = bName;
+            meshes[bName].chunkId = chunkId;
+            meshes[bName].maxCapacity = cap;
+            meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+            scene.add(meshes[bName]);
+            if (bName !== 'grass_block_overlay') interactableMeshes.push(meshes[bName]);
+        }
+    }
+
     const indices = {};
     for (const key in meshes) indices[key] = 0;
 
     const matrix = new THREE.Matrix4();
     const colorObj = new THREE.Color();
-
-    // Rerun True 3D flood-fill to update broken blocks lighting instantly!
-    const lightMap = computeChunkLight(blocks);
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -1599,6 +1712,7 @@ function updateChunks() {
 
     for (const id in activeChunks) {
         if (!chunksToKeep.has(id)) {
+            if (activeChunks[id].pending) continue; 
             for (const mesh of Object.values(activeChunks[id].meshes)) {
                 scene.remove(mesh);
                 const i = interactableMeshes.indexOf(mesh);
@@ -1883,6 +1997,9 @@ window.addEventListener('resize', () => {
 // ----------------------------------------------------
 // Core Update Loop
 // ----------------------------------------------------
+let isGeneratingChunk = false;
+let isRebuildingChunk = false;
+
 function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta(); 
@@ -1890,10 +2007,12 @@ function animate() {
     updateChunks();
     updateDayNightCycle(delta); 
 
-    if (chunkQueue.length > 0) {
+    // Queue system prevents async functions from overlapping and crashing memory
+    if (chunkQueue.length > 0 && !isGeneratingChunk) {
+        isGeneratingChunk = true;
         const next = chunkQueue.shift();
         const [cx, cz] = next.split(',').map(Number);
-        generateChunk(cx, cz);
+        generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
     }
 
     if (isLeftMouseDown && !mining.active && document.pointerLockElement && inventoryScreen.style.display === 'none') {
@@ -1904,11 +2023,12 @@ function animate() {
     updateMining();
     doRandomTicks();
 
-    if (chunksToRebuild.size > 0) {
+    if (chunksToRebuild.size > 0 && !isRebuildingChunk) {
+        isRebuildingChunk = true;
         const chunkId = chunksToRebuild.values().next().value;
-        let [cx, cz] = chunkId.split(',').map(Number);
-        rebuildChunkGeometry(cx, cz);
         chunksToRebuild.delete(chunkId);
+        let [cx, cz] = chunkId.split(',').map(Number);
+        rebuildChunkGeometry(cx, cz).then(() => { isRebuildingChunk = false; });
     }
     
     for (let i = droppedItems.length - 1; i >= 0; i--) {
