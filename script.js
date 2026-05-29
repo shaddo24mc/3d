@@ -844,73 +844,6 @@ const placedBlocks = new Map();
 const chunksToRebuild = new Set(); 
 
 // ----------------------------------------------------
-// DYNAMIC ASSET PIPELINE (Textures & Model Bounds)
-// ----------------------------------------------------
-const customGeometries = {};
-
-// Asynchronously builds missing materials and shapes customized 3D geometry
-// bounds for non-standard blocks by directly parsing JSON Elements arrays
-async function loadCustomModel(bName) {
-    if (customGeometries[bName]) return; 
-
-    // AUTO-TEXTURE: Automatically map texture by block name to fix gray textures!
-    if (!materials[bName]) {
-        const tex = loadTex(bName);
-        if (CROSS_BLOCKS.has(bName)) {
-            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: false });
-        } else if (TRANSPARENT_BLOCKS.has(bName)) {
-            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
-        } else {
-            materials[bName] = new THREE.MeshStandardMaterial({ map: tex });
-        }
-    }
-
-    if (CROSS_BLOCKS.has(bName)) {
-        customGeometries[bName] = crossGeo;
-        return;
-    }
-
-    customGeometries[bName] = geometry; // Fallback perfect cube
-
-    // ACTUAL JSON MODEL PARSING - dynamically shapes the BoxGeometry based on JSON arrays!
-    try {
-        let modelPath = bName;
-        const state = await JSONReader.getBlockstate(bName);
-        if (state && state.variants && state.variants[""]) {
-            let variant = state.variants[""];
-            if (Array.isArray(variant)) variant = variant[0];
-            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
-        }
-
-        const model = await JSONReader.getModel(modelPath);
-        if (model && model.elements && model.elements.length > 0) {
-            let minX = 16, minY = 16, minZ = 16;
-            let maxX = 0, maxY = 0, maxZ = 0;
-            
-            // Mathematically unwrap the exact bounding parameters from the model
-            for (let el of model.elements) {
-                minX = Math.min(minX, el.from[0]); minY = Math.min(minY, el.from[1]); minZ = Math.min(minZ, el.from[2]);
-                maxX = Math.max(maxX, el.to[0]); maxY = Math.max(maxY, el.to[1]); maxZ = Math.max(maxZ, el.to[2]);
-            }
-            
-            // If the model dictates it is smaller than a 16x16x16 cube (e.g. Sculk Shrieker is 8 units high)
-            if (minX !== 0 || minY !== 0 || minZ !== 0 || maxX !== 16 || maxY !== 16 || maxZ !== 16) {
-                const w = (maxX - minX) / 16;
-                const h = (maxY - minY) / 16;
-                const d = (maxZ - minZ) / 16;
-                const geo = new THREE.BoxGeometry(w, h, d);
-                
-                // Align block positioning flush against other full cubes
-                geo.translate((minX + maxX)/32 - 0.5, (minY + maxY)/32 - 0.5, (minZ + maxZ)/32 - 0.5);
-                customGeometries[bName] = geo;
-            }
-        }
-    } catch(e) {
-        // Silently fallback to the standard block geometry if model isn't configured
-    }
-}
-
-// ----------------------------------------------------
 // Core Functions: Blocks & Snowy Block Status
 // ----------------------------------------------------
 function getGlobalBlock(gx, gy, gz) {
@@ -1267,8 +1200,46 @@ async function loadCustomModel(bName) {
 }
 
 // ----------------------------------------------------
-// Core Functions: Blocks & Snowy Block Status
+// Core Chunk Generation Engine
+// ----------------------------------------------------
+async function generateChunk(chunkX, chunkZ) {
+    const chunkId = `${chunkX},${chunkZ}`;
+    if (activeChunks[chunkId]) return;
+    activeChunks[chunkId] = { pending: true };
 
+    const blocks = new Uint16Array(chunkSize * chunkSize * worldHeight);
+    const treesToSpawn = [];
+    const startX = chunkX * chunkSize;
+    const startZ = chunkZ * chunkSize;
+
+    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            let globalX = startX + x;
+            let globalZ = startZ + z;
+
+            let temp = fbm2(globalX, globalZ, 2, 400);
+            let moist = fbm2(globalX + 10000, globalZ + 10000, 2, 400);
+            let localBiome = getBiome(temp, moist, 0);
+
+            let bs = getInterpolatedHeightScale(globalX, globalZ);
+            let baseHeight = Math.floor(((noise.perlin2(globalX/400, globalZ/400) + 1) / 2) * bs + 64);
+            
+            let densityMap = new Float32Array(worldHeight);
+            for(let y = 0; y < worldHeight; y++) {
+                let actualY = y + minworldY;
+                let n = noise.perlin3(globalX / 40, actualY / 40, globalZ / 40) * 20;
+                densityMap[y] = (baseHeight - actualY) + n;
+            }
+
+            for (let y = 0; y < worldHeight; y++) {
+                let actualY = y + minworldY;
+                let blockIdx = getIdx(x, y, z);
+                let density = densityMap[y];
+                
+                if (density > 0) {
+                    let densityAbove = y < worldHeight - 1 ? densityMap[y+1] : -1;
                     let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
                     
                     if (stoneType === 'stone' && densityAbove < 10 && localBiome.deepSubBlock !== 'stone') {
