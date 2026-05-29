@@ -197,7 +197,7 @@ inventory[2] = { type: 'grass_block', count: 64 };
 inventory[3] = { type: 'oak_log', count: 64 };
 inventory[4] = { type: 'spruce_log', count: 64 };
 inventory[5] = { type: 'sand', count: 64 };
-inventory[6] = { type: 'snow_block', count: 64 };
+inventory[6] = { type: 'sculk_shrieker', count: 1 };
 inventory[7] = { type: 'cobblestone', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
