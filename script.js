@@ -187,7 +187,7 @@ inventory[2] = { type: 'grass_block', count: 64 };
 inventory[3] = { type: 'sculk_shrieker', count: 64 };
 inventory[4] = { type: 'sculk_sensor', count: 64 };
 inventory[5] = { type: 'sand', count: 64 };
-inventory[6] = { type: 'snow_block', count: 64 };
+inventory[6] = { type: 'netherite_block', count: 64 };
 inventory[7] = { type: 'cobblestone', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
