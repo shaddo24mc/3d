@@ -1,3 +1,5 @@
+
+const noise = new window.Noise();
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
 scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
@@ -23,6 +25,7 @@ renderer.shadowMap.enabled = false;
 // ----------------------------------------------------
 const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
 const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
+const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
 
 // ----------------------------------------------------
 // JSON BLOCKSTATE & MODEL READER ENGINE
@@ -189,9 +192,10 @@ crosshair.style.zIndex = '100';
 crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
 document.body.appendChild(crosshair);
 
-const INVENTORY_SIZE = 36;
+const INVENTORY_SIZE = 9; // Only Hotbar needed for underlying array in Creative
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
+// Initial Hotbar loadout
 inventory[0] = { type: 'stone', count: 64 };
 inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
@@ -216,10 +220,14 @@ function getItemImage(type) {
     if (type === 'lapis_lazuli') filename = 'lapis_lazuli';
     if (type === 'grass_block') filename = 'grass_block_side';
     if (type === 'snowy_grass_block') filename = 'grass_block_snow';
+    if (type === 'search_icon') return `url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>)`;
     
     return `url(${folder}${filename}.png)`;
 }
 
+// ----------------------------------------------------
+// HOTBAR UI
+// ----------------------------------------------------
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.style.position = 'absolute';
@@ -232,6 +240,7 @@ hotbarContainer.style.padding = '6px';
 hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
 hotbarContainer.style.border = '3px solid #444';
 hotbarContainer.style.borderRadius = '4px';
+hotbarContainer.style.zIndex = '50';
 document.body.appendChild(hotbarContainer);
 
 const hotbarSlotsUI = [];
@@ -257,7 +266,7 @@ for (let i = 0; i < 9; i++) {
     slot.appendChild(countLabel);
     
     slot.addEventListener('mousedown', () => {
-        if (inventoryScreen.style.display === 'none') {
+        if (creativeInventoryScreen.style.display === 'none') {
             selectedSlot = i;
             updateInventoryUI();
         }
@@ -267,51 +276,159 @@ for (let i = 0; i < 9; i++) {
     hotbarSlotsUI.push({ div: slot, label: countLabel });
 }
 
-const inventoryScreen = document.createElement('div');
-inventoryScreen.id = 'inventory-screen';
-inventoryScreen.style.position = 'absolute';
-inventoryScreen.style.top = '50%';
-inventoryScreen.style.left = '50%';
-inventoryScreen.style.transform = 'translate(-50%, -50%)';
-inventoryScreen.style.backgroundColor = '#c6c6c6';
-inventoryScreen.style.border = '4px solid #555';
-inventoryScreen.style.padding = '20px';
-inventoryScreen.style.display = 'none';
-inventoryScreen.style.flexDirection = 'column';
-inventoryScreen.style.gap = '20px';
-inventoryScreen.style.boxShadow = 'inset -4px -4px 0 rgba(0,0,0,0.2), inset 4px 4px 0 rgba(255,255,255,0.5)';
-inventoryScreen.style.zIndex = '200';
-document.body.appendChild(inventoryScreen);
+// ----------------------------------------------------
+// CREATIVE INVENTORY UI
+// ----------------------------------------------------
+// Categorization Logic
+const CATEGORIES = {
+    building: { name: 'Building Blocks', icon: 'bricks', blocks: [] },
+    colored: { name: 'Colored Blocks', icon: 'cyan_wool', blocks: [] },
+    natural: { name: 'Natural Blocks', icon: 'grass_block', blocks: [] },
+    functional: { name: 'Functional Blocks', icon: 'crafting_table', blocks: [] },
+    redstone: { name: 'Redstone Blocks', icon: 'redstone', blocks: [] },
+    tools: { name: 'Tools & Utilities', icon: 'diamond_pickaxe', blocks: [] },
+    search: { name: 'Search Items', icon: 'search_icon', blocks: [] }
+};
 
-const invTitle = document.createElement('div');
-invTitle.innerText = "Inventory";
-invTitle.style.fontFamily = "monospace";
-invTitle.style.fontWeight = "bold";
-invTitle.style.color = "#333";
-inventoryScreen.appendChild(invTitle);
+ALL_BLOCKS.forEach(b => {
+    if (b.includes('_inner') || b.includes('_outer')) return; // Hide virtual stairs
+    if (b === 'air') return;
 
-const mainGrid = document.createElement('div');
-mainGrid.style.display = 'grid';
-mainGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
-mainGrid.style.gap = '4px';
-inventoryScreen.appendChild(mainGrid);
+    if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
+        CATEGORIES.colored.blocks.push(b);
+    } else if (b.includes('pickaxe') || b.includes('axe') || b.includes('sword') || b.includes('shovel')) {
+        CATEGORIES.tools.blocks.push(b);
+    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp')) {
+        CATEGORIES.redstone.blocks.push(b);
+    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box'].some(kw => b.includes(kw))) {
+        CATEGORIES.functional.blocks.push(b);
+    } else if (['dirt', 'grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
+        CATEGORIES.natural.blocks.push(b);
+    } else {
+        CATEGORIES.building.blocks.push(b);
+    }
+});
 
-const spacer = document.createElement('div');
-spacer.style.height = '10px';
-inventoryScreen.appendChild(spacer);
+let currentCategory = 'building';
 
-const invHotbarGrid = document.createElement('div');
-invHotbarGrid.style.display = 'grid';
-invHotbarGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
-invHotbarGrid.style.gap = '4px';
-inventoryScreen.appendChild(invHotbarGrid);
+const creativeInventoryScreen = document.createElement('div');
+creativeInventoryScreen.id = 'creative-inventory-screen';
+creativeInventoryScreen.style.position = 'absolute';
+creativeInventoryScreen.style.top = '50%';
+creativeInventoryScreen.style.left = '50%';
+creativeInventoryScreen.style.transform = 'translate(-50%, -50%)';
+creativeInventoryScreen.style.display = 'none';
+creativeInventoryScreen.style.flexDirection = 'column';
+creativeInventoryScreen.style.zIndex = '200';
+creativeInventoryScreen.style.width = '390px';
+creativeInventoryScreen.style.userSelect = 'none';
+document.body.appendChild(creativeInventoryScreen);
 
-const allSlotsUI = [];
+// Top Tabs
+const topTabsRow = document.createElement('div');
+topTabsRow.style.display = 'flex';
+topTabsRow.style.paddingLeft = '0px';
+topTabsRow.style.gap = '2px';
+topTabsRow.style.position = 'relative';
+topTabsRow.style.top = '4px';
+topTabsRow.style.zIndex = '1';
+creativeInventoryScreen.appendChild(topTabsRow);
 
+// Main Body
+const invBody = document.createElement('div');
+invBody.style.width = '390px';
+invBody.style.height = '272px';
+invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
+invBody.style.backgroundSize = '512px 512px';
+invBody.style.backgroundPosition = 'top left';
+invBody.style.imageRendering = 'pixelated';
+invBody.style.position = 'relative';
+invBody.style.zIndex = '10';
+creativeInventoryScreen.appendChild(invBody);
+
+// Search Bar Row (Hidden by default)
+const searchRow = document.createElement('div');
+searchRow.style.display = 'none';
+searchRow.style.position = 'absolute';
+searchRow.style.left = '164px';
+searchRow.style.top = '12px';
+searchRow.style.width = '178px';
+searchRow.style.height = '24px';
+const searchInput = document.createElement('input');
+searchInput.id = 'creative-search';
+searchInput.type = 'text';
+searchInput.style.width = '100%';
+searchInput.style.height = '100%';
+searchInput.style.padding = '0 6px';
+searchInput.style.backgroundColor = 'transparent';
+searchInput.style.color = '#fff';
+searchInput.style.border = 'none';
+searchInput.style.fontFamily = 'monospace';
+searchInput.style.fontSize = '14px';
+searchInput.style.outline = 'none';
+searchRow.appendChild(searchInput);
+invBody.appendChild(searchRow);
+
+searchInput.addEventListener('keydown', (e) => e.stopPropagation()); // Prevent player movement while typing
+searchInput.addEventListener('input', () => populateCreativeGrid());
+
+// Title
+const creativeTitle = document.createElement('div');
+creativeTitle.innerText = "Building Blocks";
+creativeTitle.style.fontFamily = "monospace";
+creativeTitle.style.fontSize = "16px";
+creativeTitle.style.color = "#3f3f3f";
+creativeTitle.style.position = 'absolute';
+creativeTitle.style.left = '16px';
+creativeTitle.style.top = '12px';
+invBody.appendChild(creativeTitle);
+
+// Item Grid
+const creativeGridContainer = document.createElement('div');
+creativeGridContainer.id = 'creative-grid-container';
+creativeGridContainer.style.position = 'absolute';
+creativeGridContainer.style.left = '18px';
+creativeGridContainer.style.top = '36px';
+creativeGridContainer.style.width = '360px'; 
+creativeGridContainer.style.height = '180px';
+creativeGridContainer.style.overflowY = 'scroll';
+creativeGridContainer.style.backgroundColor = 'transparent';
+creativeGridContainer.style.padding = '0';
+
+const creativeGrid = document.createElement('div');
+creativeGrid.style.display = 'grid';
+creativeGrid.style.gridTemplateColumns = 'repeat(9, 36px)';
+creativeGrid.style.gridAutoRows = '36px';
+creativeGrid.style.gap = '0px';
+creativeGridContainer.appendChild(creativeGrid);
+invBody.appendChild(creativeGridContainer);
+
+// Hotbar Area inside Creative
+const creativeHotbarGrid = document.createElement('div');
+creativeHotbarGrid.style.position = 'absolute';
+creativeHotbarGrid.style.left = '18px';
+creativeHotbarGrid.style.top = '224px';
+creativeHotbarGrid.style.width = '324px';
+creativeHotbarGrid.style.height = '36px';
+creativeHotbarGrid.style.display = 'grid';
+creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 36px)';
+creativeHotbarGrid.style.gap = '0px';
+invBody.appendChild(creativeHotbarGrid);
+
+// Bottom Tabs (for parity, though we map all our categories to the top for simplicity here)
+const bottomTabsRow = document.createElement('div');
+bottomTabsRow.style.display = 'flex';
+bottomTabsRow.style.paddingLeft = '0px';
+bottomTabsRow.style.gap = '2px';
+bottomTabsRow.style.position = 'relative';
+bottomTabsRow.style.top = '-4px';
+creativeInventoryScreen.appendChild(bottomTabsRow);
+
+// Held Item UI
 const heldItemUI = document.createElement('div');
 heldItemUI.style.position = 'absolute';
-heldItemUI.style.width = '44px';
-heldItemUI.style.height = '44px';
+heldItemUI.style.width = '36px';
+heldItemUI.style.height = '36px';
 heldItemUI.style.pointerEvents = 'none';
 heldItemUI.style.zIndex = '300';
 heldItemUI.style.display = 'none';
@@ -322,25 +439,156 @@ heldLabel.style.right = '4px';
 heldLabel.style.color = 'white';
 heldLabel.style.fontWeight = 'bold';
 heldLabel.style.fontFamily = 'monospace';
+heldLabel.style.fontSize = '12px';
 heldLabel.style.textShadow = '1px 1px 0 #000';
 heldItemUI.appendChild(heldLabel);
 document.body.appendChild(heldItemUI);
 
 document.addEventListener('mousemove', (e) => {
-    if (inventoryScreen.style.display === 'flex') {
-        heldItemUI.style.left = e.clientX - 22 + 'px';
-        heldItemUI.style.top = e.clientY - 22 + 'px';
+    if (creativeInventoryScreen.style.display === 'flex') {
+        heldItemUI.style.left = e.clientX - 18 + 'px';
+        heldItemUI.style.top = e.clientY - 18 + 'px';
     }
 });
 
-for (let i = 0; i < INVENTORY_SIZE; i++) {
+// Create Tabs Function
+const allTabsUI = [];
+function createTab(catKey, isTop) {
+    const cat = CATEGORIES[catKey];
+    const tab = document.createElement('div');
+    tab.style.width = '56px';
+    tab.style.height = '56px';
+    tab.style.backgroundColor = '#8b8b8b';
+    tab.style.border = '4px solid #555';
+    if (isTop) {
+        tab.style.borderBottom = 'none';
+        tab.style.borderRadius = '8px 8px 0 0';
+    } else {
+        tab.style.borderTop = 'none';
+        tab.style.borderRadius = '0 0 8px 8px';
+    }
+    tab.style.cursor = 'pointer';
+    tab.style.position = 'relative';
+    tab.style.display = 'flex';
+    tab.style.alignItems = 'center';
+    tab.style.justifyContent = 'center';
+    tab.style.marginBottom = isTop ? '-4px' : '0';
+    tab.style.marginTop = isTop ? '0' : '-4px';
+    tab.style.zIndex = '1';
+    
+    const icon = document.createElement('div');
+    icon.style.width = '32px';
+    icon.style.height = '32px';
+    icon.style.backgroundImage = getItemImage(cat.icon);
+    icon.style.backgroundSize = 'cover';
+    icon.style.imageRendering = 'pixelated';
+    tab.appendChild(icon);
+
+    tab.addEventListener('mousedown', () => {
+        currentCategory = catKey;
+        updateTabsUI();
+        populateCreativeGrid();
+    });
+
+    if (isTop) topTabsRow.appendChild(tab);
+    else bottomTabsRow.appendChild(tab);
+    
+    allTabsUI.push({ key: catKey, elem: tab, isTop: isTop });
+}
+
+// Layout Tabs
+const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'tools', 'search'];
+topKeys.forEach(k => createTab(k, true));
+
+function updateTabsUI() {
+    allTabsUI.forEach(tabObj => {
+        if (tabObj.key === currentCategory) {
+            tabObj.elem.style.backgroundColor = '#c6c6c6';
+            tabObj.elem.style.height = '64px';
+            tabObj.elem.style.zIndex = '10';
+        } else {
+            tabObj.elem.style.backgroundColor = '#8b8b8b';
+            tabObj.elem.style.height = '56px';
+            tabObj.elem.style.zIndex = '1';
+        }
+    });
+
+    creativeTitle.innerText = CATEGORIES[currentCategory].name;
+    
+    if (currentCategory === 'search') {
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_item_search.png)`;
+        searchRow.style.display = 'block';
+        creativeTitle.style.display = 'none';
+        creativeGridContainer.style.top = '48px'; 
+        creativeGridContainer.style.height = '144px';
+        setTimeout(() => searchInput.focus(), 50);
+    } else {
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
+        searchRow.style.display = 'none';
+        creativeTitle.style.display = 'block';
+        creativeGridContainer.style.top = '36px';
+        creativeGridContainer.style.height = '180px';
+    }
+}
+
+// Populate Grid
+function populateCreativeGrid() {
+    creativeGrid.innerHTML = '';
+    
+    let blocksToShow = CATEGORIES[currentCategory].blocks;
+    
+    if (currentCategory === 'search') {
+        const query = searchInput.value.toLowerCase();
+        blocksToShow = ALL_BLOCKS.filter(b => 
+            !b.includes('_inner') && !b.includes('_outer') && b !== 'air' && b.includes(query)
+        );
+    }
+
+    blocksToShow.forEach(bName => {
+        const slot = document.createElement('div');
+        slot.style.width = '36px';
+        slot.style.height = '36px';
+        slot.style.backgroundColor = 'transparent';
+        slot.style.position = 'relative';
+        slot.style.cursor = 'pointer';
+        slot.style.boxSizing = 'border-box';
+        slot.style.padding = '2px';
+        slot.style.backgroundOrigin = 'content-box';
+        slot.style.backgroundClip = 'content-box';
+        slot.style.backgroundImage = getItemImage(bName);
+        slot.style.backgroundSize = 'cover';
+        slot.style.imageRendering = 'pixelated';
+
+        slot.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            if (e.button === 0) {
+                if (heldItem.type === bName) {
+                    heldItem.count = 64; // Max stack
+                } else if (!heldItem.type || heldItem.type !== bName) {
+                    heldItem.type = bName;
+                    heldItem.count = 64;
+                }
+                updateInventoryUI();
+            }
+        });
+        
+        creativeGrid.appendChild(slot);
+    });
+}
+
+// Setup Hotbar slots inside Creative UI
+const creativeHotbarSlotsUI = [];
+for (let i = 0; i < 9; i++) {
     const slot = document.createElement('div');
-    slot.style.width = '44px';
-    slot.style.height = '44px';
-    slot.style.backgroundColor = '#8b8b8b';
-    slot.style.boxShadow = 'inset -2px -2px 0 #fff, inset 2px 2px 0 #373737';
+    slot.style.width = '36px';
+    slot.style.height = '36px';
+    slot.style.backgroundColor = 'transparent';
     slot.style.position = 'relative';
     slot.style.cursor = 'pointer';
+    slot.style.boxSizing = 'border-box';
+    slot.style.padding = '2px';
+    slot.style.backgroundOrigin = 'content-box';
+    slot.style.backgroundClip = 'content-box';
     
     const countLabel = document.createElement('span');
     countLabel.style.position = 'absolute';
@@ -349,7 +597,7 @@ for (let i = 0; i < INVENTORY_SIZE; i++) {
     countLabel.style.color = 'white';
     countLabel.style.fontWeight = 'bold';
     countLabel.style.fontFamily = 'monospace';
-    countLabel.style.fontSize = '14px';
+    countLabel.style.fontSize = '12px';
     countLabel.style.textShadow = '1px 1px 0 #000';
     slot.appendChild(countLabel);
     
@@ -375,15 +623,12 @@ for (let i = 0; i < INVENTORY_SIZE; i++) {
         }
     });
 
-    if (i < 9) {
-        invHotbarGrid.appendChild(slot);
-    } else {
-        mainGrid.appendChild(slot);
-    }
-    allSlotsUI.push({ div: slot, label: countLabel });
+    creativeHotbarGrid.appendChild(slot);
+    creativeHotbarSlotsUI.push({ div: slot, label: countLabel });
 }
 
 function updateInventoryUI() {
+    // Update main game Hotbar
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
@@ -403,15 +648,17 @@ function updateInventoryUI() {
         }
     }
     
-    for (let i = 0; i < INVENTORY_SIZE; i++) {
+    // Update Creative UI Hotbar
+    for (let i = 0; i < 9; i++) {
         const item = inventory[i];
-        const ui = allSlotsUI[i];
+        const ui = creativeHotbarSlotsUI[i];
         ui.div.style.backgroundImage = getItemImage(item.type);
         ui.div.style.backgroundSize = 'cover';
         ui.div.style.imageRendering = 'pixelated';
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
+    // Update Held Item Cursor
     if (heldItem.type) {
         heldItemUI.style.display = 'block';
         heldItemUI.style.backgroundImage = getItemImage(heldItem.type);
@@ -422,6 +669,17 @@ function updateInventoryUI() {
         heldItemUI.style.display = 'none';
     }
 }
+
+// Clicking outside inventory to drop held item (Creative Mode Delete)
+document.addEventListener('mousedown', (e) => {
+    if (creativeInventoryScreen.style.display === 'flex' && heldItem.type) {
+        if (!creativeInventoryScreen.contains(e.target)) {
+            heldItem.type = null;
+            heldItem.count = 0;
+            updateInventoryUI();
+        }
+    }
+});
 
 function addItemToInventory(type, amount) {
     for (let i = 0; i < INVENTORY_SIZE; i++) {
@@ -446,6 +704,9 @@ function addItemToInventory(type, amount) {
     updateInventoryUI();
 }
 
+// Init
+updateTabsUI();
+populateCreativeGrid();
 updateInventoryUI();
 
 // ----------------------------------------------------
@@ -2140,9 +2401,9 @@ function isPlayerCollidingWithBlock(bx, by, bz, blockName) {
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 document.addEventListener('mousedown', (e) => {
-    if (e.target.closest('#inventory-screen') || e.target.closest('#hotbar')) return; 
+    if (e.target.closest('#creative-inventory-screen') || e.target.closest('#hotbar')) return; 
     
-    if (!document.pointerLockElement && inventoryScreen.style.display === 'none') {
+    if (!document.pointerLockElement && creativeInventoryScreen.style.display === 'none') {
         renderer.domElement.requestPointerLock();
     } else if (document.pointerLockElement) {
         if (e.button === 0) {
@@ -2239,20 +2500,29 @@ document.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
-    keys[e.key.toLowerCase()] = true;
+    // Only capture movement keys if we aren't typing in the search bar
+    if (document.activeElement !== searchInput) {
+        keys[e.key.toLowerCase()] = true;
+    }
     
     if (e.key.toLowerCase() === 'e') {
-        if (inventoryScreen.style.display === 'none') {
-            inventoryScreen.style.display = 'flex';
+        if (document.activeElement === searchInput) {
+            // If typing 'e' in search, do nothing (let it type)
+            return;
+        }
+        
+        if (creativeInventoryScreen.style.display === 'none') {
+            creativeInventoryScreen.style.display = 'flex';
             crosshair.style.display = 'none';
             document.exitPointerLock();
             keys = {}; 
+            populateCreativeGrid();
         } else {
-            inventoryScreen.style.display = 'none';
+            creativeInventoryScreen.style.display = 'none';
             crosshair.style.display = 'block';
             
             if (heldItem.type) {
-                addItemToInventory(heldItem.type, heldItem.count);
+                // Drop held item if closing inventory
                 heldItem = { type: null, count: 0 };
                 updateInventoryUI();
             }
@@ -2260,17 +2530,21 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
-    if (e.key >= '1' && e.key <= '9' && inventoryScreen.style.display === 'none') {
+    if (e.key >= '1' && e.key <= '9' && creativeInventoryScreen.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
         updateInventoryUI();
     }
 });
 
-window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+window.addEventListener('keyup', (e) => {
+    if (document.activeElement !== searchInput) {
+        keys[e.key.toLowerCase()] = false;
+    }
+});
 
 let lastScrollTime = 0; 
 window.addEventListener('wheel', (e) => {
-    if (document.pointerLockElement && inventoryScreen.style.display === 'none') {
+    if (document.pointerLockElement && creativeInventoryScreen.style.display === 'none') {
         const now = Date.now();
         if (now - lastScrollTime < 50) return; 
         lastScrollTime = now;
@@ -2359,7 +2633,7 @@ function animate() {
         generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
     }
 
-    if (isLeftMouseDown && !mining.active && document.pointerLockElement && inventoryScreen.style.display === 'none') {
+    if (isLeftMouseDown && !mining.active && document.pointerLockElement && creativeInventoryScreen.style.display === 'none') {
         const hit = getTarget();
         if (hit) startMining(hit);
     }
