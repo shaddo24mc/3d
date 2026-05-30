@@ -599,48 +599,96 @@ const ORE_CONFIG = {
 const loader = new THREE.TextureLoader();
 const animatedTextures = [];
 
-// --- UNIVERSAL TEXTURE LOADER (Like Real Minecraft!) ---
+// --- UNIVERSAL TEXTURE LOADER (CPU CANVAS UPGRADE) ---
+// This uses a hidden invisible Canvas to perfectly slice the animation frames
+// without GPU sub-pixel bleeding, and mathematically cross-fades them!
 const loadTex = (filename, isItem = false) => {
     const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
     
-    // 1. Load the image (which might be a long film strip)
-    const t = loader.load(`${dir}${filename}.png`, (loadedImage) => {
-        
-        // 2. Automatically look for the .mcmeta file next to it
-        fetch(`${dir}${filename}.png.mcmeta`).then(r => {
-            if(r.ok) return r.json();
-            throw new Error("Static Texture");
-        }).then(mcmeta => {
-            if (!mcmeta || !mcmeta.animation) return;
-            
-            const totalFrames = loadedImage.image.height / loadedImage.image.width;
-            if (totalFrames <= 1) return;
-            
-            t.wrapS = THREE.RepeatWrapping;
-            t.wrapT = THREE.RepeatWrapping;
-            t.repeat.set(1, 1 / totalFrames);
-            t.offset.y = 1 - (1 / totalFrames);
-
-            let frames = mcmeta.animation.frames;
-            if (!frames) {
-                frames = [];
-                for(let i = 0; i < totalFrames; i++) frames.push(i);
-            }
-
-            animatedTextures.push({
-                texture: t,
-                frames: frames,
-                defaultTickRate: mcmeta.animation.frametime || 1,
-                totalFrames: totalFrames,
-                currentArrayIdx: 0,
-                timer: 0
-            });
-        }).catch(e => { /* No mcmeta found, just act like a normal static block */ });
-    });
-    
+    const t = new THREE.Texture();
     t.magFilter = THREE.NearestFilter;
     t.minFilter = THREE.NearestFilter;
-    t.generateMipmaps = false; 
+    t.generateMipmaps = false;
+
+    loader.load(
+        `${dir}${filename}.png`,
+        (loadedImage) => {
+            t.image = loadedImage.image;
+            t.needsUpdate = true;
+
+            // Automatically look for the .mcmeta file next to it
+            fetch(`${dir}${filename}.png.mcmeta`).then(r => {
+                if(r.ok) return r.json();
+                throw new Error("Static Texture");
+            }).then(mcmeta => {
+                if (!mcmeta || !mcmeta.animation) return;
+                
+                const totalFrames = loadedImage.image.height / loadedImage.image.width;
+                if (totalFrames <= 1) return;
+                
+                // --- ANIMATION FOUND! Switch to CPU Canvas Mode ---
+                const fw = loadedImage.image.width;
+                const cvs = document.createElement('canvas');
+                cvs.width = fw; cvs.height = fw;
+                // willReadFrequently optimizes cross-fading for the GPU
+                const ctx = cvs.getContext('2d', { willReadFrequently: true });
+                
+                t.image = cvs;
+                // We no longer need GPU offsets, the Canvas is always exactly 1 frame!
+                t.wrapS = THREE.ClampToEdgeWrapping;
+                t.wrapT = THREE.ClampToEdgeWrapping;
+                t.repeat.set(1, 1);
+                t.offset.set(0, 0);
+
+                let frames = mcmeta.animation.frames;
+                if (!frames) {
+                    frames = [];
+                    for(let i = 0; i < totalFrames; i++) frames.push(i);
+                }
+
+                animatedTextures.push({
+                    texture: t,
+                    ctx: ctx,
+                    sourceImage: loadedImage.image,
+                    frames: frames,
+                    defaultTickRate: mcmeta.animation.frametime || 2,
+                    totalFrames: totalFrames,
+                    currentArrayIdx: 0,
+                    timer: 0,
+                    interpolate: mcmeta.animation.interpolate || false, // Detect smooth fading!
+                    frameWidth: fw
+                });
+            }).catch(e => { /* No mcmeta found, just act like a normal static block */ });
+        },
+        undefined,
+        (err) => {
+            // FALLBACK FOR BROWSER CANVAS
+            const fallbackTex = generateFallbackTexture(filename);
+            t.image = fallbackTex.image;
+            t.needsUpdate = true;
+            
+            if (filename.includes('animated')) {
+                const cvs = document.createElement('canvas');
+                cvs.width = 16; cvs.height = 16;
+                const ctx = cvs.getContext('2d');
+                t.image = cvs;
+
+                animatedTextures.push({
+                    texture: t,
+                    ctx: ctx,
+                    sourceImage: fallbackTex.image,
+                    frames: [0,1,2,3],
+                    defaultTickRate: 10,
+                    totalFrames: 4,
+                    currentArrayIdx: 0,
+                    timer: 0,
+                    interpolate: true, // Force interpolation on for demo
+                    frameWidth: 16
+                });
+            }
+        }
+    );
+    
     return t;
 };
 
@@ -2107,37 +2155,56 @@ function animate() {
     updateChunks();
     updateDayNightCycle(delta); 
 
-    // --- PROCESS ANIMATED TEXTURES ---
+    // --- PROCESS SMOOTH ANIMATED TEXTURES ---
     const deltaMs = delta * 1000;
     for (let anim of animatedTextures) {
         anim.timer += deltaMs;
         
         let currentFrameData = anim.frames[anim.currentArrayIdx];
         let tickDuration = anim.defaultTickRate;
-        let actualFrameIndex = currentFrameData;
         
-        // Sometimes the .mcmeta has specific times for specific frames like: {"index": 0, "time": 10}
         if (typeof currentFrameData === 'object') {
-            actualFrameIndex = currentFrameData.index;
             tickDuration = currentFrameData.time;
         }
         
-        // 1 Minecraft Tick = 50 milliseconds
-        const frameDurationMs = tickDuration * 50; 
-        
-        // Is it time to change to the next frame?
-        if (anim.timer >= frameDurationMs) {
-            anim.timer -= frameDurationMs; // Reset the timer
-            
-            // Move to the next frame in the sequence (looping back to start if at the end)
+        const frameDurationMs = Math.max(1, tickDuration * 50); 
+        let frameChanged = false;
+
+        // Step up frames safely if we lagged
+        while (anim.timer >= frameDurationMs) {
+            anim.timer -= frameDurationMs; 
             anim.currentArrayIdx = (anim.currentArrayIdx + 1) % anim.frames.length;
+            frameChanged = true;
+        }
+
+        // Only redraw the canvas if the frame changed, OR if interpolation is enabled
+        if (anim.interpolate || frameChanged) {
+            let nextArrayIdx = (anim.currentArrayIdx + 1) % anim.frames.length;
             
-            // Figure out the new frame's actual position on the strip
-            currentFrameData = anim.frames[anim.currentArrayIdx];
-            actualFrameIndex = typeof currentFrameData === 'object' ? currentFrameData.index : currentFrameData;
+            let cData = anim.frames[anim.currentArrayIdx];
+            let nData = anim.frames[nextArrayIdx];
             
-            // Slide the "film strip" up or down to show the exact right frame!
-            anim.texture.offset.y = 1 - ((actualFrameIndex + 1) * (1 / anim.totalFrames));
+            let cIndex = typeof cData === 'object' ? cData.index : cData;
+            let nIndex = typeof nData === 'object' ? nData.index : nData;
+            
+            let fw = anim.frameWidth;
+            
+            // 1. Wipe the invisible canvas
+            anim.ctx.clearRect(0, 0, fw, fw);
+            
+            // 2. Draw the exact current frame
+            anim.ctx.globalAlpha = 1.0;
+            anim.ctx.drawImage(anim.sourceImage, 0, cIndex * fw, fw, fw, 0, 0, fw, fw);
+            
+            // 3. Smooth Crossfade Interpolation (Like Sculk/Water)
+            if (anim.interpolate) {
+                let fadeRatio = anim.timer / frameDurationMs;
+                anim.ctx.globalAlpha = fadeRatio;
+                anim.ctx.drawImage(anim.sourceImage, 0, nIndex * fw, fw, fw, 0, 0, fw, fw);
+            }
+            
+            // 4. Send updated clean image to the 3D block!
+            anim.texture.needsUpdate = true;
         }
     }
 
