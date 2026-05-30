@@ -600,7 +600,6 @@ const animatedTextures = [];
 const imageLoader = new THREE.ImageLoader();
 imageLoader.setCrossOrigin('anonymous');
 
-// --- UNIVERSAL TEXTURE LOADER ---
 const loadTex = (filename, isItem = false) => {
     const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
     
@@ -669,7 +668,6 @@ const loadTex = (filename, isItem = false) => {
     return t;
 };
 
-// Global Materials Registry
 const materials = {};
 
 const destroyTextures = [];
@@ -685,9 +683,6 @@ const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
 
-// ----------------------------------------------------
-// Biomes & Spawning Configuration
-// ----------------------------------------------------
 const BIOME_REGISTRY = [
     { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20, treeType: 'oak' },
     { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8, treeType: 'oak' },
@@ -733,9 +728,6 @@ const placedBlocks = new Map();
 const treeOverhangs = new Map(); 
 const chunksToRebuild = new Set(); 
 
-// ----------------------------------------------------
-// Core Functions: Blocks & Snowy Block Status
-// ----------------------------------------------------
 function getGlobalBlock(gx, gy, gz) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return null;
     let cx = Math.floor(gx / chunkSize);
@@ -957,9 +949,6 @@ function mergeBufferGeometries(geos) {
     return mergedGeo;
 }
 
-// ----------------------------------------------------
-// 3D Voxel Flood-Fill Lighting Engine 
-// ----------------------------------------------------
 function computeChunkLight(blocks) {
     const lightMap = new Uint8Array(chunkSize * chunkSize * worldHeight);
     const queue = new Int32Array(chunkSize * chunkSize * worldHeight * 2);
@@ -1025,13 +1014,8 @@ function computeChunkLight(blocks) {
     return lightMap;
 }
 
-// ----------------------------------------------------
-// DYNAMIC ASSET PIPELINE (Textures & Model Bounds)
-// ----------------------------------------------------
 const customGeometries = {};
 
-// Asynchronously builds missing materials and shapes customized 3D geometry
-// bounds for non-standard blocks by directly parsing JSON Elements arrays
 async function loadCustomModel(bName) {
     if (customGeometries[bName]) return; 
 
@@ -1048,36 +1032,31 @@ async function loadCustomModel(bName) {
 
     try {
         let modelPath = bName;
-        let variantRotX = 0;
-        let variantRotY = 0;
 
         const state = await JSONReader.getBlockstate(bName);
         
         // --- BLOCKSTATE VARIANT PARSER UPGRADE ---
-        // Dynamically finds the correct sub-model and starting rotation for complex blocks (Stairs/Fences)
+        // Dynamically finds the correct sub-model.
+        // FIX: We deliberately IGNORE variant.x and variant.y here!
+        // Baking pre-rotations into the base geometry ruined our dynamic orientation math.
         if (state && state.variants) {
             let variantKey = "";
             if (state.variants[""] !== undefined) {
                 variantKey = "";
             } else {
-                variantKey = Object.keys(state.variants)[0]; // Grab first available (e.g. facing=east...)
+                variantKey = Object.keys(state.variants)[0]; 
             }
             
             let variant = state.variants[variantKey];
-            if (Array.isArray(variant)) variant = variant[0]; // If randomized, grab the first definition
+            if (Array.isArray(variant)) variant = variant[0]; 
             
             if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
-            if (variant.x) variantRotX = THREE.MathUtils.degToRad(variant.x);
-            if (variant.y) variantRotY = THREE.MathUtils.degToRad(variant.y);
-            
         } else if (state && state.multipart) {
-            let part = state.multipart[0]; // Grab the core post of the fence/wall
+            let part = state.multipart[0]; 
             let variant = part.apply;
             if (Array.isArray(variant)) variant = variant[0];
             
             if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
-            if (variant.x) variantRotX = THREE.MathUtils.degToRad(variant.x);
-            if (variant.y) variantRotY = THREE.MathUtils.degToRad(variant.y);
         }
 
         let currentModel = await JSONReader.getModel(modelPath);
@@ -1175,9 +1154,7 @@ async function loadCustomModel(bName) {
                     Math.max(0.001, d + expand)
                 );
                 
-                // Centering the geometry so native model rotations execute cleanly around the middle of the block!
                 geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
-                
                 geo.clearGroups();
 
                 if (el.faces) {
@@ -1230,11 +1207,6 @@ async function loadCustomModel(bName) {
                         }
                     }
                 }
-                
-                // Set the baseline rotation for stairs and models based off their default JSON configuration!
-                if (variantRotX !== 0) geo.rotateX(variantRotX);
-                if (variantRotY !== 0) geo.rotateY(variantRotY);
-                
                 elementGeometries.push(geo);
             }
             
@@ -1260,9 +1232,6 @@ async function loadCustomModel(bName) {
     }
 }
 
-// ----------------------------------------------------
-// Core Chunk Generation Engine
-// ----------------------------------------------------
 async function generateChunk(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     if (activeChunks[chunkId]) return;
@@ -1587,21 +1556,20 @@ async function generateChunk(chunkX, chunkZ) {
                         let rot = [0, 0, 0];
                         let blockKey = `${startX + x},${actualY},${startZ + z}`;
                         
-                        // --- DYNAMIC PLACEMENT & RANDOMIZED TEXTURES ---
                         if (placedBlocks.has(blockKey)) {
                             let placed = placedBlocks.get(blockKey);
                             if (typeof placed === 'object' && placed.rotation) {
                                 rot = placed.rotation;
                             }
                         } else {
-                            // If this was naturally generated, randomize rotations of natural ground blocks so they don't look tiled/repeating!
                             if (['grass_block', 'stone', 'dirt', 'coarse_dirt', 'sand', 'red_sand', 'deepslate', 'bedrock', 'netherrack', 'end_stone'].includes(bName)) {
                                 let rHash = Math.floor(getDeterministicRandom(startX + x, actualY, startZ + z) * 4);
                                 rot = [0, rHash * (Math.PI / 2), 0];
                             }
                         }
 
-                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+                        // Use YXZ to guarantee the flipping math works perfectly over top of the Y-axis rotation
+                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
                         matrix.setPosition(startX + x, actualY, startZ + z);
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj); 
@@ -1624,9 +1592,6 @@ async function generateChunk(chunkX, chunkZ) {
     activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
 }
 
-// ----------------------------------------------------
-// Async Chunk Rebuilding (Dynamic Block Updates)
-// ----------------------------------------------------
 async function rebuildChunkGeometry(chunkX, chunkZ) {
     const chunkId = `${chunkX},${chunkZ}`;
     const chunkData = activeChunks[chunkId];
@@ -1734,7 +1699,6 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                         let rot = [0, 0, 0];
                         let blockKey = `${globalX},${actualY},${globalZ}`;
                         
-                        // --- DYNAMIC PLACEMENT & RANDOMIZED TEXTURES ---
                         if (placedBlocks.has(blockKey)) {
                             let placed = placedBlocks.get(blockKey);
                             if (typeof placed === 'object' && placed.rotation) {
@@ -1747,7 +1711,8 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                             }
                         }
 
-                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+                        // Use YXZ to guarantee the flipping math works perfectly over top of the Y-axis rotation
+                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
                         matrix.setPosition(globalX, actualY, globalZ);
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj);
@@ -1919,7 +1884,6 @@ let isLeftMouseDown = false;
 const raycaster = new THREE.Raycaster(); raycaster.far = 6;
 let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
 
-// Drops setup
 const droppedItems = [];
 const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
 
@@ -2079,14 +2043,12 @@ document.addEventListener('mousedown', (e) => {
                     let t = selectedItem.type;
                     
                     // --- DYNAMIC BLOCK PLACEMENT ROTATIONS ---
-                    // Orient Logs and Pillars based on the face that was clicked
                     if (t.includes('log') || t.includes('pillar') || t === 'basalt' || t === 'polished_basalt' || t === 'bone_block' || t === 'purpur_pillar' || t === 'quartz_pillar' || t === 'hay_block') {
                         let axis = 'y';
                         if (Math.abs(hit.face.normal.x) > 0.5) axis = 'x';
                         if (Math.abs(hit.face.normal.z) > 0.5) axis = 'z';
                         rotation = JSONReader.getRotationForAxis(axis);
                     } 
-                    // Orient stairs to face your camera, and flip upside down if placed on ceilings
                     else if (t.includes('stairs')) {
                         let ry = yaw % (Math.PI * 2);
                         if (ry < 0) ry += Math.PI * 2;
@@ -2098,21 +2060,22 @@ document.addEventListener('mousedown', (e) => {
                         else stairRotY = 0; // Look East
 
                         let rx = 0;
-                        if (hit.face.normal.y === -1) rx = Math.PI; // Upside down (hit ceiling)
-                        else if (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5) rx = Math.PI; // Hit upper half of wall
+                        if (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5)) {
+                            rx = Math.PI;
+                            stairRotY = -stairRotY; // Invert to compensate for XYZ upside-down flip math
+                        }
                         
                         rotation = [rx, stairRotY, 0];
                     }
-                    // Orient face-front items like furnaces, chests, pumpkins towards the player
                     else if (t.includes('furnace') || t === 'chest' || t === 'carved_pumpkin' || t === 'jack_o_lantern' || t === 'loom' || t === 'observer' || t === 'dispenser' || t === 'dropper') {
                         let ry = yaw % (Math.PI * 2);
                         if (ry < 0) ry += Math.PI * 2;
                         
                         let rotY = 0;
-                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = 0; 
-                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = Math.PI/2; 
-                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = Math.PI; 
-                        else rotY = -Math.PI/2; 
+                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; // Face South
+                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; // Face East
+                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; // Face North
+                        else rotY = Math.PI/2; // Face West
                         
                         rotation = [0, rotY, 0];
                     }
