@@ -1080,13 +1080,22 @@ async function loadCustomModel(bName) {
             
             let tex = loadTex(texPath);
             let mat;
-            if (TRANSPARENT_BLOCKS.has(bName) || texPath.includes('leaves') || texPath.includes('glass')) {
+            let isOverlay = texPath.includes('overlay');
+
+            if (TRANSPARENT_BLOCKS.has(bName) || texPath.includes('leaves') || texPath.includes('glass') || isOverlay) {
                 mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+                // Push the overlay slightly forward so it doesn't z-fight with the base block
+                if (isOverlay) {
+                    mat.depthWrite = false;
+                    mat.polygonOffset = true;
+                    mat.polygonOffsetFactor = -1;
+                    mat.polygonOffsetUnits = -1;
+                }
             } else {
                 mat = new THREE.MeshStandardMaterial({ map: tex });
             }
             
-            if (texPath === 'grass_block_top' || texPath === 'vine') {
+            if (texPath === 'grass_block_top' || texPath === 'vine' || texPath === 'grass_block_side_overlay') {
                 mat.color.setHex(0x71b054); 
             } else if (texPath.includes('leaves')) {
                 mat.color.setHex(0x71b054);
