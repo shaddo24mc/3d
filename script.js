@@ -765,12 +765,43 @@ function evaluateStair(x, y, z) {
     let backDir = (f + 2) % 4;
     let frontDir = f;
     
-    let backStair = getStairData(x + DIRS[backDir][0], y, z + DIRS[backDir][2]);
-    let frontStair = getStairData(x + DIRS[frontDir][0], y, z + DIRS[frontDir][2]);
+    let sFront = getStairData(x + DIRS[frontDir][0], y, z + DIRS[frontDir][2]);
+    let sBack = getStairData(x + DIRS[backDir][0], y, z + DIRS[backDir][2]);
     
     let shape = 'straight';
-    let rotY = 0;
+    let leftOfF = (f + 1) % 4;
+
+    // Helper: checks if the block in `checkDir` prevents a corner from forming
+    const canTakeShape = (checkDir) => {
+        let n = getStairData(x + DIRS[checkDir][0], y, z + DIRS[checkDir][2]);
+        // If it's a stair of the same half facing the exact same way as us, we cannot take the shape
+        if (n && n.half === s.half && n.facing === f) {
+            return false;
+        }
+        return true;
+    };
     
+    // 1. Evaluate FRONT for OUTER corners (Real Minecraft prioritizes Outer first)
+    if (sFront && sFront.half === s.half && sFront.facing !== f && (sFront.facing % 2 !== f % 2)) {
+        let oppFrontDir = (sFront.facing + 2) % 4;
+        if (canTakeShape(oppFrontDir)) {
+            if (sFront.facing === leftOfF) shape = 'outer_left';
+            else shape = 'outer_right';
+        }
+    }
+    
+    // 2. Evaluate BACK for INNER corners
+    if (shape === 'straight') {
+        if (sBack && sBack.half === s.half && sBack.facing !== f && (sBack.facing % 2 !== f % 2)) {
+            let backDirFace = sBack.facing;
+            if (canTakeShape(backDirFace)) {
+                if (sBack.facing === leftOfF) shape = 'inner_left';
+                else shape = 'inner_right';
+            }
+        }
+    }
+    
+    let rotY = 0;
     if (f === 0) rotY = 0; 
     else if (f === 1) rotY = Math.PI/2; 
     else if (f === 2) rotY = Math.PI; 
@@ -778,18 +809,6 @@ function evaluateStair(x, y, z) {
     
     if (s.half === 'top') {
         rotY = -rotY;
-    }
-    
-    let leftOfF = (f + 1) % 4;
-    let rightOfF = (f + 3) % 4;
-    
-    if (backStair && backStair.half === s.half && backStair.facing !== f) {
-        if (backStair.facing === leftOfF) { shape = 'inner_left'; }
-        else if (backStair.facing === rightOfF) { shape = 'inner_right'; }
-    }
-    else if (frontStair && frontStair.half === s.half && frontStair.facing !== f) {
-        if (frontStair.facing === leftOfF) { shape = 'outer_left'; }
-        else if (frontStair.facing === rightOfF) { shape = 'outer_right'; }
     }
     
     let finalType = s.baseName;
@@ -803,9 +822,12 @@ function evaluateStair(x, y, z) {
     let rx = s.half === 'top' ? Math.PI : 0;
     
     let existing = placedBlocks.get(`${x},${y},${z}`);
+    let targetTypeId = TYPE[finalType];
     
-    // Update both the placement map and the chunk's internal block array so it renders immediately
-    setGlobalBlock(x, y, z, { ...existing, type: TYPE[finalType], rotation: [rx, finalRotY, 0] });
+    // Optimization: Only push the update if the stair's visual state actually changed
+    if (!existing || existing.type !== targetTypeId || !existing.rotation || existing.rotation[0] !== rx || existing.rotation[1] !== finalRotY) {
+        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0] });
+    }
 }
 
 function updateStairConnections(x, y, z) {
