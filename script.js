@@ -1215,6 +1215,47 @@ async function loadCustomModel(bName) {
                 // Protect against flat planes (0 thickness) which break BoxGeometry
                 const geo = new THREE.BoxGeometry(Math.max(0.001, w), Math.max(0.001, h), Math.max(0.001, d));
                 geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
+                
+                // --- NEW UV MAPPING ENGINE ---
+                if (el.faces) {
+                    const uvs = geo.attributes.uv;
+                    // Match Minecraft face names to Three.js BoxGeometry face indices
+                    const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
+                    
+                    for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
+                        const faceData = el.faces[mcFace];
+                        let u1 = 0, v1 = 0, u2 = 1, v2 = 1;
+
+                        if (faceData && faceData.uv) {
+                            // The JSON explicitly tells us which pixels to crop!
+                            u1 = faceData.uv[0] / 16;
+                            v1 = faceData.uv[1] / 16;
+                            u2 = faceData.uv[2] / 16;
+                            v2 = faceData.uv[3] / 16;
+                        } else {
+                            // If missing, Minecraft auto-calculates the crop based on the block's physical dimensions
+                            if (mcFace === 'up' || mcFace === 'down') {
+                                u1 = el.from[0]/16; v1 = el.from[2]/16; u2 = el.to[0]/16; v2 = el.to[2]/16;
+                            } else if (mcFace === 'north' || mcFace === 'south') {
+                                u1 = el.from[0]/16; v1 = 1 - el.to[1]/16; u2 = el.to[0]/16; v2 = 1 - el.from[1]/16;
+                            } else {
+                                u1 = el.from[2]/16; v1 = 1 - el.to[1]/16; u2 = el.to[2]/16; v2 = 1 - el.from[1]/16;
+                            }
+                        }
+
+                        // Convert Minecraft's Top-Left origin to Three.js Bottom-Left origin
+                        let tv1 = 1 - v1; // top edge
+                        let tv2 = 1 - v2; // bottom edge
+
+                        // Paint the 4 corners of the current face
+                        let vIdx = faceIdx * 4;
+                        uvs.setXY(vIdx + 0, u1, tv1); // Top Left
+                        uvs.setXY(vIdx + 1, u2, tv1); // Top Right
+                        uvs.setXY(vIdx + 2, u1, tv2); // Bottom Left
+                        uvs.setXY(vIdx + 3, u2, tv2); // Bottom Right
+                    }
+                }
+
                 elementGeometries.push(geo);
             }
             
