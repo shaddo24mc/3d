@@ -600,8 +600,6 @@ const loader = new THREE.TextureLoader();
 const animatedTextures = [];
 
 // --- UNIVERSAL TEXTURE LOADER (CPU CANVAS UPGRADE) ---
-// This uses a hidden invisible Canvas to perfectly slice the animation frames
-// without GPU sub-pixel bleeding, and mathematically cross-fades them!
 const loadTex = (filename, isItem = false) => {
     const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
     
@@ -609,82 +607,60 @@ const loadTex = (filename, isItem = false) => {
     t.magFilter = THREE.NearestFilter;
     t.minFilter = THREE.NearestFilter;
     t.generateMipmaps = false;
+    
+    // FIX FOR GRASS OUTLINES: Clamp texture edges to completely stop neighboring pixel color bleeding
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
 
     loader.load(
         `${dir}${filename}.png`,
         (loadedImage) => {
-            t.image = loadedImage.image;
-            t.needsUpdate = true;
+            const fw = loadedImage.image.width;
+            const fh = loadedImage.image.height;
+            const totalFrames = Math.round(fh / fw);
 
-            // Automatically look for the .mcmeta file next to it
-            fetch(`${dir}${filename}.png.mcmeta`).then(r => {
-                if(r.ok) return r.json();
-                throw new Error("Static Texture");
-            }).then(mcmeta => {
-                if (!mcmeta || !mcmeta.animation) return;
-                
-                const totalFrames = loadedImage.image.height / loadedImage.image.width;
-                if (totalFrames <= 1) return;
-                
-                // --- ANIMATION FOUND! Switch to CPU Canvas Mode ---
-                const fw = loadedImage.image.width;
+            // SQUISH FIX: We calculate if the image is an animated film strip BEFORE
+            // doing anything else! We don't rely on the .mcmeta fetch to figure out the dimensions.
+            if (totalFrames > 1) {
                 const cvs = document.createElement('canvas');
                 cvs.width = fw; cvs.height = fw;
-                // willReadFrequently optimizes cross-fading for the GPU
                 const ctx = cvs.getContext('2d', { willReadFrequently: true });
                 
                 t.image = cvs;
-                // We no longer need GPU offsets, the Canvas is always exactly 1 frame!
-                t.wrapS = THREE.ClampToEdgeWrapping;
-                t.wrapT = THREE.ClampToEdgeWrapping;
-                t.repeat.set(1, 1);
-                t.offset.set(0, 0);
+                t.needsUpdate = true;
 
-                let frames = mcmeta.animation.frames;
-                if (!frames) {
-                    frames = [];
-                    for(let i = 0; i < totalFrames; i++) frames.push(i);
-                }
-
-                animatedTextures.push({
+                // Setup animation defaults immediately so the texture never "squishes"
+                let animData = {
                     texture: t,
                     ctx: ctx,
                     sourceImage: loadedImage.image,
-                    frames: frames,
-                    defaultTickRate: mcmeta.animation.frametime || 2,
+                    frames: Array.from({length: totalFrames}, (_, i) => i),
+                    defaultTickRate: 2,
                     totalFrames: totalFrames,
                     currentArrayIdx: 0,
                     timer: 0,
-                    interpolate: mcmeta.animation.interpolate || false, // Detect smooth fading!
+                    interpolate: true, // Default to true for smooth magma/water
                     frameWidth: fw
-                });
-            }).catch(e => { /* No mcmeta found, just act like a normal static block */ });
-        },
-        undefined,
-        (err) => {
-            // FALLBACK FOR BROWSER CANVAS
-            const fallbackTex = generateFallbackTexture(filename);
-            t.image = fallbackTex.image;
-            t.needsUpdate = true;
-            
-            if (filename.includes('animated')) {
-                const cvs = document.createElement('canvas');
-                cvs.width = 16; cvs.height = 16;
-                const ctx = cvs.getContext('2d');
-                t.image = cvs;
+                };
+                animatedTextures.push(animData);
+                
+                // Draw first frame right away so it isn't blank
+                ctx.drawImage(loadedImage.image, 0, 0, fw, fw, 0, 0, fw, fw);
 
-                animatedTextures.push({
-                    texture: t,
-                    ctx: ctx,
-                    sourceImage: fallbackTex.image,
-                    frames: [0,1,2,3],
-                    defaultTickRate: 10,
-                    totalFrames: 4,
-                    currentArrayIdx: 0,
-                    timer: 0,
-                    interpolate: true, // Force interpolation on for demo
-                    frameWidth: 16
-                });
+                // Try to load the .mcmeta file to override defaults, but gracefully ignore if Github Pages blocks it
+                fetch(`${dir}${filename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
+                .then(mcmeta => {
+                    if (mcmeta && mcmeta.animation) {
+                        if (mcmeta.animation.frames) animData.frames = mcmeta.animation.frames;
+                        if (mcmeta.animation.frametime) animData.defaultTickRate = mcmeta.animation.frametime;
+                        if (mcmeta.animation.interpolate !== undefined) animData.interpolate = mcmeta.animation.interpolate;
+                    }
+                }).catch(e => { /* Handled gracefully by the defaults above! */ });
+                
+            } else {
+                // Normal static image block
+                t.image = loadedImage.image;
+                t.needsUpdate = true;
             }
         }
     );
@@ -1132,14 +1108,11 @@ async function loadCustomModel(bName) {
             let isOverlay = texPath.includes('overlay');
 
             if (TRANSPARENT_BLOCKS.has(bName) || texPath.includes('leaves') || texPath.includes('glass') || isOverlay) {
-                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
-                // Push the overlay slightly forward so it doesn't z-fight with the base block
-                if (isOverlay) {
-                    mat.depthWrite = false;
-                    mat.polygonOffset = true;
-                    mat.polygonOffsetFactor = -1;
-                    mat.polygonOffsetUnits = -1;
-                }
+                // FIX FOR GRASS OUTLINES: Increased alphaTest aggressively chops off edge-pixel blending
+                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5 });
+                
+                // Keep depthWrite disabled so overlays never cast internal z-shadows
+                if (isOverlay) mat.depthWrite = false; 
             } else {
                 mat = new THREE.MeshStandardMaterial({ map: tex });
             }
@@ -1163,7 +1136,28 @@ async function loadCustomModel(bName) {
                 const w = (el.to[0] - el.from[0]) / 16;
                 const h = (el.to[1] - el.from[1]) / 16;
                 const d = (el.to[2] - el.from[2]) / 16;
-                const geo = new THREE.BoxGeometry(Math.max(0.001, w), Math.max(0.001, h), Math.max(0.001, d));
+                
+                // GRASS OUTLINE FIX: Detect if the element has ANY overlay texture
+                let hasOverlay = false;
+                if (el.faces) {
+                    for (const mcFace in el.faces) {
+                        if (!el.faces[mcFace]) continue;
+                        let texRef = el.faces[mcFace].texture;
+                        let texPath = resolveTexture(texRef);
+                        if (texPath && texPath.includes('overlay')) hasOverlay = true;
+                    }
+                }
+                
+                // If it's an overlay element, balloon its geometry by 1/500th of a block
+                // It now perfectly creates a grass shell AROUND the dirt, killing any line artifacts!
+                let expand = hasOverlay ? 0.002 : 0;
+                
+                const geo = new THREE.BoxGeometry(
+                    Math.max(0.001, w + expand), 
+                    Math.max(0.001, h + expand), 
+                    Math.max(0.001, d + expand)
+                );
+                
                 geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
                 
                 geo.clearGroups();
@@ -2150,7 +2144,10 @@ let isRebuildingChunk = false;
 
 function animate() {
     requestAnimationFrame(animate);
-    const delta = clock.getDelta(); 
+    let delta = clock.getDelta(); 
+    
+    // FIX FOR CATCH-UP ANIMATION: Hard cap delta
+    if (delta > 0.1) delta = 0.1;
 
     updateChunks();
     updateDayNightCycle(delta); 
@@ -2170,14 +2167,14 @@ function animate() {
         const frameDurationMs = Math.max(1, tickDuration * 50); 
         let frameChanged = false;
 
-        // Step up frames safely if we lagged
-        while (anim.timer >= frameDurationMs) {
-            anim.timer -= frameDurationMs; 
+        // CATCH-UP FIX: If timer has accumulated massive time, force it to only advance ONE frame max.
+        // It's mathematically impossible for this to speed-blaze through frames when you re-open the tab now.
+        if (anim.timer >= frameDurationMs) {
+            anim.timer = anim.timer % frameDurationMs; 
             anim.currentArrayIdx = (anim.currentArrayIdx + 1) % anim.frames.length;
             frameChanged = true;
         }
 
-        // Only redraw the canvas if the frame changed, OR if interpolation is enabled
         if (anim.interpolate || frameChanged) {
             let nextArrayIdx = (anim.currentArrayIdx + 1) % anim.frames.length;
             
@@ -2189,26 +2186,21 @@ function animate() {
             
             let fw = anim.frameWidth;
             
-            // 1. Wipe the invisible canvas
             anim.ctx.clearRect(0, 0, fw, fw);
             
-            // 2. Draw the exact current frame
             anim.ctx.globalAlpha = 1.0;
             anim.ctx.drawImage(anim.sourceImage, 0, cIndex * fw, fw, fw, 0, 0, fw, fw);
             
-            // 3. Smooth Crossfade Interpolation (Like Sculk/Water)
             if (anim.interpolate) {
                 let fadeRatio = anim.timer / frameDurationMs;
                 anim.ctx.globalAlpha = fadeRatio;
                 anim.ctx.drawImage(anim.sourceImage, 0, nIndex * fw, fw, fw, 0, 0, fw, fw);
             }
             
-            // 4. Send updated clean image to the 3D block!
             anim.texture.needsUpdate = true;
         }
     }
 
-    // Queue system prevents async functions from overlapping and crashing memory
     if (chunkQueue.length > 0 && !isGeneratingChunk) {
         isGeneratingChunk = true;
         const next = chunkQueue.shift();
