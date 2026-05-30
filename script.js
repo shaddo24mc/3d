@@ -596,58 +596,52 @@ const ORE_CONFIG = {
     ],
 };
 
-const loader = new THREE.TextureLoader();
 const animatedTextures = [];
+const imageLoader = new THREE.ImageLoader();
+imageLoader.setCrossOrigin('anonymous');
 
-// --- UNIVERSAL TEXTURE LOADER (CPU CANVAS UPGRADE) ---
+// --- UNIVERSAL TEXTURE LOADER ---
 const loadTex = (filename, isItem = false) => {
     const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
     
-    const t = new THREE.Texture();
+    const cvs = document.createElement('canvas');
+    cvs.width = 16; cvs.height = 16;
+    const ctx = cvs.getContext('2d', { willReadFrequently: true });
+    
+    const t = new THREE.CanvasTexture(cvs);
     t.magFilter = THREE.NearestFilter;
     t.minFilter = THREE.NearestFilter;
     t.generateMipmaps = false;
-    
-    // FIX FOR GRASS OUTLINES: Clamp texture edges to completely stop neighboring pixel color bleeding
     t.wrapS = THREE.ClampToEdgeWrapping;
     t.wrapT = THREE.ClampToEdgeWrapping;
 
-    loader.load(
+    imageLoader.load(
         `${dir}${filename}.png`,
-        (loadedImage) => {
-            const fw = loadedImage.image.width;
-            const fh = loadedImage.image.height;
+        (image) => {
+            const fw = image.width;
+            const fh = image.height;
             const totalFrames = Math.round(fh / fw);
 
-            // SQUISH FIX: We calculate if the image is an animated film strip BEFORE
-            // doing anything else! We don't rely on the .mcmeta fetch to figure out the dimensions.
             if (totalFrames > 1) {
-                const cvs = document.createElement('canvas');
                 cvs.width = fw; cvs.height = fw;
-                const ctx = cvs.getContext('2d', { willReadFrequently: true });
-                
-                t.image = cvs;
                 t.needsUpdate = true;
 
-                // Setup animation defaults immediately so the texture never "squishes"
                 let animData = {
                     texture: t,
                     ctx: ctx,
-                    sourceImage: loadedImage.image,
+                    sourceImage: image,
                     frames: Array.from({length: totalFrames}, (_, i) => i),
                     defaultTickRate: 2,
                     totalFrames: totalFrames,
                     currentArrayIdx: 0,
                     timer: 0,
-                    interpolate: true, // Default to true for smooth magma/water
+                    interpolate: true, 
                     frameWidth: fw
                 };
                 animatedTextures.push(animData);
                 
-                // Draw first frame right away so it isn't blank
-                ctx.drawImage(loadedImage.image, 0, 0, fw, fw, 0, 0, fw, fw);
+                ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
 
-                // Try to load the .mcmeta file to override defaults, but gracefully ignore if Github Pages blocks it
                 fetch(`${dir}${filename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
                 .then(mcmeta => {
                     if (mcmeta && mcmeta.animation) {
@@ -655,13 +649,20 @@ const loadTex = (filename, isItem = false) => {
                         if (mcmeta.animation.frametime) animData.defaultTickRate = mcmeta.animation.frametime;
                         if (mcmeta.animation.interpolate !== undefined) animData.interpolate = mcmeta.animation.interpolate;
                     }
-                }).catch(e => { /* Handled gracefully by the defaults above! */ });
+                }).catch(e => {});
                 
             } else {
-                // Normal static image block
-                t.image = loadedImage.image;
+                cvs.width = fw; cvs.height = fh;
+                ctx.drawImage(image, 0, 0);
                 t.needsUpdate = true;
             }
+        },
+        undefined,
+        (err) => {
+            cvs.width = 16; cvs.height = 16;
+            ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, 8, 8); ctx.fillRect(8, 8, 8, 8);
+            ctx.fillStyle = '#000000'; ctx.fillRect(8, 0, 8, 8); ctx.fillRect(0, 8, 8, 8);
+            t.needsUpdate = true;
         }
     );
     
@@ -671,7 +672,6 @@ const loadTex = (filename, isItem = false) => {
 // Global Materials Registry
 const materials = {};
 
-// Load the 10 stages of block breaking
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`destroy_stage_${i}`));
@@ -702,7 +702,6 @@ const worldHeight = 256;
 const minworldY = -64;
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
-// Standard cross geometry used for saplings, grass, flowers
 const crossGeo = new THREE.BufferGeometry();
 const crossPositions = new Float32Array([
     -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
@@ -912,7 +911,6 @@ function getBlockCapacity(key) {
     return 4000;
 }
 
-// Function geometrically fuses JSON elements together
 function mergeBufferGeometries(geos) {
     let vertexCount = 0;
     let indexCount = 0;
@@ -1050,11 +1048,36 @@ async function loadCustomModel(bName) {
 
     try {
         let modelPath = bName;
+        let variantRotX = 0;
+        let variantRotY = 0;
+
         const state = await JSONReader.getBlockstate(bName);
-        if (state && state.variants && state.variants[""]) {
-            let variant = state.variants[""];
-            if (Array.isArray(variant)) variant = variant[0];
+        
+        // --- BLOCKSTATE VARIANT PARSER UPGRADE ---
+        // Dynamically finds the correct sub-model and starting rotation for complex blocks (Stairs/Fences)
+        if (state && state.variants) {
+            let variantKey = "";
+            if (state.variants[""] !== undefined) {
+                variantKey = "";
+            } else {
+                variantKey = Object.keys(state.variants)[0]; // Grab first available (e.g. facing=east...)
+            }
+            
+            let variant = state.variants[variantKey];
+            if (Array.isArray(variant)) variant = variant[0]; // If randomized, grab the first definition
+            
             if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+            if (variant.x) variantRotX = THREE.MathUtils.degToRad(variant.x);
+            if (variant.y) variantRotY = THREE.MathUtils.degToRad(variant.y);
+            
+        } else if (state && state.multipart) {
+            let part = state.multipart[0]; // Grab the core post of the fence/wall
+            let variant = part.apply;
+            if (Array.isArray(variant)) variant = variant[0];
+            
+            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+            if (variant.x) variantRotX = THREE.MathUtils.degToRad(variant.x);
+            if (variant.y) variantRotY = THREE.MathUtils.degToRad(variant.y);
         }
 
         let currentModel = await JSONReader.getModel(modelPath);
@@ -1108,10 +1131,7 @@ async function loadCustomModel(bName) {
             let isOverlay = texPath.includes('overlay');
 
             if (TRANSPARENT_BLOCKS.has(bName) || texPath.includes('leaves') || texPath.includes('glass') || isOverlay) {
-                // FIX FOR GRASS OUTLINES: Increased alphaTest aggressively chops off edge-pixel blending
                 mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5 });
-                
-                // Keep depthWrite disabled so overlays never cast internal z-shadows
                 if (isOverlay) mat.depthWrite = false; 
             } else {
                 mat = new THREE.MeshStandardMaterial({ map: tex });
@@ -1137,7 +1157,6 @@ async function loadCustomModel(bName) {
                 const h = (el.to[1] - el.from[1]) / 16;
                 const d = (el.to[2] - el.from[2]) / 16;
                 
-                // GRASS OUTLINE FIX: Detect if the element has ANY overlay texture
                 let hasOverlay = false;
                 if (el.faces) {
                     for (const mcFace in el.faces) {
@@ -1148,8 +1167,6 @@ async function loadCustomModel(bName) {
                     }
                 }
                 
-                // If it's an overlay element, balloon its geometry by 1/500th of a block
-                // It now perfectly creates a grass shell AROUND the dirt, killing any line artifacts!
                 let expand = hasOverlay ? 0.002 : 0;
                 
                 const geo = new THREE.BoxGeometry(
@@ -1158,6 +1175,7 @@ async function loadCustomModel(bName) {
                     Math.max(0.001, d + expand)
                 );
                 
+                // Centering the geometry so native model rotations execute cleanly around the middle of the block!
                 geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
                 
                 geo.clearGroups();
@@ -1212,6 +1230,11 @@ async function loadCustomModel(bName) {
                         }
                     }
                 }
+                
+                // Set the baseline rotation for stairs and models based off their default JSON configuration!
+                if (variantRotX !== 0) geo.rotateX(variantRotX);
+                if (variantRotY !== 0) geo.rotateY(variantRotY);
+                
                 elementGeometries.push(geo);
             }
             
@@ -1279,7 +1302,6 @@ async function generateChunk(chunkX, chunkZ) {
                 if (density > 0) {
                     let densityAbove = y < worldHeight - 1 ? densityMap[y+1] : -1;
                     
-                    // --- DEEPSLATE LEVEL GENERATION FIX ---
                     let stoneType = 'stone';
                     if (actualY <= 0) {
                         stoneType = 'deepslate';
@@ -1355,7 +1377,6 @@ async function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // PASS 1.5: Properly embed trees directly into the Blocks physically
     const placeTreeIntoBlocks = (localX, localY, localZ, treeType) => {
         const trunkH = treeType === 'spruce' 
             ? 6 + Math.floor(getDeterministicRandom(localX, localY, localZ) * 4) 
@@ -1376,7 +1397,6 @@ async function generateChunk(chunkX, chunkZ) {
                     blocks[idx] = t;
                 }
             } else {
-                // --- TREE BOUNDARY GLITCH FIX ---
                 let blockKey = `${gx},${gy},${gz}`;
                 if (!placedBlocks.has(blockKey) && !brokenBlocks.has(blockKey)) {
                     treeOverhangs.set(blockKey, t);
@@ -1439,7 +1459,6 @@ async function generateChunk(chunkX, chunkZ) {
 
     for (let t of treesToSpawn) placeTreeIntoBlocks(t.x, t.actualY - minworldY + 1, t.z, t.treeType);
 
-    // PASS 1.55: Apply Cross-Chunk Tree Overhangs & Player Edits
     for (let [key, t] of treeOverhangs.entries()) {
         let [gx, gy, gz] = key.split(',').map(Number);
         if (gx >= startX && gx < startX + chunkSize && gz >= startZ && gz < startZ + chunkSize) {
@@ -1475,10 +1494,8 @@ async function generateChunk(chunkX, chunkZ) {
         }
     }
 
-    // PASS 1.6: Run the 3D Voxel Lighting Engine
     const lightMap = computeChunkLight(blocks);
 
-    // Preload dependencies ONLY for the blocks physically detected inside this exact chunk.
     const uniqueTypes = new Set();
     for (let i = 0; i < blocks.length; i++) {
         if (blocks[i] !== 0) uniqueTypes.add(blocks[i]);
@@ -1489,11 +1506,9 @@ async function generateChunk(chunkX, chunkZ) {
         if (!customGeometries[bName]) await loadCustomModel(bName);
     }
 
-    // PASS 2: DYNAMIC MESH GENERATION & CULLING
     const meshes = {};
     const indices = {};
     
-    // Only construct 3D InstancedMeshes buffers for block variants actively living in this chunk 
     for (let typeId of uniqueTypes) {
         let bName = REVERSE_TYPE[typeId];
         let geo = customGeometries[bName];
@@ -1542,7 +1557,6 @@ async function generateChunk(chunkX, chunkZ) {
                         let selfBlock = blocks[getIdx(x, y, z)];
                         
                         if (isTransparent[selfBlock]) {
-                            // Transparent blocks like leaves glow with their internal light value!
                             maxAdjLight = lightMap[getIdx(x, y, z)];
                         } else {
                             const checkL = (nx, ny, nz) => {
@@ -1572,10 +1586,18 @@ async function generateChunk(chunkX, chunkZ) {
 
                         let rot = [0, 0, 0];
                         let blockKey = `${startX + x},${actualY},${startZ + z}`;
+                        
+                        // --- DYNAMIC PLACEMENT & RANDOMIZED TEXTURES ---
                         if (placedBlocks.has(blockKey)) {
                             let placed = placedBlocks.get(blockKey);
                             if (typeof placed === 'object' && placed.rotation) {
                                 rot = placed.rotation;
+                            }
+                        } else {
+                            // If this was naturally generated, randomize rotations of natural ground blocks so they don't look tiled/repeating!
+                            if (['grass_block', 'stone', 'dirt', 'coarse_dirt', 'sand', 'red_sand', 'deepslate', 'bedrock', 'netherrack', 'end_stone'].includes(bName)) {
+                                let rHash = Math.floor(getDeterministicRandom(startX + x, actualY, startZ + z) * 4);
+                                rot = [0, rHash * (Math.PI / 2), 0];
                             }
                         }
 
@@ -1711,10 +1733,17 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
 
                         let rot = [0, 0, 0];
                         let blockKey = `${globalX},${actualY},${globalZ}`;
+                        
+                        // --- DYNAMIC PLACEMENT & RANDOMIZED TEXTURES ---
                         if (placedBlocks.has(blockKey)) {
                             let placed = placedBlocks.get(blockKey);
                             if (typeof placed === 'object' && placed.rotation) {
                                 rot = placed.rotation;
+                            }
+                        } else {
+                            if (['grass_block', 'stone', 'dirt', 'coarse_dirt', 'sand', 'red_sand', 'deepslate', 'bedrock', 'netherrack', 'end_stone'].includes(bName)) {
+                                let rHash = Math.floor(getDeterministicRandom(globalX, actualY, globalZ) * 4);
+                                rot = [0, rHash * (Math.PI / 2), 0];
                             }
                         }
 
@@ -1741,7 +1770,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
 // Solar & Sky Mechanics (Day / Night Simulation)
 // ----------------------------------------------------
 let timeOfDay = Math.PI / 2; 
-const dayCycleSpeed = 0.05; 
+const dayCycleSpeed = Math.PI / 600; 
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
 scene.add(ambientLight);
@@ -2047,12 +2076,45 @@ document.addEventListener('mousedown', (e) => {
                 if (!isPlayerCollidingWithBlock(placeX, placeY, placeZ, selectedItem.type)) {
                     
                     let rotation = [0, 0, 0];
-                    if (selectedItem.type.includes('log') || selectedItem.type.includes('pillar')) {
+                    let t = selectedItem.type;
+                    
+                    // --- DYNAMIC BLOCK PLACEMENT ROTATIONS ---
+                    // Orient Logs and Pillars based on the face that was clicked
+                    if (t.includes('log') || t.includes('pillar') || t === 'basalt' || t === 'polished_basalt' || t === 'bone_block' || t === 'purpur_pillar' || t === 'quartz_pillar' || t === 'hay_block') {
                         let axis = 'y';
                         if (Math.abs(hit.face.normal.x) > 0.5) axis = 'x';
                         if (Math.abs(hit.face.normal.z) > 0.5) axis = 'z';
-                        
                         rotation = JSONReader.getRotationForAxis(axis);
+                    } 
+                    // Orient stairs to face your camera, and flip upside down if placed on ceilings
+                    else if (t.includes('stairs')) {
+                        let ry = yaw % (Math.PI * 2);
+                        if (ry < 0) ry += Math.PI * 2;
+                        
+                        let stairRotY = 0;
+                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) stairRotY = Math.PI/2; // Look North
+                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) stairRotY = Math.PI; // Look West
+                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) stairRotY = -Math.PI/2; // Look South
+                        else stairRotY = 0; // Look East
+
+                        let rx = 0;
+                        if (hit.face.normal.y === -1) rx = Math.PI; // Upside down (hit ceiling)
+                        else if (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5) rx = Math.PI; // Hit upper half of wall
+                        
+                        rotation = [rx, stairRotY, 0];
+                    }
+                    // Orient face-front items like furnaces, chests, pumpkins towards the player
+                    else if (t.includes('furnace') || t === 'chest' || t === 'carved_pumpkin' || t === 'jack_o_lantern' || t === 'loom' || t === 'observer' || t === 'dispenser' || t === 'dropper') {
+                        let ry = yaw % (Math.PI * 2);
+                        if (ry < 0) ry += Math.PI * 2;
+                        
+                        let rotY = 0;
+                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = 0; 
+                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = Math.PI/2; 
+                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = Math.PI; 
+                        else rotY = -Math.PI/2; 
+                        
+                        rotation = [0, rotY, 0];
                     }
                     
                     setGlobalBlock(placeX, placeY, placeZ, { type: TYPE[selectedItem.type], rotation: rotation });
@@ -2146,13 +2208,11 @@ function animate() {
     requestAnimationFrame(animate);
     let delta = clock.getDelta(); 
     
-    // FIX FOR CATCH-UP ANIMATION: Hard cap delta
     if (delta > 0.1) delta = 0.1;
 
     updateChunks();
     updateDayNightCycle(delta); 
 
-    // --- PROCESS SMOOTH ANIMATED TEXTURES ---
     const deltaMs = delta * 1000;
     for (let anim of animatedTextures) {
         anim.timer += deltaMs;
@@ -2167,11 +2227,10 @@ function animate() {
         const frameDurationMs = Math.max(1, tickDuration * 50); 
         let frameChanged = false;
 
-        // CATCH-UP FIX: If timer has accumulated massive time, force it to only advance ONE frame max.
-        // It's mathematically impossible for this to speed-blaze through frames when you re-open the tab now.
         if (anim.timer >= frameDurationMs) {
+            let framesToAdvance = Math.floor(anim.timer / frameDurationMs);
             anim.timer = anim.timer % frameDurationMs; 
-            anim.currentArrayIdx = (anim.currentArrayIdx + 1) % anim.frames.length;
+            anim.currentArrayIdx = (anim.currentArrayIdx + framesToAdvance) % anim.frames.length;
             frameChanged = true;
         }
 
