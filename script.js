@@ -882,7 +882,7 @@ function fbm3(x, y, z, octaves = 2, scale = 40) {
 
 function getBlockCapacity(key) {
     if (key === 'stone' || key === 'deepslate') return 45000;
-    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'snowy_grass_block' || key === 'sand' || key === 'bedrock' || key === 'grass_block_overlay') return 15000;
+    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'snowy_grass_block' || key === 'sand' || key === 'bedrock') return 15000;
     if (key.includes('leaves') || key.includes('log')) return 8000;
     return 4000;
 }
@@ -1012,26 +1012,17 @@ const customGeometries = {};
 async function loadCustomModel(bName) {
     if (customGeometries[bName]) return; 
 
-    // AUTO-TEXTURE: Automatically map texture by block name to fix gray textures!
-    if (!materials[bName]) {
-        const tex = loadTex(bName);
-        if (CROSS_BLOCKS.has(bName)) {
-            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: false });
-        } else if (TRANSPARENT_BLOCKS.has(bName)) {
-            materials[bName] = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
-        } else {
-            materials[bName] = new THREE.MeshStandardMaterial({ map: tex });
-        }
-    }
-
     if (CROSS_BLOCKS.has(bName)) {
+        const tex = loadTex(bName);
+        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: false });
+        if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
+            mat.color.setHex(0x71b054);
+        }
+        materials[bName] = mat;
         customGeometries[bName] = crossGeo;
         return;
     }
 
-    customGeometries[bName] = geometry; // Fallback perfect cube
-
-    // ACTUAL JSON MODEL PARSING - dynamically shapes the BoxGeometry based on JSON arrays!
     try {
         let modelPath = bName;
         const state = await JSONReader.getBlockstate(bName);
@@ -1043,34 +1034,70 @@ async function loadCustomModel(bName) {
 
         let currentModel = await JSONReader.getModel(modelPath);
         let elements = currentModel ? currentModel.elements : null;
+        let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
 
-        // CHASE THE PARENTS! 
-        // Keep reading the parent templates until we find the file that actually has the "elements" array
         let depth = 0;
-        while (!elements && currentModel && currentModel.parent && depth < 10) {
-            
-            // 1. Get the parent name from the file
+        while (currentModel && currentModel.parent && depth < 10) {
             let parentPath = currentModel.parent;
+            if (parentPath.includes(':')) parentPath = parentPath.split(':')[1]; 
+            parentPath = parentPath.replace('block/', '');
             
-            // 2. Clean up the path so it matches our local folder structure
-            if (parentPath.includes(':')) {
-                parentPath = parentPath.split(':')[1]; // Removes "minecraft:" if it exists
-            }
-            parentPath = parentPath.replace('block/', ''); // Removes "block/" if it exists
-            
-            // Log it so we can watch it work in the F12 Developer Console!
-            console.log(`[Model Engine] ${bName} is missing 3D elements. Fetching parent -> ${parentPath}.json`);
-            
-            // 3. Fetch the parent file!
             currentModel = await JSONReader.getModel(parentPath);
-            
-            // 4. Check if this new file has the 3D shapes we need
             if (currentModel) {
-                elements = currentModel.elements;
+                if (!elements && currentModel.elements) elements = currentModel.elements;
+                if (currentModel.textures) {
+                    for (let k in currentModel.textures) {
+                        if (!textures[k]) textures[k] = currentModel.textures[k];
+                    }
+                }
+            }
+            depth++;
+        }
+
+        const resolveTexture = (texStr) => {
+            if (!texStr) return null;
+            if (texStr.startsWith('#')) {
+                let key = texStr.substring(1);
+                let safe = 10;
+                while (textures[key] && textures[key].startsWith('#') && safe > 0) {
+                    key = textures[key].substring(1);
+                    safe--;
+                }
+                return textures[key];
+            }
+            return texStr;
+        };
+
+        const matArray = [];
+        const texMap = {};
+        let matIndexCounter = 0;
+
+        const getMaterialForTex = (texPath) => {
+            if (!texPath) texPath = bName; 
+            texPath = texPath.replace('minecraft:', '').replace('block/', '');
+            
+            if (texMap[texPath] !== undefined) return texMap[texPath];
+            
+            let tex = loadTex(texPath);
+            let mat;
+            if (TRANSPARENT_BLOCKS.has(bName) || texPath.includes('leaves') || texPath.includes('glass')) {
+                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+            } else {
+                mat = new THREE.MeshStandardMaterial({ map: tex });
             }
             
-            depth++; // Prevents infinite loops just in case a file points to itself
-        }
+            if (texPath === 'grass_block_top' || texPath === 'vine') {
+                mat.color.setHex(0x71b054); 
+            } else if (texPath.includes('leaves')) {
+                mat.color.setHex(0x71b054);
+                if (texPath.includes('spruce')) mat.color.setHex(0x619961);
+                if (texPath.includes('birch')) mat.color.setHex(0x80a755);
+            }
+            
+            matArray.push(mat);
+            texMap[texPath] = matIndexCounter;
+            return matIndexCounter++;
+        };
 
         if (elements && elements.length > 0) {
             const elementGeometries = [];
@@ -1078,28 +1105,32 @@ async function loadCustomModel(bName) {
                 const w = (el.to[0] - el.from[0]) / 16;
                 const h = (el.to[1] - el.from[1]) / 16;
                 const d = (el.to[2] - el.from[2]) / 16;
-                // Protect against flat planes (0 thickness) which break BoxGeometry
                 const geo = new THREE.BoxGeometry(Math.max(0.001, w), Math.max(0.001, h), Math.max(0.001, d));
                 geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
                 
-                // --- NEW UV MAPPING ENGINE ---
+                geo.clearGroups();
+
                 if (el.faces) {
                     const uvs = geo.attributes.uv;
-                    // Match Minecraft face names to Three.js BoxGeometry face indices
                     const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
                     
                     for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
                         const faceData = el.faces[mcFace];
-                        let u1 = 0, v1 = 0, u2 = 1, v2 = 1;
+                        if (!faceData) continue;
 
-                        if (faceData && faceData.uv) {
-                            // The JSON explicitly tells us which pixels to crop!
+                        let texRef = faceData.texture;
+                        let texPath = resolveTexture(texRef);
+                        let matIdx = getMaterialForTex(texPath);
+
+                        geo.addGroup(faceIdx * 6, 6, matIdx);
+
+                        let u1 = 0, v1 = 0, u2 = 1, v2 = 1;
+                        if (faceData.uv) {
                             u1 = faceData.uv[0] / 16;
                             v1 = faceData.uv[1] / 16;
                             u2 = faceData.uv[2] / 16;
                             v2 = faceData.uv[3] / 16;
                         } else {
-                            // If missing, Minecraft auto-calculates the crop based on the block's physical dimensions
                             if (mcFace === 'up' || mcFace === 'down') {
                                 u1 = el.from[0]/16; v1 = el.from[2]/16; u2 = el.to[0]/16; v2 = el.to[2]/16;
                             } else if (mcFace === 'north' || mcFace === 'south') {
@@ -1109,30 +1140,48 @@ async function loadCustomModel(bName) {
                             }
                         }
 
-                        // Convert Minecraft's Top-Left origin to Three.js Bottom-Left origin
-                        let tv1 = 1 - v1; // top edge
-                        let tv2 = 1 - v2; // bottom edge
-
-                        // Paint the 4 corners of the current face
+                        let tv1 = 1 - v1;
+                        let tv2 = 1 - v2;
                         let vIdx = faceIdx * 4;
-                        uvs.setXY(vIdx + 0, u1, tv1); // Top Left
-                        uvs.setXY(vIdx + 1, u2, tv1); // Top Right
-                        uvs.setXY(vIdx + 2, u1, tv2); // Bottom Left
-                        uvs.setXY(vIdx + 3, u2, tv2); // Bottom Right
+                        
+                        let rot = faceData.rotation || 0;
+                        if (rot === 0) {
+                            uvs.setXY(vIdx + 0, u1, tv1); uvs.setXY(vIdx + 1, u2, tv1);
+                            uvs.setXY(vIdx + 2, u1, tv2); uvs.setXY(vIdx + 3, u2, tv2);
+                        } else if (rot === 90) {
+                            uvs.setXY(vIdx + 0, u1, tv2); uvs.setXY(vIdx + 1, u1, tv1);
+                            uvs.setXY(vIdx + 2, u2, tv2); uvs.setXY(vIdx + 3, u2, tv1);
+                        } else if (rot === 180) {
+                            uvs.setXY(vIdx + 0, u2, tv2); uvs.setXY(vIdx + 1, u1, tv2);
+                            uvs.setXY(vIdx + 2, u2, tv1); uvs.setXY(vIdx + 3, u1, tv1);
+                        } else if (rot === 270) {
+                            uvs.setXY(vIdx + 0, u2, tv1); uvs.setXY(vIdx + 1, u2, tv2);
+                            uvs.setXY(vIdx + 2, u1, tv1); uvs.setXY(vIdx + 3, u1, tv2);
+                        }
                     }
                 }
-
                 elementGeometries.push(geo);
             }
             
+            materials[bName] = matArray;
             if (elementGeometries.length === 1) {
                 customGeometries[bName] = elementGeometries[0];
             } else if (elementGeometries.length > 1) {
                 customGeometries[bName] = mergeBufferGeometries(elementGeometries);
             }
+        } else {
+            throw new Error("No elements found");
         }
     } catch(e) {
-        // Silently fallback to the standard block geometry if model isn't configured
+        const tex = loadTex(bName);
+        let mat;
+        if (TRANSPARENT_BLOCKS.has(bName)) {
+            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
+        } else {
+            mat = new THREE.MeshStandardMaterial({ map: tex });
+        }
+        materials[bName] = mat;
+        customGeometries[bName] = geometry; 
     }
 }
 
@@ -1338,18 +1387,6 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
         indices[bName] = 0;
-        
-        // Ensure overlay mesh propagates 
-        if (bName === 'grass_block') {
-            let oName = 'grass_block_overlay';
-            meshes[oName] = new THREE.InstancedMesh(geometry, materials[oName], cap);
-            meshes[oName].name = oName;
-            meshes[oName].chunkId = chunkId;
-            meshes[oName].maxCapacity = cap;
-            meshes[oName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            meshes[oName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-            indices[oName] = 0;
-        }
     }
 
     const matrix = new THREE.Matrix4();
@@ -1427,12 +1464,6 @@ async function generateChunk(chunkX, chunkZ) {
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj); 
                         indices[bName]++;
-
-                        if (bName === 'grass_block' && meshes['grass_block_overlay'] && indices['grass_block_overlay'] < meshes['grass_block_overlay'].maxCapacity) {
-                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
-                            meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
-                            indices['grass_block_overlay']++;
-                        }
                     }
                 }
             }
@@ -1445,7 +1476,7 @@ async function generateChunk(chunkX, chunkZ) {
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
         meshes[key].computeBoundingSphere(); 
         scene.add(meshes[key]);
-        if (key !== 'grass_block_overlay') interactableMeshes.push(meshes[key]);
+        interactableMeshes.push(meshes[key]);
     }
     
     activeChunks[chunkId] = { meshes, blocks, treesToSpawn };
@@ -1486,7 +1517,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
             meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
             scene.add(meshes[bName]);
-            if (bName !== 'grass_block_overlay') interactableMeshes.push(meshes[bName]);
+            interactableMeshes.push(meshes[bName]);
         }
     }
 
@@ -1572,12 +1603,6 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj);
                         indices[bName]++;
-
-                        if (bName === 'grass_block' && meshes['grass_block_overlay'] && indices['grass_block_overlay'] < meshes['grass_block_overlay'].maxCapacity) {
-                            meshes['grass_block_overlay'].setMatrixAt(indices['grass_block_overlay'], matrix);
-                            meshes['grass_block_overlay'].setColorAt(indices['grass_block_overlay'], colorObj);
-                            indices['grass_block_overlay']++;
-                        }
                     }
                 }
             }
