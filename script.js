@@ -186,8 +186,8 @@ inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
 inventory[3] = { type: 'sculk_shrieker', count: 64 };
 inventory[4] = { type: 'sculk_sensor', count: 64 };
-inventory[5] = { type: 'sand', count: 64 };
-inventory[6] = { type: 'netherite_block', count: 64 };
+inventory[5] = { type: 'acacia_stairs', count: 64 };
+inventory[6] = { type: 'magma_block', count: 64 };
 inventory[7] = { type: 'cobblestone', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
@@ -707,6 +707,7 @@ const chunkQueue = [];
 const interactableMeshes = [];
 const brokenBlocks = new Set(); 
 const placedBlocks = new Map(); 
+const treeOverhangs = new Map(); 
 const chunksToRebuild = new Set(); 
 
 // ----------------------------------------------------
@@ -1235,7 +1236,15 @@ async function generateChunk(chunkX, chunkZ) {
                 
                 if (density > 0) {
                     let densityAbove = y < worldHeight - 1 ? densityMap[y+1] : -1;
-                    let stoneType = actualY < 8 + (noise.perlin2(globalX / 16, globalZ / 16) * 4) ? 'deepslate' : 'stone';
+                    
+                    // --- DEEPSLATE LEVEL GENERATION FIX ---
+                    let stoneType = 'stone';
+                    if (actualY <= 0) {
+                        stoneType = 'deepslate';
+                    } else if (actualY < 8) {
+                        let mixNoise = noise.perlin3(globalX / 8, actualY / 8, globalZ / 8);
+                        if (mixNoise > (actualY / 8) - 0.2) stoneType = 'deepslate';
+                    }
                     
                     if (stoneType === 'stone' && densityAbove < 10 && localBiome.deepSubBlock !== 'stone') {
                         stoneType = localBiome.deepSubBlock;
@@ -1314,11 +1323,35 @@ async function generateChunk(chunkX, chunkZ) {
         const leavesType = TYPE[`${treeType}_leaves`];
         
         const setLocalB = (x, y, z, t, force=false) => {
+            let gx = startX + x;
+            let gy = y + minworldY;
+            let gz = startZ + z;
+
             if (x >= 0 && x < chunkSize && z >= 0 && z < chunkSize && y >= 0 && y < worldHeight) {
                 let idx = getIdx(x, y, z);
                 let currentB = blocks[idx];
                 if (force || currentB === 0 || currentB === TYPE.snow || isTransparent[currentB]) {
                     blocks[idx] = t;
+                }
+            } else {
+                // --- TREE BOUNDARY GLITCH FIX ---
+                let blockKey = `${gx},${gy},${gz}`;
+                if (!placedBlocks.has(blockKey) && !brokenBlocks.has(blockKey)) {
+                    treeOverhangs.set(blockKey, t);
+                    
+                    let cx = Math.floor(gx / chunkSize);
+                    let cz = Math.floor(gz / chunkSize);
+                    let chunkId = `${cx},${cz}`;
+                    if (activeChunks[chunkId] && !activeChunks[chunkId].pending) {
+                        let lx = gx - (cx * chunkSize);
+                        let lz = gz - (cz * chunkSize);
+                        let idx = lx + lz * chunkSize + y * (chunkSize * chunkSize);
+                        let currentB = activeChunks[chunkId].blocks[idx];
+                        if (force || currentB === 0 || currentB === TYPE.snow || isTransparent[currentB]) {
+                            activeChunks[chunkId].blocks[idx] = t;
+                            chunksToRebuild.add(chunkId);
+                        }
+                    }
                 }
             }
         };
@@ -1363,6 +1396,42 @@ async function generateChunk(chunkX, chunkZ) {
     };
 
     for (let t of treesToSpawn) placeTreeIntoBlocks(t.x, t.actualY - minworldY + 1, t.z, t.treeType);
+
+    // PASS 1.55: Apply Cross-Chunk Tree Overhangs & Player Edits
+    for (let [key, t] of treeOverhangs.entries()) {
+        let [gx, gy, gz] = key.split(',').map(Number);
+        if (gx >= startX && gx < startX + chunkSize && gz >= startZ && gz < startZ + chunkSize) {
+            let lx = gx - startX;
+            let lz = gz - startZ;
+            let ly = gy - minworldY;
+            if (ly >= 0 && ly < worldHeight) {
+                let idx = getIdx(lx, ly, lz);
+                let currentB = blocks[idx];
+                if (currentB === 0 || currentB === TYPE.snow || isTransparent[currentB]) {
+                    blocks[idx] = t;
+                }
+            }
+        }
+    }
+
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            for (let y = 0; y < worldHeight; y++) {
+                let gx = startX + x;
+                let gy = y + minworldY;
+                let gz = startZ + z;
+                let key = `${gx},${gy},${gz}`;
+                let idx = getIdx(x, y, z);
+                
+                if (brokenBlocks.has(key)) {
+                    blocks[idx] = 0;
+                } else if (placedBlocks.has(key)) {
+                    let typeData = placedBlocks.get(key);
+                    blocks[idx] = typeof typeData === 'object' ? typeData.type : typeData;
+                }
+            }
+        }
+    }
 
     // PASS 1.6: Run the 3D Voxel Lighting Engine
     const lightMap = computeChunkLight(blocks);
