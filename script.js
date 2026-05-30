@@ -1036,15 +1036,22 @@ async function loadCustomModel(bName) {
         const state = await JSONReader.getBlockstate(bName);
         
         // --- BLOCKSTATE VARIANT PARSER UPGRADE ---
-        // Dynamically finds the correct sub-model.
-        // FIX: We deliberately IGNORE variant.x and variant.y here!
-        // Baking pre-rotations into the base geometry ruined our dynamic orientation math.
         if (state && state.variants) {
             let variantKey = "";
             if (state.variants[""] !== undefined) {
                 variantKey = "";
             } else {
-                variantKey = Object.keys(state.variants)[0]; 
+                let keys = Object.keys(state.variants);
+                variantKey = keys[0]; // Fallback to first
+                // Actively search for the standard/straight version of the block
+                for (let k of keys) {
+                    if (k.includes('shape=straight') && k.includes('half=bottom')) {
+                        variantKey = k;
+                        break;
+                    } else if (k.includes('axis=y')) {
+                        variantKey = k;
+                    }
+                }
             }
             
             let variant = state.variants[variantKey];
@@ -1568,7 +1575,6 @@ async function generateChunk(chunkX, chunkZ) {
                             }
                         }
 
-                        // Use YXZ to guarantee the flipping math works perfectly over top of the Y-axis rotation
                         matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
                         matrix.setPosition(startX + x, actualY, startZ + z);
                         meshes[bName].setMatrixAt(indices[bName], matrix);
@@ -1711,7 +1717,6 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                             }
                         }
 
-                        // Use YXZ to guarantee the flipping math works perfectly over top of the Y-axis rotation
                         matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
                         matrix.setPosition(globalX, actualY, globalZ);
                         meshes[bName].setMatrixAt(indices[bName], matrix);
@@ -2042,7 +2047,6 @@ document.addEventListener('mousedown', (e) => {
                     let rotation = [0, 0, 0];
                     let t = selectedItem.type;
                     
-                    // --- DYNAMIC BLOCK PLACEMENT ROTATIONS ---
                     if (t.includes('log') || t.includes('pillar') || t === 'basalt' || t === 'polished_basalt' || t === 'bone_block' || t === 'purpur_pillar' || t === 'quartz_pillar' || t === 'hay_block') {
                         let axis = 'y';
                         if (Math.abs(hit.face.normal.x) > 0.5) axis = 'x';
@@ -2054,15 +2058,15 @@ document.addEventListener('mousedown', (e) => {
                         if (ry < 0) ry += Math.PI * 2;
                         
                         let stairRotY = 0;
-                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) stairRotY = Math.PI/2; // Look North
-                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) stairRotY = Math.PI; // Look West
-                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) stairRotY = -Math.PI/2; // Look South
-                        else stairRotY = 0; // Look East
+                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) stairRotY = Math.PI/2; 
+                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) stairRotY = Math.PI; 
+                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) stairRotY = -Math.PI/2; 
+                        else stairRotY = 0; 
 
                         let rx = 0;
                         if (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5)) {
                             rx = Math.PI;
-                            stairRotY = -stairRotY; // Invert to compensate for XYZ upside-down flip math
+                            stairRotY = -stairRotY; 
                         }
                         
                         rotation = [rx, stairRotY, 0];
@@ -2072,10 +2076,10 @@ document.addEventListener('mousedown', (e) => {
                         if (ry < 0) ry += Math.PI * 2;
                         
                         let rotY = 0;
-                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; // Face South
-                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; // Face East
-                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; // Face North
-                        else rotY = Math.PI/2; // Face West
+                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
+                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
+                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
+                        else rotY = Math.PI/2; 
                         
                         rotation = [0, rotY, 0];
                     }
