@@ -770,20 +770,20 @@ const materials = {
         new THREE.MeshStandardMaterial({ map: spruceLogSide })
     ],
     sculk_shrieker: [
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
         new THREE.MeshStandardMaterial({ map: sculkShriekerTop, transparent: true, alphaTest: 0.5 }),
         new THREE.MeshStandardMaterial({ map: sculkShriekerBottom, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5 })
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })
     ],
     sculk_sensor: [
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
         new THREE.MeshStandardMaterial({ map: sculkSensorTop, transparent: true, alphaTest: 0.5 }),
         new THREE.MeshStandardMaterial({ map: sculkSensorBottom, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5 })
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
+        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })
     ]
 };
 
@@ -1175,10 +1175,40 @@ async function loadCustomModel(bName) {
             if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
         }
 
-        const model = await JSONReader.getModel(modelPath);
-        if (model && model.elements && model.elements.length > 0) {
+        let currentModel = await JSONReader.getModel(modelPath);
+        let elements = currentModel ? currentModel.elements : null;
+
+        // CHASE THE PARENTS! 
+        // Keep reading the parent templates until we find the file that actually has the "elements" array
+        let depth = 0;
+        while (!elements && currentModel && currentModel.parent && depth < 10) {
+            
+            // 1. Get the parent name from the file
+            let parentPath = currentModel.parent;
+            
+            // 2. Clean up the path so it matches our local folder structure
+            if (parentPath.includes(':')) {
+                parentPath = parentPath.split(':')[1]; // Removes "minecraft:" if it exists
+            }
+            parentPath = parentPath.replace('block/', ''); // Removes "block/" if it exists
+            
+            // Log it so we can watch it work in the F12 Developer Console!
+            console.log(`[Model Engine] ${bName} is missing 3D elements. Fetching parent -> ${parentPath}.json`);
+            
+            // 3. Fetch the parent file!
+            currentModel = await JSONReader.getModel(parentPath);
+            
+            // 4. Check if this new file has the 3D shapes we need
+            if (currentModel) {
+                elements = currentModel.elements;
+            }
+            
+            depth++; // Prevents infinite loops just in case a file points to itself
+        }
+
+        if (elements && elements.length > 0) {
             const elementGeometries = [];
-            for (let el of model.elements) {
+            for (let el of elements) {
                 const w = (el.to[0] - el.from[0]) / 16;
                 const h = (el.to[1] - el.from[1]) / 16;
                 const d = (el.to[2] - el.from[2]) / 16;
