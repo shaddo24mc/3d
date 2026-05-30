@@ -136,7 +136,18 @@ STONE_TYPES.forEach(st => {
     generatedBlocks.push(`${st}_slab`, `${st}_stairs`, `${st}_wall`);
 });
 
-const ALL_BLOCKS = [...new Set(generatedBlocks)];
+const allBaseBlocks = [...new Set(generatedBlocks)];
+const extendedBlocks = [];
+// Automatically register virtual inner/outer variants for all stairs
+allBaseBlocks.forEach(b => {
+    extendedBlocks.push(b);
+    if (b.includes('stairs')) {
+        extendedBlocks.push(`${b}_inner`);
+        extendedBlocks.push(`${b}_outer`);
+    }
+});
+
+const ALL_BLOCKS = [...new Set(extendedBlocks)];
 
 const TYPE = {};
 const REVERSE_TYPE = [null];
@@ -728,6 +739,87 @@ const placedBlocks = new Map();
 const treeOverhangs = new Map(); 
 const chunksToRebuild = new Set(); 
 
+// Direction vectors mapping to Minecraft facing: 0:East, 1:North, 2:West, 3:South
+const DIRS = [ [1,0,0], [0,0,-1], [-1,0,0], [0,0,1] ];
+
+function getStairData(x, y, z) {
+    let k = `${x},${y},${z}`;
+    if (placedBlocks.has(k)) {
+        let data = placedBlocks.get(k);
+        if (data && data.isStair) {
+            let typeId = data.type;
+            let bName = REVERSE_TYPE[typeId];
+            if (bName.includes('_inner')) bName = bName.replace('_inner', '');
+            if (bName.includes('_outer')) bName = bName.replace('_outer', '');
+            return { ...data, baseName: bName };
+        }
+    }
+    return null;
+}
+
+function evaluateStair(x, y, z) {
+    let s = getStairData(x, y, z);
+    if (!s) return;
+    
+    let f = s.facing;
+    let backDir = (f + 2) % 4;
+    let frontDir = f;
+    
+    let backStair = getStairData(x + DIRS[backDir][0], y, z + DIRS[backDir][2]);
+    let frontStair = getStairData(x + DIRS[frontDir][0], y, z + DIRS[frontDir][2]);
+    
+    let shape = 'straight';
+    let rotY = 0;
+    
+    if (f === 0) rotY = 0; 
+    else if (f === 1) rotY = Math.PI/2; 
+    else if (f === 2) rotY = Math.PI; 
+    else if (f === 3) rotY = -Math.PI/2; 
+    
+    if (s.half === 'top') {
+        rotY = -rotY;
+    }
+    
+    let leftOfF = (f + 1) % 4;
+    let rightOfF = (f + 3) % 4;
+    
+    if (backStair && backStair.half === s.half && backStair.facing !== f) {
+        if (backStair.facing === leftOfF) { shape = 'inner_left'; }
+        else if (backStair.facing === rightOfF) { shape = 'inner_right'; }
+    }
+    else if (frontStair && frontStair.half === s.half && frontStair.facing !== f) {
+        if (frontStair.facing === leftOfF) { shape = 'outer_left'; }
+        else if (frontStair.facing === rightOfF) { shape = 'outer_right'; }
+    }
+    
+    let finalType = s.baseName;
+    let finalRotY = rotY;
+    
+    if (shape === 'inner_left') { finalType += '_inner'; finalRotY = rotY + Math.PI/2; }
+    else if (shape === 'inner_right') { finalType += '_inner'; finalRotY = rotY; }
+    else if (shape === 'outer_left') { finalType += '_outer'; finalRotY = rotY + Math.PI/2; }
+    else if (shape === 'outer_right') { finalType += '_outer'; finalRotY = rotY; }
+
+    let rx = s.half === 'top' ? Math.PI : 0;
+    
+    let k = `${x},${y},${z}`;
+    let existing = placedBlocks.get(k);
+    
+    placedBlocks.set(k, { ...existing, type: TYPE[finalType], rotation: [rx, finalRotY, 0] });
+    
+    let cx = Math.floor(x / chunkSize);
+    let cz = Math.floor(z / chunkSize);
+    chunksToRebuild.add(`${cx},${cz}`);
+}
+
+function updateStairConnections(x, y, z) {
+    evaluateStair(x, y, z);
+    evaluateStair(x+1, y, z);
+    evaluateStair(x-1, y, z);
+    evaluateStair(x, y, z+1);
+    evaluateStair(x, y, z-1);
+}
+
 function getGlobalBlock(gx, gy, gz) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return null;
     let cx = Math.floor(gx / chunkSize);
@@ -1031,28 +1123,30 @@ async function loadCustomModel(bName) {
     }
 
     try {
-        let modelPath = bName;
+        let isInner = bName.endsWith('_inner');
+        let isOuter = bName.endsWith('_outer');
+        let baseName = bName;
+        if (isInner) baseName = bName.replace('_inner', '');
+        if (isOuter) baseName = bName.replace('_outer', '');
 
-        const state = await JSONReader.getBlockstate(bName);
+        let modelPath = baseName;
+
+        const state = await JSONReader.getBlockstate(baseName);
         
-        // --- BLOCKSTATE VARIANT PARSER UPGRADE ---
         if (state && state.variants) {
             let variantKey = "";
-            if (state.variants[""] !== undefined) {
-                variantKey = "";
-            } else {
-                let keys = Object.keys(state.variants);
-                variantKey = keys[0]; // Fallback to first
-                // Actively search for the standard/straight version of the block
-                for (let k of keys) {
-                    if (k.includes('shape=straight') && k.includes('half=bottom')) {
-                        variantKey = k;
-                        break;
-                    } else if (k.includes('axis=y')) {
-                        variantKey = k;
-                    }
+            let keys = Object.keys(state.variants);
+            
+            // FIX: Explicitly search for the requested shape to prevent all stairs defaulting to inner corners
+            let targetShape = isInner ? 'inner_left' : isOuter ? 'outer_left' : 'straight';
+            
+            for (let k of keys) {
+                if (k.includes(`shape=${targetShape}`) && k.includes('half=bottom')) {
+                    variantKey = k;
+                    break;
                 }
             }
+            if (!variantKey) variantKey = keys[0]; 
             
             let variant = state.variants[variantKey];
             if (Array.isArray(variant)) variant = variant[0]; 
@@ -1107,7 +1201,8 @@ async function loadCustomModel(bName) {
         let matIndexCounter = 0;
 
         const getMaterialForTex = (texPath) => {
-            if (!texPath) texPath = bName; 
+            // FIX: Always use baseName so texture loader doesn't look for acacia_stairs_inner.png
+            if (!texPath) texPath = baseName; 
             texPath = texPath.replace('minecraft:', '').replace('block/', '');
             
             if (texMap[texPath] !== undefined) return texMap[texPath];
@@ -1116,7 +1211,7 @@ async function loadCustomModel(bName) {
             let mat;
             let isOverlay = texPath.includes('overlay');
 
-            if (TRANSPARENT_BLOCKS.has(bName) || texPath.includes('leaves') || texPath.includes('glass') || isOverlay) {
+            if (TRANSPARENT_BLOCKS.has(baseName) || texPath.includes('leaves') || texPath.includes('glass') || isOverlay) {
                 mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5 });
                 if (isOverlay) mat.depthWrite = false; 
             } else {
@@ -1966,7 +2061,8 @@ function updateMining() {
         const p = new THREE.Vector3().setFromMatrixPosition(mat);
         const blockName = mining.targetMesh.name; 
         
-        setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
+        let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
+        setGlobalBlock(pX, pY, pZ, 0);
         
         const heldItemType = inventory[selectedSlot].type;
         const harvestable = canHarvestBlock(blockName, heldItemType);
@@ -1989,6 +2085,12 @@ function updateMining() {
         if (mining.targetMesh && mining.targetMesh.chunkId) {
             chunksToRebuild.add(mining.targetMesh.chunkId);
         }
+        
+        // Breaking a block might disconnect an adjacent stair, trigger neighbor rebuilds
+        updateStairConnections(pX+1, pY, pZ);
+        updateStairConnections(pX-1, pY, pZ);
+        updateStairConnections(pX, pY, pZ+1);
+        updateStairConnections(pX, pY, pZ-1);
 
         mining.active = false;
         destroyMesh.visible = false;
@@ -2046,6 +2148,7 @@ document.addEventListener('mousedown', (e) => {
                     
                     let rotation = [0, 0, 0];
                     let t = selectedItem.type;
+                    let stairData = null;
                     
                     if (t.includes('log') || t.includes('pillar') || t === 'basalt' || t === 'polished_basalt' || t === 'bone_block' || t === 'purpur_pillar' || t === 'quartz_pillar' || t === 'hay_block') {
                         let axis = 'y';
@@ -2057,19 +2160,15 @@ document.addEventListener('mousedown', (e) => {
                         let ry = yaw % (Math.PI * 2);
                         if (ry < 0) ry += Math.PI * 2;
                         
-                        let stairRotY = 0;
-                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) stairRotY = Math.PI/2; 
-                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) stairRotY = Math.PI; 
-                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) stairRotY = -Math.PI/2; 
-                        else stairRotY = 0; 
+                        let facing = 0;
+                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facing = 1; // North
+                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facing = 2; // West
+                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facing = 3; // South
+                        else facing = 0; // East
 
-                        let rx = 0;
-                        if (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5)) {
-                            rx = Math.PI;
-                            stairRotY = -stairRotY; 
-                        }
+                        let isTop = (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5));
                         
-                        rotation = [rx, stairRotY, 0];
+                        stairData = { isStair: true, facing: facing, half: isTop ? 'top' : 'bottom' };
                     }
                     else if (t.includes('furnace') || t === 'chest' || t === 'carved_pumpkin' || t === 'jack_o_lantern' || t === 'loom' || t === 'observer' || t === 'dispenser' || t === 'dropper') {
                         let ry = yaw % (Math.PI * 2);
@@ -2084,7 +2183,15 @@ document.addEventListener('mousedown', (e) => {
                         rotation = [0, rotY, 0];
                     }
                     
-                    setGlobalBlock(placeX, placeY, placeZ, { type: TYPE[selectedItem.type], rotation: rotation });
+                    let placedData = { type: TYPE[selectedItem.type], rotation: rotation };
+                    if (stairData) placedData = { ...placedData, ...stairData };
+                    
+                    setGlobalBlock(placeX, placeY, placeZ, placedData);
+                    
+                    // If it's a stair, actively calculate corners for it and all adjacent blocks!
+                    if (stairData) {
+                        updateStairConnections(placeX, placeY, placeZ);
+                    }
                     
                     selectedItem.count--;
                     if (selectedItem.count <= 0) {
