@@ -802,14 +802,10 @@ function evaluateStair(x, y, z) {
 
     let rx = s.half === 'top' ? Math.PI : 0;
     
-    let k = `${x},${y},${z}`;
-    let existing = placedBlocks.get(k);
+    let existing = placedBlocks.get(`${x},${y},${z}`);
     
-    placedBlocks.set(k, { ...existing, type: TYPE[finalType], rotation: [rx, finalRotY, 0] });
-    
-    let cx = Math.floor(x / chunkSize);
-    let cz = Math.floor(z / chunkSize);
-    chunksToRebuild.add(`${cx},${cz}`);
+    // Update both the placement map and the chunk's internal block array so it renders immediately
+    setGlobalBlock(x, y, z, { ...existing, type: TYPE[finalType], rotation: [rx, finalRotY, 0] });
 }
 
 function updateStairConnections(x, y, z) {
