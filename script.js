@@ -597,195 +597,61 @@ const ORE_CONFIG = {
 };
 
 const loader = new THREE.TextureLoader();
+const animatedTextures = [];
+
+// --- UNIVERSAL TEXTURE LOADER (Like Real Minecraft!) ---
 const loadTex = (filename, isItem = false) => {
     const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
-    const t = loader.load(`${dir}${filename}.png`);
+    
+    // 1. Load the image (which might be a long film strip)
+    const t = loader.load(`${dir}${filename}.png`, (loadedImage) => {
+        
+        // 2. Automatically look for the .mcmeta file next to it
+        fetch(`${dir}${filename}.png.mcmeta`).then(r => {
+            if(r.ok) return r.json();
+            throw new Error("Static Texture");
+        }).then(mcmeta => {
+            if (!mcmeta || !mcmeta.animation) return;
+            
+            const totalFrames = loadedImage.image.height / loadedImage.image.width;
+            if (totalFrames <= 1) return;
+            
+            t.wrapS = THREE.RepeatWrapping;
+            t.wrapT = THREE.RepeatWrapping;
+            t.repeat.set(1, 1 / totalFrames);
+            t.offset.y = 1 - (1 / totalFrames);
+
+            let frames = mcmeta.animation.frames;
+            if (!frames) {
+                frames = [];
+                for(let i = 0; i < totalFrames; i++) frames.push(i);
+            }
+
+            animatedTextures.push({
+                texture: t,
+                frames: frames,
+                defaultTickRate: mcmeta.animation.frametime || 1,
+                totalFrames: totalFrames,
+                currentArrayIdx: 0,
+                timer: 0
+            });
+        }).catch(e => { /* No mcmeta found, just act like a normal static block */ });
+    });
+    
     t.magFilter = THREE.NearestFilter;
     t.minFilter = THREE.NearestFilter;
     t.generateMipmaps = false; 
     return t;
 };
 
-// Load base textures
-const grassTop = loadTex('grass_block_top');
-const grassSide = loadTex('grass_block_side');
-const grassSideOverlay = loadTex('grass_block_side_overlay');
-const dirt = loadTex('dirt');
-const stone = loadTex('stone');
-const logSide = loadTex('oak_log');
-const logTop = loadTex('oak_log_top');
-const leaves = loadTex('oak_leaves');
+// Global Materials Registry
+const materials = {};
 
-const spruceLogSide = loadTex('spruce_log');
-const spruceLogTop = loadTex('spruce_log_top');
-const spruceLeaves = loadTex('spruce_leaves');
-
-const coalore = loadTex('coal_ore');
-const ironore = loadTex('iron_ore');
-const copperore = loadTex('copper_ore');
-const goldore = loadTex('gold_ore');
-const redstoneore = loadTex('redstone_ore');
-const emeraldore = loadTex('emerald_ore');
-const lapisore = loadTex('lapis_ore');
-const diamondore = loadTex('diamond_ore');
-const deepslatetop = loadTex('deepslate_top');
-const deepslate = loadTex('deepslate');
-const deepslateironore = loadTex('deepslate_iron_ore');
-const deepslatecoalore = loadTex('deepslate_coal_ore');
-const deepslatecopperore = loadTex('deepslate_copper_ore');
-const deepslategoldore = loadTex('deepslate_gold_ore');
-const deepslateredstoneore = loadTex('deepslate_redstone_ore');
-const deepslateemeraldore = loadTex('deepslate_emerald_ore');
-const deepslatelapisore = loadTex('deepslate_lapis_ore');
-const deepslatediamondore = loadTex('deepslate_diamond_ore');
-const bedrock = loadTex('bedrock');
-
-const sand = loadTex('sand'); 
-const snow = loadTex('snow');
-const snowyGrassSide = loadTex('grass_block_snow');
-const sandstonetop = loadTex('sandstone_top');
-const sandstoneside = loadTex('sandstone');
-const sandstonebottom = loadTex('sandstone_bottom');
-
-const oakSaplingTex = loadTex('oak_sapling');
-const spruceSaplingTex = loadTex('spruce_sapling');
-
-const cobblestoneTex = loadTex('cobblestone');
-const cobbledDeepslateTex = loadTex('cobbled_deepslate');
-const coalTex = loadTex('coal', true);
-const rawIronTex = loadTex('raw_iron', true);
-const rawCopperTex = loadTex('raw_copper', true);
-const rawGoldTex = loadTex('raw_gold', true);
-const diamondTex = loadTex('diamond', true);
-const emeraldTex = loadTex('emerald', true);
-const lapisTex = loadTex('lapis_lazuli', true);
-const redstoneTex = loadTex('redstone_dust', true);
-const snowballTex = loadTex('snowball', true);
-
-const sculkShriekerTop = loadTex('sculk_shrieker_top');
-const sculkShriekerBottom = loadTex('sculk_shrieker_bottom');
-const sculkShriekerSide = loadTex('sculk_shrieker_side');
-const sculkSensorTop = loadTex('sculk_sensor_top');
-const sculkSensorBottom = loadTex('sculk_sensor_bottom');
-const sculkSensorSide = loadTex('sculk_sensor_side');
-
+// Load the 10 stages of block breaking
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
-    destroyTextures.push(loadTex(`destroy_stage_${i}`)); 
+    destroyTextures.push(loadTex(`destroy_stage_${i}`));
 }
-
-const grass_color = 0x8db753;
-const invisibleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-const fringeMat = new THREE.MeshStandardMaterial({ 
-    map: grassSideOverlay, color: grass_color, transparent: true, alphaTest: 0.5 
-});
-
-// Hardcoded explicit material mappings for primary blocks
-const materials = {
-    grass_block: [
-        new THREE.MeshStandardMaterial({ map: grassSide }),
-        new THREE.MeshStandardMaterial({ map: grassSide }),
-        new THREE.MeshStandardMaterial({ map: grassTop, color: grass_color }),
-        new THREE.MeshStandardMaterial({ map: dirt }),
-        new THREE.MeshStandardMaterial({ map: grassSide }),
-        new THREE.MeshStandardMaterial({ map: grassSide })
-    ],
-    snowy_grass_block: [
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
-        new THREE.MeshStandardMaterial({ map: snow }), 
-        new THREE.MeshStandardMaterial({ map: dirt }),
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide }),
-        new THREE.MeshStandardMaterial({ map: snowyGrassSide })
-    ],
-    grass_block_overlay: [fringeMat, fringeMat, invisibleMat, invisibleMat, fringeMat, fringeMat],
-    dirt: new THREE.MeshStandardMaterial({ map: dirt }),
-    stone: new THREE.MeshStandardMaterial({ map: stone }),
-    sand: new THREE.MeshStandardMaterial({ map: sand }),
-    sandstone: [
-        new THREE.MeshStandardMaterial({ map: sandstoneside }),
-        new THREE.MeshStandardMaterial({ map: sandstoneside }),
-        new THREE.MeshStandardMaterial({ map: sandstonetop }),
-        new THREE.MeshStandardMaterial({ map: sandstonebottom }),
-        new THREE.MeshStandardMaterial({ map: sandstoneside }),
-        new THREE.MeshStandardMaterial({ map: sandstoneside })
-    ],
-    snow_block: new THREE.MeshStandardMaterial({ map: snow }), 
-
-    cobblestone: new THREE.MeshStandardMaterial({ map: cobblestoneTex }),
-    cobbled_deepslate: new THREE.MeshStandardMaterial({ map: cobbledDeepslateTex }),
-    coal: new THREE.MeshStandardMaterial({ map: coalTex, transparent: true, alphaTest: 0.5 }),
-    raw_iron: new THREE.MeshStandardMaterial({ map: rawIronTex, transparent: true, alphaTest: 0.5 }),
-    raw_copper: new THREE.MeshStandardMaterial({ map: rawCopperTex, transparent: true, alphaTest: 0.5 }),
-    raw_gold: new THREE.MeshStandardMaterial({ map: rawGoldTex, transparent: true, alphaTest: 0.5 }),
-    diamond: new THREE.MeshStandardMaterial({ map: diamondTex, transparent: true, alphaTest: 0.5 }),
-    emerald: new THREE.MeshStandardMaterial({ map: emeraldTex, transparent: true, alphaTest: 0.5 }),
-    lapis_lazuli: new THREE.MeshStandardMaterial({ map: lapisTex, transparent: true, alphaTest: 0.5 }),
-    redstone: new THREE.MeshStandardMaterial({ map: redstoneTex, transparent: true, alphaTest: 0.5 }),
-    snowball: new THREE.MeshStandardMaterial({ map: snowballTex, transparent: true, alphaTest: 0.5 }),
-
-    coal_ore: new THREE.MeshStandardMaterial({ map: coalore }),
-    iron_ore: new THREE.MeshStandardMaterial({ map: ironore }),
-    copper_ore: new THREE.MeshStandardMaterial({ map: copperore }),
-    gold_ore: new THREE.MeshStandardMaterial({ map: goldore }),
-    redstone_ore: new THREE.MeshStandardMaterial({ map: redstoneore }),
-    emerald_ore: new THREE.MeshStandardMaterial({ map: emeraldore }),
-    lapis_ore: new THREE.MeshStandardMaterial({ map: lapisore }),
-    diamond_ore: new THREE.MeshStandardMaterial({ map: diamondore }),
-    deepslate: [
-        new THREE.MeshStandardMaterial({ map: deepslate }),
-        new THREE.MeshStandardMaterial({ map: deepslate }),
-        new THREE.MeshStandardMaterial({ map: deepslatetop }),
-        new THREE.MeshStandardMaterial({ map: deepslatetop }),
-        new THREE.MeshStandardMaterial({ map: deepslate }),
-        new THREE.MeshStandardMaterial({ map: deepslate })
-    ],
-    deepslate_coal_ore: new THREE.MeshStandardMaterial({ map: deepslatecoalore }),
-    deepslate_copper_ore: new THREE.MeshStandardMaterial({ map: deepslatecopperore }),
-    deepslate_iron_ore: new THREE.MeshStandardMaterial({ map: deepslateironore }),
-    deepslate_gold_ore: new THREE.MeshStandardMaterial({ map: deepslategoldore }),
-    deepslate_redstone_ore: new THREE.MeshStandardMaterial({ map: deepslateredstoneore }),
-    deepslate_emerald_ore: new THREE.MeshStandardMaterial({ map: deepslateemeraldore }),
-    deepslate_lapis_ore: new THREE.MeshStandardMaterial({ map: deepslatelapisore }),
-    deepslate_diamond_ore: new THREE.MeshStandardMaterial({ map: deepslatediamondore }),
-    bedrock: new THREE.MeshStandardMaterial({ map: bedrock }),
-    oak_leaves: new THREE.MeshStandardMaterial({ map: leaves, transparent: true, color: 0x7eb04d, alphaTest: 0.5 }),
-    oak_sapling: new THREE.MeshStandardMaterial({ map: oakSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    oak_log: [
-        new THREE.MeshStandardMaterial({ map: logSide }),
-        new THREE.MeshStandardMaterial({ map: logSide }),
-        new THREE.MeshStandardMaterial({ map: logTop }),
-        new THREE.MeshStandardMaterial({ map: logTop }),
-        new THREE.MeshStandardMaterial({ map: logSide }),
-        new THREE.MeshStandardMaterial({ map: logSide })
-    ],
-    spruce_leaves: new THREE.MeshStandardMaterial({ map: spruceLeaves, transparent: true, color: 0x476a35, alphaTest: 0.5 }), 
-    spruce_sapling: new THREE.MeshStandardMaterial({ map: spruceSaplingTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-    spruce_log: [
-        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
-        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
-        new THREE.MeshStandardMaterial({ map: spruceLogTop }),
-        new THREE.MeshStandardMaterial({ map: spruceLogTop }),
-        new THREE.MeshStandardMaterial({ map: spruceLogSide }),
-        new THREE.MeshStandardMaterial({ map: spruceLogSide })
-    ],
-    sculk_shrieker: [
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerTop, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerBottom, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-        new THREE.MeshStandardMaterial({ map: sculkShriekerSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })
-    ],
-    sculk_sensor: [
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorTop, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorBottom, transparent: true, alphaTest: 0.5 }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }),
-        new THREE.MeshStandardMaterial({ map: sculkSensorSide, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })
-    ]
-};
 
 const destroyGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
 const destroyMat = new THREE.MeshBasicMaterial({ 
@@ -2137,6 +2003,40 @@ function animate() {
 
     updateChunks();
     updateDayNightCycle(delta); 
+
+    // --- PROCESS ANIMATED TEXTURES ---
+    const deltaMs = delta * 1000;
+    for (let anim of animatedTextures) {
+        anim.timer += deltaMs;
+        
+        let currentFrameData = anim.frames[anim.currentArrayIdx];
+        let tickDuration = anim.defaultTickRate;
+        let actualFrameIndex = currentFrameData;
+        
+        // Sometimes the .mcmeta has specific times for specific frames like: {"index": 0, "time": 10}
+        if (typeof currentFrameData === 'object') {
+            actualFrameIndex = currentFrameData.index;
+            tickDuration = currentFrameData.time;
+        }
+        
+        // 1 Minecraft Tick = 50 milliseconds
+        const frameDurationMs = tickDuration * 50; 
+        
+        // Is it time to change to the next frame?
+        if (anim.timer >= frameDurationMs) {
+            anim.timer -= frameDurationMs; // Reset the timer
+            
+            // Move to the next frame in the sequence (looping back to start if at the end)
+            anim.currentArrayIdx = (anim.currentArrayIdx + 1) % anim.frames.length;
+            
+            // Figure out the new frame's actual position on the strip
+            currentFrameData = anim.frames[anim.currentArrayIdx];
+            actualFrameIndex = typeof currentFrameData === 'object' ? currentFrameData.index : currentFrameData;
+            
+            // Slide the "film strip" up or down to show the exact right frame!
+            anim.texture.offset.y = 1 - ((actualFrameIndex + 1) * (1 / anim.totalFrames));
+        }
+    }
 
     // Queue system prevents async functions from overlapping and crashing memory
     if (chunkQueue.length > 0 && !isGeneratingChunk) {
