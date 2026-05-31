@@ -141,6 +141,7 @@ function applyIcon(element, type) {
 const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
 const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
 const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
+const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
 
 // ----------------------------------------------------
 // JSON BLOCKSTATE & MODEL READER ENGINE
@@ -325,43 +326,60 @@ let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 
 // ----------------------------------------------------
-// HOTBAR UI
+// HOTBAR UI (Authentic Minecraft Layout)
 // ----------------------------------------------------
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.style.position = 'absolute';
-hotbarContainer.style.bottom = '20px';
+hotbarContainer.style.bottom = '10px';
 hotbarContainer.style.left = '50%';
 hotbarContainer.style.transform = 'translateX(-50%)';
-hotbarContainer.style.display = 'flex';
-hotbarContainer.style.gap = '4px';
-hotbarContainer.style.padding = '6px';
-hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-hotbarContainer.style.border = '3px solid #444';
-hotbarContainer.style.borderRadius = '4px';
+// Scale exactly 2x standard Minecraft size (182x22 -> 364x44)
+hotbarContainer.style.width = '364px';
+hotbarContainer.style.height = '44px';
+hotbarContainer.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
+hotbarContainer.style.backgroundSize = '512px 512px'; // Original is 256x256, scaled 2x
+hotbarContainer.style.backgroundPosition = '0px 0px';
+hotbarContainer.style.imageRendering = 'pixelated';
 hotbarContainer.style.zIndex = '50';
 document.body.appendChild(hotbarContainer);
+
+const hotbarSelector = document.createElement('div');
+hotbarSelector.style.position = 'absolute';
+// Selector is 24x24 in original, scaled to 48x48
+hotbarSelector.style.width = '48px';
+hotbarSelector.style.height = '48px';
+hotbarSelector.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
+hotbarSelector.style.backgroundSize = '512px 512px';
+hotbarSelector.style.backgroundPosition = '0px -44px'; // 22px down in original, *2 = 44px
+hotbarSelector.style.imageRendering = 'pixelated';
+hotbarSelector.style.top = '-2px';
+hotbarSelector.style.left = '-2px';
+hotbarSelector.style.zIndex = '51';
+hotbarSelector.style.pointerEvents = 'none'; // Ensure clicks pass through to slots underneath
+hotbarContainer.appendChild(hotbarSelector);
 
 const hotbarSlotsUI = [];
 for (let i = 0; i < 9; i++) {
     const slot = document.createElement('div');
-    slot.style.width = '44px';
-    slot.style.height = '44px';
-    slot.style.border = '3px solid #888';
-    slot.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
-    slot.style.boxSizing = 'border-box';
-    slot.style.position = 'relative';
+    slot.style.position = 'absolute';
+    slot.style.width = '32px';
+    slot.style.height = '32px';
+    slot.style.left = `${6 + i * 40}px`; // Authentic 20px spacing * 2 = 40px
+    slot.style.top = '6px';
     slot.style.cursor = 'pointer';
+    slot.style.zIndex = '52'; // Top priority for clicks
     
     const countLabel = document.createElement('span');
     countLabel.style.position = 'absolute';
-    countLabel.style.bottom = '2px';
-    countLabel.style.right = '4px';
+    countLabel.style.bottom = '-4px';
+    countLabel.style.right = '-2px';
     countLabel.style.color = 'white';
     countLabel.style.fontWeight = 'bold';
     countLabel.style.fontFamily = 'monospace';
-    countLabel.style.fontSize = '14px';
-    countLabel.style.textShadow = '1px 1px 0 #000';
+    countLabel.style.fontSize = '16px';
+    // Authentic Minecraft text shadow depth
+    countLabel.style.textShadow = '2px 2px 0 #3f3f3f';
     slot.appendChild(countLabel);
     
     slot.addEventListener('mousedown', () => {
@@ -526,27 +544,27 @@ creativeInventoryScreen.appendChild(bottomTabsRow);
 // Held Item UI
 const heldItemUI = document.createElement('div');
 heldItemUI.style.position = 'absolute';
-heldItemUI.style.width = '36px';
-heldItemUI.style.height = '36px';
+heldItemUI.style.width = '32px';
+heldItemUI.style.height = '32px';
 heldItemUI.style.pointerEvents = 'none';
 heldItemUI.style.zIndex = '300';
 heldItemUI.style.display = 'none';
 const heldLabel = document.createElement('span');
 heldLabel.style.position = 'absolute';
-heldLabel.style.bottom = '2px';
-heldLabel.style.right = '4px';
+heldLabel.style.bottom = '-4px';
+heldLabel.style.right = '-2px';
 heldLabel.style.color = 'white';
 heldLabel.style.fontWeight = 'bold';
 heldLabel.style.fontFamily = 'monospace';
-heldLabel.style.fontSize = '12px';
-heldLabel.style.textShadow = '1px 1px 0 #000';
+heldLabel.style.fontSize = '16px';
+heldLabel.style.textShadow = '2px 2px 0 #3f3f3f';
 heldItemUI.appendChild(heldLabel);
 document.body.appendChild(heldItemUI);
 
 document.addEventListener('mousemove', (e) => {
     if (creativeInventoryScreen.style.display === 'flex') {
-        heldItemUI.style.left = e.clientX - 18 + 'px';
-        heldItemUI.style.top = e.clientY - 18 + 'px';
+        heldItemUI.style.left = e.clientX - 16 + 'px';
+        heldItemUI.style.top = e.clientY - 16 + 'px';
     }
 });
 
@@ -691,13 +709,13 @@ for (let i = 0; i < 9; i++) {
     
     const countLabel = document.createElement('span');
     countLabel.style.position = 'absolute';
-    countLabel.style.bottom = '2px';
-    countLabel.style.right = '4px';
+    countLabel.style.bottom = '-2px';
+    countLabel.style.right = '0px';
     countLabel.style.color = 'white';
     countLabel.style.fontWeight = 'bold';
     countLabel.style.fontFamily = 'monospace';
-    countLabel.style.fontSize = '12px';
-    countLabel.style.textShadow = '1px 1px 0 #000';
+    countLabel.style.fontSize = '16px';
+    countLabel.style.textShadow = '2px 2px 0 #3f3f3f';
     slot.appendChild(countLabel);
     
     slot.addEventListener('mousedown', (e) => {
@@ -727,24 +745,19 @@ for (let i = 0; i < 9; i++) {
 }
 
 function updateInventoryUI() {
+    // Dynamically move the Hotbar Selected Slot graphic over the chosen index
+    hotbarSelector.style.left = `${-2 + selectedSlot * 40}px`;
+
     // Update main game Hotbar
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
         applyIcon(ui.div, item.type);
-        ui.div.style.backgroundSize = 'cover';
+        ui.div.style.backgroundSize = 'contain';
+        ui.div.style.backgroundPosition = 'center';
+        ui.div.style.backgroundRepeat = 'no-repeat';
         ui.div.style.imageRendering = 'pixelated';
         ui.label.innerText = (item.count > 1) ? item.count : '';
-        
-        if (i === selectedSlot) {
-            ui.div.style.border = '3px solid #fff';
-            ui.div.style.transform = 'scale(1.15)';
-            ui.div.style.zIndex = '10';
-        } else {
-            ui.div.style.border = '3px solid #888';
-            ui.div.style.transform = 'scale(1)';
-            ui.div.style.zIndex = '1';
-        }
     }
     
     // Update Creative UI Hotbar
