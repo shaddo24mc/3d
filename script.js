@@ -33,7 +33,6 @@ const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
 iconRenderer.setSize(64, 64);
 const iconScene = new THREE.Scene();
 
-// Authentic GUI orthographic camera looking straight down the Z axis
 const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
@@ -99,11 +98,7 @@ const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick',
 const generatedBlocks = [...baseBlocks];
 
 COLORS.forEach(c => {
-    generatedBlocks.push(
-        `${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, 
-        `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, 
-        `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`
-    );
+    generatedBlocks.push(`${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`);
 });
 
 WOODS.forEach(w => {
@@ -116,7 +111,6 @@ WOODS.forEach(w => {
     generatedBlocks.push(log, wood, planks);
     if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
     if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
-    
     generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_trapdoor`);
 });
 
@@ -147,7 +141,6 @@ const CROSS_BLOCKS = new Set([
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
 
-// Transparent blocks correctly let light through and do not cull faces
 const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow']);
 const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; // Air
@@ -158,12 +151,11 @@ ALL_BLOCKS.forEach((b) => {
     }
 });
 
-// Icon Engine handles flat 2D vs 3D correctly
 async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    // Explicitly force these items to render as flat 2D PNGs instead of 3D
+    // Explicitly force these items to render as flat 2D PNGs
     const isItemTex = STRICT_ITEMS.has(type) || 
                       (type.includes('door') && !type.includes('trapdoor')) || 
                       ['candle', 'campfire', 'torch', 'lantern', 'lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'sign'].some(kw => type.includes(kw)) ||
@@ -237,8 +229,48 @@ function applyIcon(element, type) {
 }
 
 // ----------------------------------------------------
-// UI: Crosshair, Hotbar, & Full Inventory
+// UI: Smart Dual-Loader for 1.20+ Sprites vs Legacy Sheets
 // ----------------------------------------------------
+function setFallbackBg(element, urls, configOnSuccess) {
+    let i = 0;
+    function tryNext() {
+        if (i >= urls.length) return;
+        let img = new Image();
+        img.onload = () => {
+            element.style.backgroundImage = `url(${urls[i]})`;
+            if(configOnSuccess) configOnSuccess(i);
+        };
+        img.onerror = () => { i++; tryNext(); };
+        img.src = urls[i];
+    }
+    tryNext();
+}
+
+// ----------------------------------------------------
+// Core UI Scaffolding (1x Scale Native Dimensions)
+// ----------------------------------------------------
+let currentGuiScale = 2;
+function calculateGuiScale() {
+    let scale = 1;
+    // Minecraft logic: find largest integer scale where 320x240 fits inside window
+    while (window.innerWidth / (scale + 1) >= 320 && window.innerHeight / (scale + 1) >= 240) {
+        scale++;
+    }
+    currentGuiScale = Math.max(1, scale);
+    document.getElementById('creative-scale-center').style.transform = `scale(${currentGuiScale})`;
+    document.getElementById('hotbar-scale-center').style.transform = `scale(${currentGuiScale})`;
+    document.getElementById('held-item-wrapper').style.transform = `translate(-50%, -50%) scale(${currentGuiScale})`;
+}
+
+// Wrapping layout
+const guiScaleWrapper = document.createElement('div');
+guiScaleWrapper.id = 'gui-scale-wrapper';
+guiScaleWrapper.style.position = 'absolute';
+guiScaleWrapper.style.inset = '0';
+guiScaleWrapper.style.pointerEvents = 'none';
+guiScaleWrapper.style.zIndex = '9999';
+document.body.appendChild(guiScaleWrapper);
+
 const crosshair = document.createElement('div');
 crosshair.style.position = 'absolute';
 crosshair.style.top = '50%';
@@ -247,9 +279,8 @@ crosshair.style.width = '20px';
 crosshair.style.height = '20px';
 crosshair.style.transform = 'translate(-50%, -50%)';
 crosshair.style.pointerEvents = 'none';
-crosshair.style.zIndex = '100';
 crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
-document.body.appendChild(crosshair);
+guiScaleWrapper.appendChild(crosshair);
 
 const INVENTORY_SIZE = 9; 
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
@@ -268,74 +299,83 @@ let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 
 // ----------------------------------------------------
-// REAL HUD HOTBAR UI (Absolutely ZERO CSS Styling - 100% Textures)
+// REAL HUD HOTBAR UI (182x22 native)
 // ----------------------------------------------------
+const hotbarScaleCenter = document.createElement('div');
+hotbarScaleCenter.id = 'hotbar-scale-center';
+hotbarScaleCenter.style.position = 'absolute';
+hotbarScaleCenter.style.bottom = '0px';
+hotbarScaleCenter.style.left = '50%';
+hotbarScaleCenter.style.transformOrigin = 'bottom center';
+guiScaleWrapper.appendChild(hotbarScaleCenter);
+
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
+hotbarContainer.className = 'pixelated';
 hotbarContainer.style.position = 'absolute';
-// Positioned exactly 4px from bottom to align natively with creative screen
-hotbarContainer.style.bottom = '4px'; 
-hotbarContainer.style.left = '50%';
-hotbarContainer.style.transform = 'translateX(-50%)';
-hotbarContainer.style.width = '364px'; // 182x22 native * 2
-hotbarContainer.style.height = '44px';
-hotbarContainer.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
-hotbarContainer.style.backgroundSize = '512px 512px'; // Correct 2x scaling (256 native)
-hotbarContainer.style.backgroundPosition = '0px 0px';
-hotbarContainer.style.imageRendering = 'pixelated';
-hotbarContainer.style.zIndex = '50';
+hotbarContainer.style.left = '-91px'; // Center 182px wide element
+hotbarContainer.style.bottom = '0px'; 
+hotbarContainer.style.width = '182px'; 
+hotbarContainer.style.height = '22px';
 hotbarContainer.style.display = 'block';
-document.body.appendChild(hotbarContainer);
+hotbarScaleCenter.appendChild(hotbarContainer);
+
+// Fallback logic for Hotbar
+setFallbackBg(hotbarContainer, 
+    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    (idx) => { hotbarContainer.style.backgroundSize = idx === 0 ? '182px 22px' : '256px 256px'; }
+);
 
 const hotbarSelector = document.createElement('div');
+hotbarSelector.className = 'pixelated';
 hotbarSelector.style.position = 'absolute';
-hotbarSelector.style.width = '48px';
-hotbarSelector.style.height = '48px';
-hotbarSelector.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
-hotbarSelector.style.backgroundSize = '512px 512px';
-hotbarSelector.style.backgroundPosition = '0px -44px'; // y=22 native * 2
-hotbarSelector.style.imageRendering = 'pixelated';
-hotbarSelector.style.top = '-2px';
-hotbarSelector.style.left = '-2px';
-hotbarSelector.style.zIndex = '51';
+hotbarSelector.style.width = '24px';
+hotbarSelector.style.height = '24px';
+hotbarSelector.style.top = '-1px';
+hotbarSelector.style.left = '-1px';
 hotbarSelector.style.pointerEvents = 'none'; 
+hotbarSelector.style.zIndex = '51';
 hotbarContainer.appendChild(hotbarSelector);
+
+setFallbackBg(hotbarSelector, 
+    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    (idx) => {
+        hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px';
+        hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px';
+    }
+);
 
 const hotbarSlotsUI = [];
 for (let i = 0; i < 9; i++) {
-    const slot = document.createElement('div');
-    slot.style.position = 'absolute';
-    slot.style.width = '32px';
-    slot.style.height = '32px';
-    slot.style.left = `${6 + i * 40}px`; // 3 native + (20 native spacing) * 2
-    slot.style.top = '6px';
-    slot.style.cursor = 'pointer';
-    slot.style.zIndex = '52'; 
+    const slotWrap = document.createElement('div');
+    slotWrap.style.position = 'absolute';
+    slotWrap.style.width = '16px';
+    slotWrap.style.height = '16px';
+    slotWrap.style.left = `${3 + i * 20}px`; 
+    slotWrap.style.top = '3px';
+    slotWrap.style.cursor = 'pointer';
+    slotWrap.style.pointerEvents = 'auto';
+    slotWrap.style.zIndex = '52'; 
+    
+    const itemSprite = document.createElement('div');
+    itemSprite.className = 'pixelated';
+    itemSprite.style.width = '100%';
+    itemSprite.style.height = '100%';
+    slotWrap.appendChild(itemSprite);
     
     const countLabel = document.createElement('span');
+    countLabel.className = 'mc-text';
     countLabel.style.position = 'absolute';
     countLabel.style.bottom = '-4px';
     countLabel.style.right = '-2px';
-    countLabel.style.color = 'white';
-    countLabel.style.fontWeight = 'bold';
-    countLabel.style.fontFamily = 'monospace';
-    countLabel.style.fontSize = '16px';
-    countLabel.style.textShadow = '2px 2px 0 #3f3f3f'; // Authentic font shadow
-    slot.appendChild(countLabel);
+    slotWrap.appendChild(countLabel);
     
-    slot.addEventListener('mousedown', () => {
-        if (creativeInventoryScreen.style.display === 'none') {
-            selectedSlot = i;
-            updateInventoryUI();
-        }
-    });
-
-    hotbarContainer.appendChild(slot);
-    hotbarSlotsUI.push({ div: slot, label: countLabel });
+    hotbarContainer.appendChild(slotWrap);
+    hotbarSlotsUI.push({ div: itemSprite, label: countLabel });
 }
 
 // ----------------------------------------------------
-// CREATIVE INVENTORY UI
+// CREATIVE INVENTORY UI (195x136 native)
 // ----------------------------------------------------
 const CATEGORIES = {
     building: { name: 'Building Blocks', icon: 'bricks', blocks: [] },
@@ -379,132 +419,135 @@ ALL_BLOCKS.forEach(b => {
 
 let currentCategory = 'building';
 
+const creativeScaleCenter = document.createElement('div');
+creativeScaleCenter.id = 'creative-scale-center';
+creativeScaleCenter.style.position = 'absolute';
+creativeScaleCenter.style.top = '50%';
+creativeScaleCenter.style.left = '50%';
+creativeScaleCenter.style.transformOrigin = 'center';
+creativeScaleCenter.style.display = 'none';
+guiScaleWrapper.appendChild(creativeScaleCenter);
+
 const creativeInventoryScreen = document.createElement('div');
 creativeInventoryScreen.id = 'creative-inventory-screen';
 creativeInventoryScreen.style.position = 'absolute';
-// Anchor to bottom perfectly so the internal hotbar fully eclipses the HUD hotbar
-creativeInventoryScreen.style.bottom = '-6px'; 
-creativeInventoryScreen.style.left = '50%';
-creativeInventoryScreen.style.transform = 'translateX(-50%)';
-creativeInventoryScreen.style.display = 'none';
-creativeInventoryScreen.style.flexDirection = 'column';
-creativeInventoryScreen.style.zIndex = '200';
-creativeInventoryScreen.style.width = '390px'; // 195x136 native * 2
+creativeInventoryScreen.style.left = '-97.5px'; // 195 / 2
+creativeInventoryScreen.style.top = '-68px'; // 136 / 2
+creativeInventoryScreen.style.width = '195px'; 
+creativeInventoryScreen.style.height = '136px';
 creativeInventoryScreen.style.userSelect = 'none';
-document.body.appendChild(creativeInventoryScreen);
+creativeScaleCenter.appendChild(creativeInventoryScreen);
 
-// Top tabs are absolute and sit beneath the GUI body by default (unless selected)
+// Top tabs
 const topTabsRow = document.createElement('div');
 topTabsRow.style.display = 'flex';
-topTabsRow.style.alignItems = 'flex-end'; // Anchor to bottom of container
+topTabsRow.style.alignItems = 'flex-end'; // Unselected (shorter) align to bottom
 topTabsRow.style.position = 'absolute';
-topTabsRow.style.top = '-56px'; // overlaps 8px into the main body (64px height)
+topTabsRow.style.top = '-28px'; // Max tab height is 32. But they slide down 4px into the body.
 topTabsRow.style.left = '0';
 topTabsRow.style.width = '100%';
-topTabsRow.style.paddingLeft = '0px';
-topTabsRow.style.gap = '0px';
 topTabsRow.style.zIndex = '1';
 creativeInventoryScreen.appendChild(topTabsRow);
 
 const invBody = document.createElement('div');
-invBody.style.width = '390px';
-invBody.style.height = '272px';
-// CORRECT 2x SCALE (256x256 image * 2) completely prevents layout bleeding!
-invBody.style.backgroundSize = '512px 512px'; 
-invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
+invBody.className = 'pixelated';
+invBody.style.position = 'absolute';
+invBody.style.inset = '0';
+invBody.style.width = '100%';
+invBody.style.height = '100%';
+invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`; // Safe fallback since we know it exists
+invBody.style.backgroundSize = '256px 256px'; 
 invBody.style.backgroundPosition = '0px 0px';
-invBody.style.imageRendering = 'pixelated';
-invBody.style.position = 'relative';
+invBody.style.pointerEvents = 'auto';
 invBody.style.zIndex = '10';
 creativeInventoryScreen.appendChild(invBody);
 
-const searchRow = document.createElement('div');
-searchRow.style.display = 'none';
-searchRow.style.position = 'absolute';
-searchRow.style.left = '164px';
-searchRow.style.top = '12px';
-searchRow.style.width = '178px';
-searchRow.style.height = '24px';
 const searchInput = document.createElement('input');
 searchInput.id = 'creative-search';
 searchInput.type = 'text';
-searchInput.style.width = '100%';
-searchInput.style.height = '100%';
-searchInput.style.padding = '0 6px';
+searchInput.style.position = 'absolute';
+searchInput.style.left = '82px';
+searchInput.style.top = '4px';
+searchInput.style.width = '89px';
+searchInput.style.height = '12px';
+searchInput.style.padding = '0 2px';
 searchInput.style.backgroundColor = 'transparent';
 searchInput.style.color = '#fff';
 searchInput.style.border = 'none';
 searchInput.style.fontFamily = 'monospace';
-searchInput.style.fontSize = '14px';
+searchInput.style.fontSize = '8px';
 searchInput.style.outline = 'none';
-searchRow.appendChild(searchInput);
-invBody.appendChild(searchRow);
+searchInput.style.display = 'none';
+invBody.appendChild(searchInput);
 
 searchInput.addEventListener('keydown', (e) => e.stopPropagation()); 
 searchInput.addEventListener('input', () => populateCreativeGrid());
 
 const creativeTitle = document.createElement('div');
+creativeTitle.className = 'mc-title';
 creativeTitle.innerText = "Building Blocks";
-creativeTitle.style.fontFamily = "monospace";
-creativeTitle.style.fontSize = "16px";
-creativeTitle.style.color = "#3f3f3f";
 creativeTitle.style.position = 'absolute';
-creativeTitle.style.left = '16px';
-creativeTitle.style.top = '12px';
+creativeTitle.style.left = '8px';
+creativeTitle.style.top = '6px';
 invBody.appendChild(creativeTitle);
 
 const creativeGridContainer = document.createElement('div');
 creativeGridContainer.id = 'creative-grid-container';
 creativeGridContainer.style.position = 'absolute';
-creativeGridContainer.style.left = '18px';
-creativeGridContainer.style.top = '36px';
-creativeGridContainer.style.width = '354px'; 
-creativeGridContainer.style.height = '180px'; // Exactly 5 rows of items
+creativeGridContainer.style.left = '9px';
+creativeGridContainer.style.top = '18px';
+creativeGridContainer.style.width = '162px'; // 9 * 18
+creativeGridContainer.style.height = '90px'; // 5 * 18
 creativeGridContainer.style.overflowY = 'scroll';
-creativeGridContainer.style.backgroundColor = 'transparent';
-
-const creativeGrid = document.createElement('div');
-creativeGrid.style.display = 'grid';
-creativeGrid.style.gridTemplateColumns = 'repeat(9, 36px)';
-creativeGrid.style.gridAutoRows = '36px';
-creativeGrid.style.gap = '0px';
-creativeGridContainer.appendChild(creativeGrid);
+creativeGridContainer.style.display = 'grid';
+creativeGridContainer.style.gridTemplateColumns = 'repeat(9, 18px)';
+creativeGridContainer.style.gridAutoRows = '18px';
 invBody.appendChild(creativeGridContainer);
 
 // Authentic Sprite-Based Scrollbar
 const scrollTrack = document.createElement('div');
 scrollTrack.style.position = 'absolute';
-scrollTrack.style.right = '16px';
-scrollTrack.style.top = '36px';
-scrollTrack.style.width = '28px'; // 14 native
-scrollTrack.style.height = '224px'; // 112 native
+scrollTrack.style.right = '8px';
+scrollTrack.style.top = '18px';
+scrollTrack.style.width = '14px'; 
+scrollTrack.style.height = '112px'; 
 invBody.appendChild(scrollTrack);
 
 const scrollThumb = document.createElement('div');
+scrollThumb.className = 'pixelated';
 scrollThumb.style.position = 'absolute';
-scrollThumb.style.left = '2px';
+scrollThumb.style.left = '1px';
 scrollThumb.style.top = '0px';
-scrollThumb.style.width = '24px'; // 12 native
-scrollThumb.style.height = '30px'; // 15 native
-scrollThumb.style.backgroundImage = `url(${GUI_TEX_DIR}tabs.png)`;
-scrollThumb.style.backgroundSize = '512px 512px';
-scrollThumb.style.backgroundPosition = '-464px 0px'; // Native x=232, y=0
-scrollThumb.style.imageRendering = 'pixelated';
+scrollThumb.style.width = '12px'; 
+scrollThumb.style.height = '15px'; 
 scrollTrack.appendChild(scrollThumb);
 
-// Custom Scrollbar dragging logic
+function updateScrollThumbVisuals(disabled) {
+    const sprite = disabled ? 'scroller_disabled.png' : 'scroller.png';
+    const legacyX = disabled ? -244 : -232;
+    setFallbackBg(scrollThumb, 
+        [`${GUI_WIDGETS_DIR}sprites/container/creative_inventory/${sprite}`, `${GUI_TEX_DIR}tabs.png`],
+        (idx) => {
+            scrollThumb.style.backgroundSize = idx === 0 ? '12px 15px' : '256px 256px';
+            scrollThumb.style.backgroundPosition = idx === 0 ? '0 0' : `${legacyX}px 0`;
+        }
+    );
+}
+updateScrollThumbVisuals(false);
+
 let isDraggingScroll = false;
 scrollThumb.addEventListener('mousedown', (e) => {
     isDraggingScroll = true;
     e.stopPropagation();
 });
 document.addEventListener('mousemove', (e) => {
-    if (isDraggingScroll && creativeInventoryScreen.style.display !== 'none') {
+    if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
         const trackRect = scrollTrack.getBoundingClientRect();
-        let y = e.clientY - trackRect.top - 15; // Center mouse on thumb
-        y = Math.max(0, Math.min(y, 194)); // 224 - 30
-        scrollThumb.style.top = y + 'px';
-        const scrollPct = y / 194;
+        // Calculate true mathematical height accounting for global GUI scale
+        let trueHeight = 97 * currentGuiScale; // 112 track - 15 thumb = 97 travel distance
+        let y = e.clientY - trackRect.top - (7.5 * currentGuiScale); // center mouse
+        y = Math.max(0, Math.min(y, trueHeight)); 
+        const scrollPct = y / trueHeight;
         creativeGridContainer.scrollTop = scrollPct * (creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight);
     }
 });
@@ -513,94 +556,92 @@ creativeGridContainer.addEventListener('scroll', () => {
     if (isDraggingScroll) return;
     const maxScroll = creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight;
     if (maxScroll <= 0) {
-        scrollThumb.style.backgroundPosition = '-488px 0px'; // Native x=244 disabled
+        updateScrollThumbVisuals(true);
         scrollThumb.style.top = '0px';
         return;
     }
-    scrollThumb.style.backgroundPosition = '-464px 0px'; // Native active
+    updateScrollThumbVisuals(false);
     const scrollPct = creativeGridContainer.scrollTop / maxScroll;
-    scrollThumb.style.top = (scrollPct * 194) + 'px';
+    scrollThumb.style.top = (scrollPct * 97) + 'px'; // 112 - 15 = 97
 });
-
 
 const creativeHotbarGrid = document.createElement('div');
 creativeHotbarGrid.style.position = 'absolute';
-creativeHotbarGrid.style.left = '18px';
-creativeHotbarGrid.style.top = '224px'; // 112 native * 2
-creativeHotbarGrid.style.width = '324px';
-creativeHotbarGrid.style.height = '36px';
+creativeHotbarGrid.style.left = '9px';
+creativeHotbarGrid.style.top = '112px'; 
+creativeHotbarGrid.style.width = '162px';
+creativeHotbarGrid.style.height = '18px';
 creativeHotbarGrid.style.display = 'grid';
-creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 36px)';
-creativeHotbarGrid.style.gap = '0px';
+creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 18px)';
 invBody.appendChild(creativeHotbarGrid);
 
-// Bottom tabs are absolute and sit beneath the GUI body
+// Bottom tabs
 const bottomTabsRow = document.createElement('div');
 bottomTabsRow.style.display = 'flex';
-bottomTabsRow.style.alignItems = 'flex-start'; // Anchor to top of container
+bottomTabsRow.style.alignItems = 'flex-start'; // Unselected align to top
 bottomTabsRow.style.position = 'absolute';
-bottomTabsRow.style.bottom = '-56px'; // overlaps 8px into the main body (64px height)
+bottomTabsRow.style.bottom = '-28px';
 bottomTabsRow.style.left = '0';
 bottomTabsRow.style.width = '100%';
-bottomTabsRow.style.paddingLeft = '0px';
-bottomTabsRow.style.gap = '0px';
 bottomTabsRow.style.zIndex = '1';
 creativeInventoryScreen.appendChild(bottomTabsRow);
 
+// Held Item (Follows Cursor freely outside of native scaling flow)
+const heldItemWrapper = document.createElement('div');
+heldItemWrapper.id = 'held-item-wrapper';
+heldItemWrapper.style.position = 'absolute';
+heldItemWrapper.style.pointerEvents = 'none';
+heldItemWrapper.style.zIndex = '10000';
+heldItemWrapper.style.display = 'none';
+guiScaleWrapper.appendChild(heldItemWrapper);
+
 const heldItemUI = document.createElement('div');
+heldItemUI.className = 'pixelated';
 heldItemUI.style.position = 'absolute';
-heldItemUI.style.width = '32px';
-heldItemUI.style.height = '32px';
-heldItemUI.style.pointerEvents = 'none';
-heldItemUI.style.zIndex = '300';
-heldItemUI.style.display = 'none';
+// Center the 16x16 item precisely on the cursor coordinate
+heldItemUI.style.left = '-8px';
+heldItemUI.style.top = '-8px';
+heldItemUI.style.width = '16px';
+heldItemUI.style.height = '16px';
+heldItemWrapper.appendChild(heldItemUI);
+
 const heldLabel = document.createElement('span');
+heldLabel.className = 'mc-text';
 heldLabel.style.position = 'absolute';
 heldLabel.style.bottom = '-4px';
 heldLabel.style.right = '-2px';
-heldLabel.style.color = 'white';
-heldLabel.style.fontWeight = 'bold';
-heldLabel.style.fontFamily = 'monospace';
-heldLabel.style.fontSize = '16px';
-heldLabel.style.textShadow = '2px 2px 0 #3f3f3f';
 heldItemUI.appendChild(heldLabel);
-document.body.appendChild(heldItemUI);
 
 document.addEventListener('mousemove', (e) => {
-    if (creativeInventoryScreen.style.display === 'flex') {
-        heldItemUI.style.left = e.clientX - 16 + 'px';
-        heldItemUI.style.top = e.clientY - 16 + 'px';
+    if (creativeScaleCenter.style.display === 'flex') {
+        heldItemWrapper.style.left = e.clientX + 'px';
+        heldItemWrapper.style.top = e.clientY + 'px';
     }
 });
 
 const allTabsUI = [];
 
-// Re-engineered Tab system mapped precisely to monolithic tabs.png columns
 function createTab(catKey, isTop, isRightAlign = false, colIndex = 0) {
     const cat = CATEGORIES[catKey];
     const tab = document.createElement('div');
-    tab.style.width = '56px'; // 28 native
-    tab.style.height = '64px'; // 32 native
+    tab.className = 'pixelated';
+    tab.style.width = '28px'; 
     tab.style.cursor = 'pointer';
     tab.style.position = 'relative';
     tab.style.display = 'flex';
     tab.style.alignItems = 'center';
     tab.style.justifyContent = 'center';
-    
-    // Authentic tabs.png background mapping - NO CSS COLORS OR BORDERS
-    tab.style.backgroundImage = `url(${GUI_TEX_DIR}tabs.png)`;
-    tab.style.backgroundSize = '512px 512px'; // 256x256 * 2
-    tab.style.imageRendering = 'pixelated';
+    tab.style.pointerEvents = 'auto';
     if (isRightAlign) tab.style.marginLeft = 'auto';
     
     const icon = document.createElement('div');
-    icon.style.width = '32px';
-    icon.style.height = '32px';
-    applyIcon(icon, cat.icon);
+    icon.className = 'pixelated';
+    icon.style.width = '16px';
+    icon.style.height = '16px';
     icon.style.backgroundSize = 'contain';
     icon.style.backgroundPosition = 'center';
     icon.style.backgroundRepeat = 'no-repeat';
-    icon.style.imageRendering = 'pixelated';
+    applyIcon(icon, cat.icon);
     tab.appendChild(icon);
 
     tab.addEventListener('mousedown', () => {
@@ -615,7 +656,7 @@ function createTab(catKey, isTop, isRightAlign = false, colIndex = 0) {
     allTabsUI.push({ key: catKey, elem: tab, icon: icon, isTop: isTop, colIndex: colIndex });
 }
 
-// Map the tabs strictly to the 7 columns in the authentic tabs.png spritesheet
+// 7 exact column indices matching tabs.png spritesheet
 const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'misc'];
 topKeys.forEach((k, i) => createTab(k, true, false, i));
 createTab('search', true, true, 6); 
@@ -625,19 +666,35 @@ bottomKeys.forEach((k, i) => createTab(k, false, false, i));
 
 function updateTabsUI() {
     allTabsUI.forEach(tabObj => {
-        let xOffset = -(tabObj.colIndex * 56);
-        let yOffset = 0;
+        const isSelected = tabObj.key === currentCategory;
+        const col = tabObj.colIndex;
+        const isTop = tabObj.isTop;
         
-        if (tabObj.key === currentCategory) {
-            tabObj.elem.style.zIndex = '20'; // Pops over the main frame
-            yOffset = tabObj.isTop ? -64 : -192; // Rows 2 and 4 are selected tabs
-            tabObj.icon.style.transform = tabObj.isTop ? 'translateY(-2px)' : 'translateY(2px)';
+        tabObj.elem.style.zIndex = isSelected ? '20' : '1';
+        tabObj.elem.style.height = isSelected ? '32px' : '28px';
+        
+        // Push icon visually to center of the tab depending on orientation
+        if (isSelected) {
+            tabObj.icon.style.transform = 'translateY(0px)';
         } else {
-            tabObj.elem.style.zIndex = '1';  // Tucks behind the main frame
-            yOffset = tabObj.isTop ? 0 : -128; // Rows 1 and 3 are unselected tabs
-            tabObj.icon.style.transform = tabObj.isTop ? 'translateY(2px)' : 'translateY(-2px)';
+            tabObj.icon.style.transform = isTop ? 'translateY(2px)' : 'translateY(-2px)';
         }
-        tabObj.elem.style.backgroundPosition = `${xOffset}px ${yOffset}px`;
+
+        const legacyX = -(col * 28);
+        const legacyY = isTop ? (isSelected ? -32 : 0) : (isSelected ? -96 : -64);
+        
+        const spritePrefix = `${GUI_WIDGETS_DIR}sprites/container/creative_inventory/tab_${isTop ? 'top' : 'bottom'}_${isSelected ? 'selected' : 'unselected'}_${col + 1}.png`;
+        const legacyPath = `${GUI_TEX_DIR}tabs.png`;
+
+        setFallbackBg(tabObj.elem, [spritePrefix, legacyPath], (idx) => {
+            if (idx === 0) { // Modern split sprite
+                tabObj.elem.style.backgroundSize = '28px 32px';
+                tabObj.elem.style.backgroundPosition = '0 0';
+            } else { // Legacy tabs.png
+                tabObj.elem.style.backgroundSize = '256px 256px';
+                tabObj.elem.style.backgroundPosition = `${legacyX}px ${legacyY}px`;
+            }
+        });
     });
 
     creativeTitle.innerText = CATEGORIES[currentCategory].name;
@@ -646,13 +703,10 @@ function updateTabsUI() {
         invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_item_search.png)`;
         searchRow.style.display = 'block';
         creativeTitle.style.display = 'none';
-        creativeGridContainer.style.display = 'block';
+        creativeGridContainer.style.display = 'grid';
         scrollTrack.style.display = 'block';
-        creativeGridContainer.style.top = '48px'; 
-        creativeGridContainer.style.height = '144px';
         setTimeout(() => searchInput.focus(), 50);
     } else if (currentCategory === 'inventory') {
-        // Loads survival inventory UI and hides creative grid!
         invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_inventory.png)`;
         searchRow.style.display = 'none';
         creativeTitle.style.display = 'none';
@@ -662,16 +716,80 @@ function updateTabsUI() {
         invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
         searchRow.style.display = 'none';
         creativeTitle.style.display = 'block';
-        creativeGridContainer.style.display = 'block';
+        creativeGridContainer.style.display = 'grid';
         scrollTrack.style.display = 'block';
-        creativeGridContainer.style.top = '36px';
-        creativeGridContainer.style.height = '180px';
     }
+}
+
+function createItemSlot(bName, i, sourceArray) {
+    const slotWrap = document.createElement('div');
+    slotWrap.style.width = '18px';
+    slotWrap.style.height = '18px';
+    slotWrap.style.position = 'relative';
+    slotWrap.style.cursor = 'pointer';
+    slotWrap.style.pointerEvents = 'auto';
+    
+    const itemSprite = document.createElement('div');
+    itemSprite.className = 'pixelated';
+    itemSprite.style.position = 'absolute';
+    itemSprite.style.left = '1px';
+    itemSprite.style.top = '1px';
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
+    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.backgroundPosition = 'center';
+    itemSprite.style.backgroundRepeat = 'no-repeat';
+    applyIcon(itemSprite, bName);
+    slotWrap.appendChild(itemSprite);
+
+    const highlight = document.createElement('div');
+    highlight.style.position = 'absolute';
+    highlight.style.inset = '1px';
+    highlight.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+    highlight.style.display = 'none';
+    highlight.style.zIndex = '5';
+    slotWrap.appendChild(highlight);
+
+    slotWrap.addEventListener('mouseenter', () => highlight.style.display = 'block');
+    slotWrap.addEventListener('mouseleave', () => highlight.style.display = 'none');
+
+    slotWrap.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        if (e.button === 0) {
+            if (sourceArray) { // Interaction from Hotbar row
+                let tempType = sourceArray[i].type;
+                let tempCount = sourceArray[i].count;
+                
+                if (heldItem.type === sourceArray[i].type && heldItem.type !== null) {
+                    let space = 64 - sourceArray[i].count;
+                    let toMove = Math.min(space, heldItem.count);
+                    sourceArray[i].count += toMove;
+                    heldItem.count -= toMove;
+                    if (heldItem.count <= 0) heldItem.type = null;
+                } else {
+                    sourceArray[i].type = heldItem.type;
+                    sourceArray[i].count = heldItem.count;
+                    heldItem.type = tempType;
+                    heldItem.count = tempCount;
+                }
+            } else { // Interaction from Creative Grid
+                if (heldItem.type === bName) {
+                    heldItem.count = 64; 
+                } else if (!heldItem.type || heldItem.type !== bName) {
+                    heldItem.type = bName;
+                    heldItem.count = 64;
+                }
+            }
+            updateInventoryUI();
+        }
+    });
+    
+    return slotWrap;
 }
 
 function populateCreativeGrid() {
     creativeGrid.innerHTML = '';
-    creativeGridContainer.scrollTop = 0; // Reset scroll on tab change
+    creativeGridContainer.scrollTop = 0; 
     
     let blocksToShow = CATEGORIES[currentCategory].blocks;
     
@@ -683,103 +801,34 @@ function populateCreativeGrid() {
     }
 
     blocksToShow.forEach(bName => {
-        const slot = document.createElement('div');
-        slot.style.width = '36px';
-        slot.style.height = '36px';
-        slot.style.backgroundColor = 'transparent';
-        slot.style.position = 'relative';
-        slot.style.cursor = 'pointer';
-        
-        applyIcon(slot, bName);
-        slot.style.backgroundSize = 'contain';
-        slot.style.backgroundPosition = 'center';
-        slot.style.backgroundRepeat = 'no-repeat';
-        slot.style.imageRendering = 'pixelated';
-
-        // Authentic Slot Highlight on hover
-        slot.addEventListener('mouseenter', () => slot.style.backgroundColor = 'rgba(255, 255, 255, 0.4)');
-        slot.addEventListener('mouseleave', () => slot.style.backgroundColor = 'transparent');
-
-        slot.addEventListener('mousedown', (e) => {
-            e.stopPropagation();
-            if (e.button === 0) {
-                if (heldItem.type === bName) {
-                    heldItem.count = 64; 
-                } else if (!heldItem.type || heldItem.type !== bName) {
-                    heldItem.type = bName;
-                    heldItem.count = 64;
-                }
-                updateInventoryUI();
-            }
-        });
-        
-        creativeGrid.appendChild(slot);
+        creativeGrid.appendChild(createItemSlot(bName, null, null));
     });
     
-    // Trigger scroll event manually to update the thumb state (active vs disabled)
     creativeGridContainer.dispatchEvent(new Event('scroll'));
 }
 
 const creativeHotbarSlotsUI = [];
 for (let i = 0; i < 9; i++) {
-    const slot = document.createElement('div');
-    slot.style.width = '36px';
-    slot.style.height = '36px';
-    slot.style.backgroundColor = 'transparent';
-    slot.style.position = 'relative';
-    slot.style.cursor = 'pointer';
-    
+    const slotWrap = createItemSlot(null, i, inventory);
     const countLabel = document.createElement('span');
+    countLabel.className = 'mc-text';
     countLabel.style.position = 'absolute';
-    countLabel.style.bottom = '-2px';
-    countLabel.style.right = '0px';
-    countLabel.style.color = 'white';
-    countLabel.style.fontWeight = 'bold';
-    countLabel.style.fontFamily = 'monospace';
-    countLabel.style.fontSize = '16px';
-    countLabel.style.textShadow = '2px 2px 0 #3f3f3f';
-    slot.appendChild(countLabel);
-    
-    slot.addEventListener('mouseenter', () => slot.style.backgroundColor = 'rgba(255, 255, 255, 0.4)');
-    slot.addEventListener('mouseleave', () => slot.style.backgroundColor = 'transparent');
-    
-    slot.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-        if (e.button === 0) {
-            let tempType = inventory[i].type;
-            let tempCount = inventory[i].count;
-            
-            if (heldItem.type === inventory[i].type && heldItem.type !== null) {
-                let space = 64 - inventory[i].count;
-                let toMove = Math.min(space, heldItem.count);
-                inventory[i].count += toMove;
-                heldItem.count -= toMove;
-                if (heldItem.count <= 0) heldItem.type = null;
-            } else {
-                inventory[i].type = heldItem.type;
-                inventory[i].count = heldItem.count;
-                heldItem.type = tempType;
-                heldItem.count = tempCount;
-            }
-            updateInventoryUI();
-        }
-    });
+    countLabel.style.bottom = '-4px';
+    countLabel.style.right = '-2px';
+    countLabel.style.zIndex = '6';
+    slotWrap.appendChild(countLabel);
 
-    creativeHotbarGrid.appendChild(slot);
-    creativeHotbarSlotsUI.push({ div: slot, label: countLabel });
+    creativeHotbarGrid.appendChild(slotWrap);
+    creativeHotbarSlotsUI.push({ div: slotWrap.firstChild, label: countLabel });
 }
 
 function updateInventoryUI() {
-    hotbarSelector.style.left = `${-2 + selectedSlot * 40}px`;
+    hotbarSelector.style.left = `${-1 + selectedSlot * 20}px`; // 20px stride
 
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
         applyIcon(ui.div, item.type);
-        ui.div.style.backgroundSize = 'contain';
-        ui.div.style.backgroundPosition = 'center';
-        ui.div.style.backgroundRepeat = 'no-repeat';
-        ui.div.style.imageRendering = 'pixelated';
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
@@ -787,29 +836,22 @@ function updateInventoryUI() {
         const item = inventory[i];
         const ui = creativeHotbarSlotsUI[i];
         applyIcon(ui.div, item.type);
-        ui.div.style.backgroundSize = 'contain';
-        ui.div.style.backgroundPosition = 'center';
-        ui.div.style.backgroundRepeat = 'no-repeat';
-        ui.div.style.imageRendering = 'pixelated';
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
     if (heldItem.type) {
-        heldItemUI.style.display = 'block';
+        heldItemWrapper.style.display = 'block';
         applyIcon(heldItemUI, heldItem.type);
-        heldItemUI.style.backgroundSize = 'contain';
-        heldItemUI.style.backgroundPosition = 'center';
-        heldItemUI.style.backgroundRepeat = 'no-repeat';
-        heldItemUI.style.imageRendering = 'pixelated';
         heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
     } else {
-        heldItemUI.style.display = 'none';
+        heldItemWrapper.style.display = 'none';
     }
 }
 
 document.addEventListener('mousedown', (e) => {
-    if (creativeInventoryScreen.style.display === 'flex' && heldItem.type) {
-        if (!creativeInventoryScreen.contains(e.target)) {
+    if (creativeScaleCenter.style.display === 'flex' && heldItem.type) {
+        // Drop item if clicked outside the GUI body
+        if (!invBody.contains(e.target) && !topTabsRow.contains(e.target) && !bottomTabsRow.contains(e.target)) {
             heldItem.type = null;
             heldItem.count = 0;
             updateInventoryUI();
@@ -839,6 +881,9 @@ function addItemToInventory(type, amount) {
     }
     updateInventoryUI();
 }
+
+calculateGuiScale();
+window.addEventListener('resize', calculateGuiScale);
 
 updateTabsUI();
 populateCreativeGrid();
@@ -2596,7 +2641,7 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('mousedown', (e) => {
     if (e.target.closest('#creative-inventory-screen') || e.target.closest('#hotbar')) return; 
     
-    if (!document.pointerLockElement && creativeInventoryScreen.style.display === 'none') {
+    if (!document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
         renderer.domElement.requestPointerLock();
     } else if (document.pointerLockElement) {
         if (e.button === 0) {
@@ -2701,16 +2746,14 @@ window.addEventListener('keydown', (e) => {
             return;
         }
         
-        if (creativeInventoryScreen.style.display === 'none') {
-            creativeInventoryScreen.style.display = 'flex';
-            hotbarContainer.style.display = 'none'; 
+        if (creativeScaleCenter.style.display === 'none') {
+            creativeScaleCenter.style.display = 'flex';
             crosshair.style.display = 'none';
             document.exitPointerLock();
             keys = {}; 
             populateCreativeGrid();
         } else {
-            creativeInventoryScreen.style.display = 'none';
-            hotbarContainer.style.display = 'block'; 
+            creativeScaleCenter.style.display = 'none';
             crosshair.style.display = 'block';
             
             if (heldItem.type) {
@@ -2721,7 +2764,7 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
-    if (e.key >= '1' && e.key <= '9' && creativeInventoryScreen.style.display === 'none') {
+    if (e.key >= '1' && e.key <= '9' && creativeScaleCenter.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
         updateInventoryUI();
     }
@@ -2735,7 +2778,7 @@ window.addEventListener('keyup', (e) => {
 
 let lastScrollTime = 0; 
 window.addEventListener('wheel', (e) => {
-    if (document.pointerLockElement && creativeInventoryScreen.style.display === 'none') {
+    if (document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
         const now = Date.now();
         if (now - lastScrollTime < 50) return; 
         lastScrollTime = now;
@@ -2747,12 +2790,6 @@ window.addEventListener('wheel', (e) => {
         }
         updateInventoryUI();
     }
-});
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // ----------------------------------------------------
@@ -2824,7 +2861,7 @@ function animate() {
         generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
     }
 
-    if (isLeftMouseDown && !mining.active && document.pointerLockElement && creativeInventoryScreen.style.display === 'none') {
+    if (isLeftMouseDown && !mining.active && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
         const hit = getTarget();
         if (hit) startMining(hit);
     }
