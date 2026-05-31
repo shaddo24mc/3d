@@ -98,7 +98,11 @@ const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick',
 const generatedBlocks = [...baseBlocks];
 
 COLORS.forEach(c => {
-    generatedBlocks.push(`${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`);
+    generatedBlocks.push(
+        `${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, 
+        `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, 
+        `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`
+    );
 });
 
 WOODS.forEach(w => {
@@ -111,6 +115,7 @@ WOODS.forEach(w => {
     generatedBlocks.push(log, wood, planks);
     if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
     if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
+    
     generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_trapdoor`);
 });
 
@@ -441,9 +446,9 @@ creativeScaleCenter.appendChild(creativeInventoryScreen);
 // Top tabs
 const topTabsRow = document.createElement('div');
 topTabsRow.style.display = 'flex';
-topTabsRow.style.alignItems = 'flex-end'; // Unselected (shorter) align to bottom
+topTabsRow.style.alignItems = 'flex-end'; 
 topTabsRow.style.position = 'absolute';
-topTabsRow.style.top = '-28px'; // Max tab height is 32. But they slide down 4px into the body.
+topTabsRow.style.top = '-28px'; 
 topTabsRow.style.left = '0';
 topTabsRow.style.width = '100%';
 topTabsRow.style.zIndex = '1';
@@ -455,7 +460,7 @@ invBody.style.position = 'absolute';
 invBody.style.inset = '0';
 invBody.style.width = '100%';
 invBody.style.height = '100%';
-invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`; // Safe fallback since we know it exists
+invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`; 
 invBody.style.backgroundSize = '256px 256px'; 
 invBody.style.backgroundPosition = '0px 0px';
 invBody.style.pointerEvents = 'auto';
