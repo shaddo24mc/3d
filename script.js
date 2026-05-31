@@ -2,7 +2,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
 scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 
-// Performance: Limit pixel ratio to 1 (prevents massive slowdowns on Retina/mobile screens)
+// Performance: Limit pixel ratio to 1
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
@@ -15,7 +15,7 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Shadows completely disabled. They are too heavy for InstancedMesh terrain.
+// Shadows completely disabled for performance
 renderer.shadowMap.enabled = false; 
 
 // ----------------------------------------------------
@@ -48,34 +48,133 @@ iconScene.add(dirLight2);
 
 const iconCache = {};
 
-// Specific items that should definitely load from the ITEM directory
-const STRICT_ITEMS = new Set([
-    'diamond_pickaxe', 'coal', 'raw_iron', 'raw_copper', 'raw_gold', 'diamond', 
-    'emerald', 'lapis_lazuli', 'redstone', 'snowball', 'kelp'
-]);
+// ----------------------------------------------------
+// MASSIVE ITEM & BLOCK REGISTRY DATABASE
+// ----------------------------------------------------
+const ITEMS = [
+    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign'
+];
 
+const STRICT_ITEMS = new Set(ITEMS);
+
+const baseBlocks = [
+    'air', 'stone', 'granite', 'polished_granite', 'diorite', 'polished_diorite', 'andesite', 'polished_andesite',
+    'grass_block', 'dirt', 'coarse_dirt', 'podzol', 'rooted_dirt', 'mud', 'cobblestone', 'bedrock', 'sand', 'red_sand',
+    'gravel', 'coal_ore', 'deepslate_coal_ore', 'iron_ore', 'deepslate_iron_ore', 'copper_ore', 'deepslate_copper_ore',
+    'gold_ore', 'deepslate_gold_ore', 'redstone_ore', 'deepslate_redstone_ore', 'emerald_ore', 'deepslate_emerald_ore',
+    'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
+    'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
+    'gold_block', 'diamond_block', 'netherite_block', 'sponge', 'wet_sponge', 'glass', 'lapis_block', 'sandstone',
+    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
+    'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
+    'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'bricks', 'bookshelf',
+    'mossy_cobblestone', 'obsidian', 'torch', 'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
+    'spawner', 'chest', 'crafting_table', 'farmland', 'furnace', 'ladder', 'snow', 'ice', 'snow_block', 'cactus', 'clay',
+    'jukebox', 'pumpkin', 'netherrack', 'soul_sand', 'soul_soil', 'basalt', 'polished_basalt', 'soul_torch', 'glowstone',
+    'jack_o_lantern', 'stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'infested_stone',
+    'melon', 'mycelium', 'lily_pad', 'nether_bricks', 'end_stone', 'end_stone_bricks', 'dragon_egg', 'emerald_block',
+    'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
+    'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
+    'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
+    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_cube_coral_block', 'dead_brain_coral_block', 'dead_bubble_coral_block',
+    'dead_fire_coral_block', 'dead_horn_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
+    'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
+    'sweet_berry_bush', 'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
+    'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
+    'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
+    'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
+    'tinted_glass', 'powder_snow', 'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor',
+    'calibrated_sculk_sensor', 'dripstone_block', 'pointed_dripstone', 'moss_block', 'moss_carpet', 'azalea',
+    'flowering_azalea', 'hanging_roots', 'spore_blossom', 'glow_lichen', 'packed_mud', 'mud_bricks', 'mangrove_roots',
+    'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
+    'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
+    'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
+    'trial_spawner', 'vault', 'heavy_core', 'snowy_grass_block', 'cobbled_deepslate', ...ITEMS
+];
+
+const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
+const WOODS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'pale_oak', 'crimson', 'warped', 'bamboo'];
+const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick', 'mossy_stone_brick', 'granite', 'diorite', 'andesite', 'sandstone', 'red_sandstone', 'brick', 'prismarine', 'dark_prismarine', 'nether_brick', 'end_stone_brick', 'blackstone', 'polished_blackstone', 'deepslate_brick', 'deepslate_tile', 'tuff', 'polished_tuff', 'mud_brick'];
+
+const generatedBlocks = [...baseBlocks];
+
+COLORS.forEach(c => {
+    generatedBlocks.push(
+        `${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, 
+        `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, 
+        `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`
+    );
+});
+
+WOODS.forEach(w => {
+    let log = w === 'crimson' || w === 'warped' ? `${w}_stem` : w === 'bamboo' ? `${w}_block` : `${w}_log`;
+    let wood = w === 'crimson' || w === 'warped' ? `${w}_hyphae` : `${w}_wood`;
+    let planks = `${w}_planks`;
+    let leaves = w === 'crimson' || w === 'warped' ? `${w}_wart_block` : w === 'bamboo' ? null : `${w}_leaves`;
+    let sapling = w === 'crimson' || w === 'warped' ? `${w}_fungus` : w === 'mangrove' ? `mangrove_propagule` : w === 'bamboo' ? `bamboo_shoot` : `${w}_sapling`;
+    
+    generatedBlocks.push(log, wood, planks);
+    if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
+    if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
+    
+    generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_trapdoor`);
+});
+
+STONE_TYPES.forEach(st => {
+    generatedBlocks.push(`${st}_slab`, `${st}_stairs`, `${st}_wall`);
+});
+
+const allBaseBlocks = [...new Set(generatedBlocks)];
+const extendedBlocks = [];
+allBaseBlocks.forEach(b => {
+    extendedBlocks.push(b);
+    if (b.includes('stairs')) {
+        extendedBlocks.push(`${b}_inner`);
+        extendedBlocks.push(`${b}_outer`);
+    }
+});
+
+const ALL_BLOCKS = [...new Set(extendedBlocks)];
+const TYPE = {};
+const REVERSE_TYPE = [null];
+ALL_BLOCKS.forEach((b, i) => { let id = i + 1; TYPE[b] = id; REVERSE_TYPE.push(b); });
+
+const CROSS_BLOCKS = new Set([
+    'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
+    'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
+    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berry_bush', 'cobweb', 
+    'tall_grass', 'large_fern', 'grass'
+]);
+ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
+
+// Transparent blocks correctly let light through and do not cull faces
+const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow']);
+const isTransparent = new Uint8Array(65535);
+isTransparent[0] = 1; // Air
+ALL_BLOCKS.forEach((b) => {
+    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral'].some(kw => b.includes(kw))) {
+        isTransparent[TYPE[b]] = 1;
+    }
+});
+
+// Icon Engine handles flat 2D vs 3D correctly
 async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    // Check if this block should be rendered as a 2D flat item instead of a 3D block
+    // Explicitly force these items to render as flat 2D PNGs instead of 3D
     const isItemTex = STRICT_ITEMS.has(type) || 
                       (type.includes('door') && !type.includes('trapdoor')) || 
-                      ['candle', 'campfire', 'torch', 'lantern', 'lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) ||
-                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type)) || 
-                      type === 'search_icon';
+                      ['candle', 'campfire', 'torch', 'lantern', 'lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'sign'].some(kw => type.includes(kw)) ||
+                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
     
     if (isItemTex) {
         let filename = type;
         if (type === 'redstone') filename = 'redstone_dust';
-        if (type === 'search_icon') {
-            const svgUrl = `url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>)`;
-            iconCache[type] = svgUrl;
-            return svgUrl;
-        }
         
         let folder = BLOCK_TEX_DIR;
-        if (STRICT_ITEMS.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('candle')) {
+        if (STRICT_ITEMS.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'lantern'].some(kw => type.includes(kw))) {
             folder = ITEM_TEX_DIR;
         }
         
@@ -84,11 +183,7 @@ async function getBlockIcon(type) {
         return url;
     }
 
-    // Ensure the 3D JSON geometry and materials are fully loaded
-    if (!customGeometries[type]) {
-        await loadCustomModel(type);
-    }
-    
+    if (!customGeometries[type]) await loadCustomModel(type);
     const geo = customGeometries[type];
     const mat = materials[type];
     if (!geo || !mat) return 'none';
@@ -135,167 +230,11 @@ async function getBlockIcon(type) {
 
 function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
-    if (!type) {
-        element.style.backgroundImage = 'none';
-        return;
-    }
+    if (!type) { element.style.backgroundImage = 'none'; return; }
     getBlockIcon(type).then(url => {
-        if (element.dataset.iconType === type) {
-            element.style.backgroundImage = url;
-        }
+        if (element.dataset.iconType === type) element.style.backgroundImage = url;
     });
 }
-
-// ----------------------------------------------------
-// JSON BLOCKSTATE & MODEL READER ENGINE
-// ----------------------------------------------------
-const JSONReader = {
-    blockstates: {},
-    models: {},
-    
-    async fetchJSON(path) {
-        try {
-            const res = await fetch(path);
-            if (!res.ok) return null;
-            return await res.json();
-        } catch (e) {
-            return null;
-        }
-    },
-
-    async getBlockstate(blockName) {
-        if (this.blockstates[blockName]) return this.blockstates[blockName];
-        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'blockstates/')}${blockName}.json`;
-        const data = await this.fetchJSON(path);
-        if (data) this.blockstates[blockName] = data;
-        return data;
-    },
-
-    async getModel(modelName) {
-        if (this.models[modelName]) return this.models[modelName];
-        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'models/block/')}${modelName}.json`;
-        const data = await this.fetchJSON(path);
-        if (data) this.models[modelName] = data;
-        return data;
-    },
-    
-    getRotationForAxis(axis) {
-        if (axis === 'x') return [0, 0, Math.PI / 2];
-        if (axis === 'z') return [Math.PI / 2, 0, 0];
-        return [0, 0, 0]; 
-    }
-};
-
-// ----------------------------------------------------
-// MASSIVE BLOCK REGISTRY DATABASE
-// ----------------------------------------------------
-const baseBlocks = [
-    'air', 'stone', 'granite', 'polished_granite', 'diorite', 'polished_diorite', 'andesite', 'polished_andesite',
-    'grass_block', 'dirt', 'coarse_dirt', 'podzol', 'rooted_dirt', 'mud', 'cobblestone', 'bedrock', 'sand', 'red_sand',
-    'gravel', 'coal_ore', 'deepslate_coal_ore', 'iron_ore', 'deepslate_iron_ore', 'copper_ore', 'deepslate_copper_ore',
-    'gold_ore', 'deepslate_gold_ore', 'redstone_ore', 'deepslate_redstone_ore', 'emerald_ore', 'deepslate_emerald_ore',
-    'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
-    'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
-    'gold_block', 'diamond_block', 'netherite_block', 'sponge', 'wet_sponge', 'glass', 'lapis_block', 'sandstone',
-    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
-    'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
-    'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'bricks', 'bookshelf',
-    'mossy_cobblestone', 'obsidian', 'torch', 'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
-    'spawner', 'chest', 'crafting_table', 'farmland', 'furnace', 'ladder', 'snow', 'ice', 'snow_block', 'cactus', 'clay',
-    'jukebox', 'pumpkin', 'netherrack', 'soul_sand', 'soul_soil', 'basalt', 'polished_basalt', 'soul_torch', 'glowstone',
-    'jack_o_lantern', 'stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'infested_stone',
-    'melon', 'mycelium', 'lily_pad', 'nether_bricks', 'end_stone', 'end_stone_bricks', 'dragon_egg', 'emerald_block',
-    'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
-    'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
-    'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
-    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_cube_coral_block', 'dead_brain_coral_block', 'dead_bubble_coral_block',
-    'dead_fire_coral_block', 'dead_horn_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
-    'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
-    'sweet_berry_bush', 'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
-    'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
-    'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
-    'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
-    'tinted_glass', 'powder_snow', 'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor',
-    'calibrated_sculk_sensor', 'dripstone_block', 'pointed_dripstone', 'moss_block', 'moss_carpet', 'azalea',
-    'flowering_azalea', 'hanging_roots', 'spore_blossom', 'glow_lichen', 'packed_mud', 'mud_bricks', 'mangrove_roots',
-    'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
-    'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
-    'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
-    'trial_spawner', 'vault', 'heavy_core', 'snowy_grass_block', 'cobbled_deepslate'
-];
-
-const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
-const WOODS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'pale_oak', 'crimson', 'warped', 'bamboo'];
-const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick', 'mossy_stone_brick', 'granite', 'diorite', 'andesite', 'sandstone', 'red_sandstone', 'brick', 'prismarine', 'dark_prismarine', 'nether_brick', 'end_stone_brick', 'blackstone', 'polished_blackstone', 'deepslate_brick', 'deepslate_tile', 'tuff', 'polished_tuff', 'mud_brick'];
-
-const generatedBlocks = [...baseBlocks];
-
-COLORS.forEach(c => {
-    generatedBlocks.push(
-        `${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, 
-        `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, 
-        `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`
-    );
-});
-
-WOODS.forEach(w => {
-    let log = w === 'crimson' || w === 'warped' ? `${w}_stem` : w === 'bamboo' ? `${w}_block` : `${w}_log`;
-    let wood = w === 'crimson' || w === 'warped' ? `${w}_hyphae` : `${w}_wood`;
-    let planks = `${w}_planks`;
-    let leaves = w === 'crimson' || w === 'warped' ? `${w}_wart_block` : w === 'bamboo' ? null : `${w}_leaves`;
-    let sapling = w === 'crimson' || w === 'warped' ? `${w}_fungus` : w === 'mangrove' ? `mangrove_propagule` : w === 'bamboo' ? `bamboo_shoot` : `${w}_sapling`;
-    
-    generatedBlocks.push(log, wood, planks);
-    if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
-    if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
-    
-    generatedBlocks.push(
-        `${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_trapdoor`
-    );
-});
-
-STONE_TYPES.forEach(st => {
-    generatedBlocks.push(`${st}_slab`, `${st}_stairs`, `${st}_wall`);
-});
-
-const allBaseBlocks = [...new Set(generatedBlocks)];
-const extendedBlocks = [];
-allBaseBlocks.forEach(b => {
-    extendedBlocks.push(b);
-    if (b.includes('stairs')) {
-        extendedBlocks.push(`${b}_inner`);
-        extendedBlocks.push(`${b}_outer`);
-    }
-});
-
-const ALL_BLOCKS = [...new Set(extendedBlocks)];
-
-const TYPE = {};
-const REVERSE_TYPE = [null];
-ALL_BLOCKS.forEach((b, i) => {
-    let id = i + 1;
-    TYPE[b] = id;
-    REVERSE_TYPE.push(b);
-});
-
-const CROSS_BLOCKS = new Set([
-    'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
-    'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
-    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berry_bush', 'cobweb', 
-    'tall_grass', 'large_fern', 'grass'
-]);
-ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
-
-// Update transparent blocks heavily so they do not cull adjacent faces
-const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow']);
-const isTransparent = new Uint8Array(65535);
-isTransparent[0] = 1; // Air is transparent
-ALL_BLOCKS.forEach((b) => {
-    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral'].some(kw => b.includes(kw))) {
-        isTransparent[TYPE[b]] = 1;
-    }
-});
 
 // ----------------------------------------------------
 // UI: Crosshair, Hotbar, & Full Inventory
@@ -329,17 +268,16 @@ let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 
 // ----------------------------------------------------
-// REAL HUD HOTBAR UI
+// REAL HUD HOTBAR UI (Exactly overlaps Creative Hotbar)
 // ----------------------------------------------------
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.style.position = 'absolute';
-hotbarContainer.style.bottom = '10px';
+hotbarContainer.style.bottom = '8px'; // Perfectly aligned with Creative Inventory
 hotbarContainer.style.left = '50%';
 hotbarContainer.style.transform = 'translateX(-50%)';
 hotbarContainer.style.width = '364px';
 hotbarContainer.style.height = '44px';
-// Fallback background in case widgets.png fails to load
 hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; 
 hotbarContainer.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
 hotbarContainer.style.backgroundSize = '512px 512px'; 
@@ -403,23 +341,34 @@ const CATEGORIES = {
     building: { name: 'Building Blocks', icon: 'bricks', blocks: [] },
     colored: { name: 'Colored Blocks', icon: 'cyan_wool', blocks: [] },
     natural: { name: 'Natural Blocks', icon: 'grass_block', blocks: [] },
-    functional: { name: 'Functional Blocks', icon: 'crafting_table', blocks: [] },
+    functional: { name: 'Functional Blocks', icon: 'oak_sign', blocks: [] },
     redstone: { name: 'Redstone Blocks', icon: 'redstone', blocks: [] },
-    tools: { name: 'Tools & Utilities', icon: 'diamond_pickaxe', blocks: [] },
-    search: { name: 'Search Items', icon: 'search_icon', blocks: [] }
+    misc: { name: 'Miscellaneous', icon: 'bookshelf', blocks: [] },
+    search: { name: 'Search Items', icon: 'compass', blocks: [] },
+    tools: { name: 'Tools', icon: 'iron_pickaxe', blocks: [] },
+    combat: { name: 'Combat', icon: 'iron_sword', blocks: [] },
+    food: { name: 'Food & Drinks', icon: 'golden_apple', blocks: [] },
+    materials: { name: 'Materials', icon: 'iron_ingot', blocks: [] },
+    spawns: { name: 'Spawn Eggs', icon: 'creeper_head', blocks: [] },
+    operator: { name: 'Operator Utilities', icon: 'command_block', blocks: [] },
+    inventory: { name: 'Survival Inventory', icon: 'chest', blocks: [] }
 };
 
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer')) return;
-    if (b === 'air') return;
+    if (b.includes('_inner') || b.includes('_outer') || b === 'air') return;
 
-    if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
+    if (STRICT_ITEMS.has(b)) {
+        if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
+        else if (['apple', 'beef', 'bread', 'porkchop', 'potato', 'chicken', 'mutton', 'rabbit', 'salmon', 'cod', 'cookie', 'melon_slice'].some(k=>b.includes(k))) CATEGORIES.food.blocks.push(b);
+        else if (b.includes('pickaxe') || b.includes('axe') || b.includes('shovel') || b.includes('hoe') || b === 'compass' || b === 'clock' || b === 'flint_and_steel') CATEGORIES.tools.blocks.push(b);
+        else if (b.includes('head') || b.includes('skull') || b === 'egg') CATEGORIES.spawns.blocks.push(b);
+        else if (b === 'command_block') CATEGORIES.operator.blocks.push(b);
+        else CATEGORIES.materials.blocks.push(b);
+    } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
         CATEGORIES.colored.blocks.push(b);
-    } else if (b.includes('pickaxe') || b.includes('axe') || b.includes('sword') || b.includes('shovel')) {
-        CATEGORIES.tools.blocks.push(b);
     } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp')) {
         CATEGORIES.redstone.blocks.push(b);
-    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box'].some(kw => b.includes(kw))) {
+    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign'].some(kw => b.includes(kw))) {
         CATEGORIES.functional.blocks.push(b);
     } else if (['dirt', 'grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
         CATEGORIES.natural.blocks.push(b);
@@ -433,9 +382,10 @@ let currentCategory = 'building';
 const creativeInventoryScreen = document.createElement('div');
 creativeInventoryScreen.id = 'creative-inventory-screen';
 creativeInventoryScreen.style.position = 'absolute';
-creativeInventoryScreen.style.top = '50%';
+// Anchor precisely to the bottom so the internal hotbar perfectly overlaps the HUD hotbar
+creativeInventoryScreen.style.bottom = '-4px'; 
 creativeInventoryScreen.style.left = '50%';
-creativeInventoryScreen.style.transform = 'translate(-50%, -50%)';
+creativeInventoryScreen.style.transform = 'translateX(-50%)';
 creativeInventoryScreen.style.display = 'none';
 creativeInventoryScreen.style.flexDirection = 'column';
 creativeInventoryScreen.style.zIndex = '200';
@@ -446,7 +396,7 @@ document.body.appendChild(creativeInventoryScreen);
 const topTabsRow = document.createElement('div');
 topTabsRow.style.display = 'flex';
 topTabsRow.style.paddingLeft = '0px';
-topTabsRow.style.gap = '2px';
+topTabsRow.style.gap = '0px';
 topTabsRow.style.position = 'relative';
 topTabsRow.style.top = '4px';
 topTabsRow.style.zIndex = '1';
@@ -456,7 +406,7 @@ const invBody = document.createElement('div');
 invBody.style.width = '390px';
 invBody.style.height = '272px';
 invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
-invBody.style.backgroundSize = '100% 100%'; // Safely stretch exactly to UI size
+invBody.style.backgroundSize = '100% 100%'; 
 invBody.style.imageRendering = 'pixelated';
 invBody.style.position = 'relative';
 invBody.style.zIndex = '10';
@@ -502,8 +452,8 @@ creativeGridContainer.id = 'creative-grid-container';
 creativeGridContainer.style.position = 'absolute';
 creativeGridContainer.style.left = '18px';
 creativeGridContainer.style.top = '36px';
-creativeGridContainer.style.width = '324px'; // Exactly 9 * 36px slots
-creativeGridContainer.style.height = '180px';
+creativeGridContainer.style.width = '342px'; // Account for scrollbar
+creativeGridContainer.style.height = '144px'; // 4 visible rows natively
 creativeGridContainer.style.overflowY = 'scroll';
 creativeGridContainer.style.backgroundColor = 'transparent';
 
@@ -529,7 +479,7 @@ invBody.appendChild(creativeHotbarGrid);
 const bottomTabsRow = document.createElement('div');
 bottomTabsRow.style.display = 'flex';
 bottomTabsRow.style.paddingLeft = '0px';
-bottomTabsRow.style.gap = '2px';
+bottomTabsRow.style.gap = '0px';
 bottomTabsRow.style.position = 'relative';
 bottomTabsRow.style.top = '-4px';
 creativeInventoryScreen.appendChild(bottomTabsRow);
@@ -561,10 +511,10 @@ document.addEventListener('mousemove', (e) => {
 });
 
 const allTabsUI = [];
-function createTab(catKey, isTop) {
+function createTab(catKey, isTop, isRightAlign = false) {
     const cat = CATEGORIES[catKey];
     const tab = document.createElement('div');
-    tab.style.width = '56px';
+    tab.style.width = '55px';
     tab.style.height = '56px';
     tab.style.backgroundColor = '#8b8b8b';
     tab.style.border = '4px solid #555';
@@ -583,12 +533,15 @@ function createTab(catKey, isTop) {
     tab.style.marginBottom = isTop ? '-4px' : '0';
     tab.style.marginTop = isTop ? '0' : '-4px';
     tab.style.zIndex = '1';
+    if (isRightAlign) tab.style.marginLeft = 'auto';
     
     const icon = document.createElement('div');
     icon.style.width = '32px';
     icon.style.height = '32px';
     applyIcon(icon, cat.icon);
-    icon.style.backgroundSize = 'cover';
+    icon.style.backgroundSize = 'contain';
+    icon.style.backgroundPosition = 'center';
+    icon.style.backgroundRepeat = 'no-repeat';
     icon.style.imageRendering = 'pixelated';
     tab.appendChild(icon);
 
@@ -604,8 +557,11 @@ function createTab(catKey, isTop) {
     allTabsUI.push({ key: catKey, elem: tab, isTop: isTop });
 }
 
-const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'tools', 'search'];
+const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'misc'];
 topKeys.forEach(k => createTab(k, true));
+createTab('search', true, true); // Search tab on far right
+const bottomKeys = ['tools', 'combat', 'food', 'materials', 'spawns', 'operator', 'inventory'];
+bottomKeys.forEach(k => createTab(k, false));
 
 function updateTabsUI() {
     allTabsUI.forEach(tabObj => {
@@ -634,7 +590,7 @@ function updateTabsUI() {
         searchRow.style.display = 'none';
         creativeTitle.style.display = 'block';
         creativeGridContainer.style.top = '36px';
-        creativeGridContainer.style.height = '180px';
+        creativeGridContainer.style.height = '144px';
     }
 }
 
@@ -801,6 +757,46 @@ function addItemToInventory(type, amount) {
 updateTabsUI();
 populateCreativeGrid();
 updateInventoryUI();
+
+// ----------------------------------------------------
+// JSON BLOCKSTATE & MODEL READER ENGINE
+// ----------------------------------------------------
+const JSONReader = {
+    blockstates: {},
+    models: {},
+    
+    async fetchJSON(path) {
+        try {
+            const res = await fetch(path);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            return null;
+        }
+    },
+
+    async getBlockstate(blockName) {
+        if (this.blockstates[blockName]) return this.blockstates[blockName];
+        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'blockstates/')}${blockName}.json`;
+        const data = await this.fetchJSON(path);
+        if (data) this.blockstates[blockName] = data;
+        return data;
+    },
+
+    async getModel(modelName) {
+        if (this.models[modelName]) return this.models[modelName];
+        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'models/block/')}${modelName}.json`;
+        const data = await this.fetchJSON(path);
+        if (data) this.models[modelName] = data;
+        return data;
+    },
+    
+    getRotationForAxis(axis) {
+        if (axis === 'x') return [0, 0, Math.PI / 2];
+        if (axis === 'z') return [Math.PI / 2, 0, 0];
+        return [0, 0, 0]; 
+    }
+};
 
 // ----------------------------------------------------
 // REAL MINECRAFT BLOCK HARDNESS & TOOLS
@@ -1704,7 +1700,7 @@ async function loadCustomModel(bName) {
         const tex = loadTex(bName);
         let mat;
         if (TRANSPARENT_BLOCKS.has(bName)) {
-            mat = new MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
+            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
         } else {
             mat = new THREE.MeshStandardMaterial({ map: tex });
         }
@@ -2620,8 +2616,6 @@ window.addEventListener('keydown', (e) => {
         }
         
         if (creativeInventoryScreen.style.display === 'none') {
-            // Authentic Minecraft behavior: the real hotbar is hidden, 
-            // the player relies on the hotbar drawn into the bottom of the creative inventory.
             creativeInventoryScreen.style.display = 'flex';
             hotbarContainer.style.display = 'none'; 
             crosshair.style.display = 'none';
