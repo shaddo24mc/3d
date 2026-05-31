@@ -19,6 +19,120 @@ document.body.appendChild(stats.dom);
 renderer.shadowMap.enabled = false; 
 
 // ----------------------------------------------------
+// 3D INVENTORY ICON GENERATOR (AUTHENTIC MINECRAFT PIPELINE)
+// ----------------------------------------------------
+const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+iconRenderer.setSize(64, 64);
+const iconScene = new THREE.Scene();
+
+// Authentic GUI orthographic camera looking straight down the Z axis
+const iconCamera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 10);
+iconCamera.position.set(0, 0, 5); 
+iconCamera.lookAt(0, 0, 0);
+
+// Authentic inventory lighting (two directional lights simulating the GUI)
+iconScene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(1, 1, 2);
+iconScene.add(dirLight);
+const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+dirLight2.position.set(-1, -1, 2);
+iconScene.add(dirLight2);
+
+const iconCache = {};
+
+async function getBlockIcon(type) {
+    if (!type) return 'none';
+    if (iconCache[type]) return iconCache[type];
+    
+    // Items, tools, and cross blocks use flat 2D textures
+    const isItem = type.includes('pickaxe') || type === 'coal' || type.includes('raw') || type === 'diamond' || type === 'emerald' || type === 'lapis_lazuli' || type === 'redstone' || type === 'snowball' || type === 'search_icon' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp';
+    
+    if (isItem || (CROSS_BLOCKS && CROSS_BLOCKS.has(type))) {
+        let filename = type;
+        if (type === 'diamond_pickaxe') filename = 'diamond_pickaxe';
+        if (type === 'redstone') filename = 'redstone_dust';
+        if (type === 'lapis_lazuli') filename = 'lapis_lazuli';
+        if (type === 'search_icon') {
+            const svgUrl = `url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>)`;
+            iconCache[type] = svgUrl;
+            return svgUrl;
+        }
+        
+        const folder = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
+        const url = `url(${folder}${filename}.png)`;
+        iconCache[type] = url;
+        return url;
+    }
+
+    // Ensure the 3D JSON geometry and materials are fully loaded
+    if (!customGeometries[type]) {
+        await loadCustomModel(type);
+    }
+    
+    const geo = customGeometries[type];
+    const mat = materials[type];
+    if (!geo || !mat) return 'none';
+    
+    const mesh = new THREE.Mesh(geo, mat);
+    iconScene.add(mesh);
+    
+    // Reset mesh transforms
+    mesh.position.set(0, 0, 0);
+    mesh.rotation.set(0, 0, 0);
+    mesh.scale.set(1, 1, 1);
+
+    // Grab the exact display settings parsed from the JSON model files!
+    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    if (geo.userData && geo.userData.display && geo.userData.display.gui) {
+        guiConfig = geo.userData.display.gui;
+    }
+
+    // Apply authentic Minecraft transformations
+    if (guiConfig.rotation) {
+        mesh.rotation.set(
+            THREE.MathUtils.degToRad(guiConfig.rotation[0]),
+            THREE.MathUtils.degToRad(guiConfig.rotation[1]),
+            THREE.MathUtils.degToRad(guiConfig.rotation[2]),
+            'YXZ'
+        );
+    }
+    if (guiConfig.scale) {
+        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
+    }
+    if (guiConfig.translation) {
+        mesh.position.set(
+            guiConfig.translation[0] / 16,
+            guiConfig.translation[1] / 16,
+            guiConfig.translation[2] / 16
+        );
+    }
+    
+    // Render and snapshot
+    iconRenderer.render(iconScene, iconCamera);
+    const dataUrl = iconRenderer.domElement.toDataURL('image/png');
+    iconScene.remove(mesh);
+    
+    const url = `url(${dataUrl})`;
+    iconCache[type] = url;
+    return url;
+}
+
+// Safely apply icons without race conditions during fast scrolling/typing
+function applyIcon(element, type) {
+    element.dataset.iconType = type || 'none';
+    if (!type) {
+        element.style.backgroundImage = 'none';
+        return;
+    }
+    getBlockIcon(type).then(url => {
+        if (element.dataset.iconType === type) {
+            element.style.backgroundImage = url;
+        }
+    });
+}
+
+// ----------------------------------------------------
 // Base Configuration & Directories
 // ----------------------------------------------------
 const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
@@ -206,22 +320,6 @@ inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
 let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
-
-function getItemImage(type) {
-    if (!type) return 'none';
-    const isItem = type.includes('pickaxe') || type === 'coal' || type.includes('raw') || type === 'diamond' || type === 'emerald' || type === 'lapis_lazuli' || type === 'redstone' || type === 'snowball';
-    const folder = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
-    
-    let filename = type;
-    if (type === 'diamond_pickaxe') filename = 'diamond_pickaxe';
-    if (type === 'redstone') filename = 'redstone_dust';
-    if (type === 'lapis_lazuli') filename = 'lapis_lazuli';
-    if (type === 'grass_block') filename = 'grass_block_side';
-    if (type === 'snowy_grass_block') filename = 'grass_block_snow';
-    if (type === 'search_icon') return `url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>)`;
-    
-    return `url(${folder}${filename}.png)`;
-}
 
 // ----------------------------------------------------
 // HOTBAR UI
@@ -477,7 +575,7 @@ function createTab(catKey, isTop) {
     const icon = document.createElement('div');
     icon.style.width = '32px';
     icon.style.height = '32px';
-    icon.style.backgroundImage = getItemImage(cat.icon);
+    applyIcon(icon, cat.icon);
     icon.style.backgroundSize = 'cover';
     icon.style.imageRendering = 'pixelated';
     tab.appendChild(icon);
@@ -553,7 +651,7 @@ function populateCreativeGrid() {
         slot.style.padding = '2px';
         slot.style.backgroundOrigin = 'content-box';
         slot.style.backgroundClip = 'content-box';
-        slot.style.backgroundImage = getItemImage(bName);
+        applyIcon(slot, bName);
         slot.style.backgroundSize = 'cover';
         slot.style.imageRendering = 'pixelated';
 
@@ -630,7 +728,7 @@ function updateInventoryUI() {
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
-        ui.div.style.backgroundImage = getItemImage(item.type);
+        applyIcon(ui.div, item.type);
         ui.div.style.backgroundSize = 'cover';
         ui.div.style.imageRendering = 'pixelated';
         ui.label.innerText = (item.count > 1) ? item.count : '';
@@ -650,7 +748,7 @@ function updateInventoryUI() {
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = creativeHotbarSlotsUI[i];
-        ui.div.style.backgroundImage = getItemImage(item.type);
+        applyIcon(ui.div, item.type);
         ui.div.style.backgroundSize = 'cover';
         ui.div.style.imageRendering = 'pixelated';
         ui.label.innerText = (item.count > 1) ? item.count : '';
@@ -659,7 +757,7 @@ function updateInventoryUI() {
     // Update Held Item Cursor
     if (heldItem.type) {
         heldItemUI.style.display = 'block';
-        heldItemUI.style.backgroundImage = getItemImage(heldItem.type);
+        applyIcon(heldItemUI, heldItem.type);
         heldItemUI.style.backgroundSize = 'cover';
         heldItemUI.style.imageRendering = 'pixelated';
         heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
@@ -884,56 +982,62 @@ const loadTex = (filename, isItem = false) => {
     t.wrapS = THREE.ClampToEdgeWrapping;
     t.wrapT = THREE.ClampToEdgeWrapping;
 
-    imageLoader.load(
-        `${dir}${filename}.png`,
-        (image) => {
-            const fw = image.width;
-            const fh = image.height;
-            const totalFrames = Math.round(fh / fw);
+    // We attach a promise so the icon generator knows when the image is fully downloaded
+    t.loadPromise = new Promise((resolve) => {
+        imageLoader.load(
+            `${dir}${filename}.png`,
+            (image) => {
+                const fw = image.width;
+                const fh = image.height;
+                const totalFrames = Math.round(fh / fw);
 
-            if (totalFrames > 1) {
-                cvs.width = fw; cvs.height = fw;
+                if (totalFrames > 1) {
+                    cvs.width = fw; cvs.height = fw;
+                    t.needsUpdate = true;
+
+                    let animData = {
+                        texture: t,
+                        ctx: ctx,
+                        sourceImage: image,
+                        frames: Array.from({length: totalFrames}, (_, i) => i),
+                        defaultTickRate: 2,
+                        totalFrames: totalFrames,
+                        currentArrayIdx: 0,
+                        timer: 0,
+                        interpolate: true, 
+                        frameWidth: fw
+                    };
+                    animatedTextures.push(animData);
+                    
+                    ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
+
+                    fetch(`${dir}${filename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
+                    .then(mcmeta => {
+                        if (mcmeta && mcmeta.animation) {
+                            if (mcmeta.animation.frames) animData.frames = mcmeta.animation.frames;
+                            if (mcmeta.animation.frametime) animData.defaultTickRate = mcmeta.animation.frametime;
+                            if (mcmeta.animation.interpolate !== undefined) animData.interpolate = mcmeta.animation.interpolate;
+                        }
+                        resolve(t);
+                    }).catch(e => { resolve(t); });
+                    
+                } else {
+                    cvs.width = fw; cvs.height = fh;
+                    ctx.drawImage(image, 0, 0);
+                    t.needsUpdate = true;
+                    resolve(t);
+                }
+            },
+            undefined,
+            (err) => {
+                cvs.width = 16; cvs.height = 16;
+                ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, 8, 8); ctx.fillRect(8, 8, 8, 8);
+                ctx.fillStyle = '#000000'; ctx.fillRect(8, 0, 8, 8); ctx.fillRect(0, 8, 8, 8);
                 t.needsUpdate = true;
-
-                let animData = {
-                    texture: t,
-                    ctx: ctx,
-                    sourceImage: image,
-                    frames: Array.from({length: totalFrames}, (_, i) => i),
-                    defaultTickRate: 2,
-                    totalFrames: totalFrames,
-                    currentArrayIdx: 0,
-                    timer: 0,
-                    interpolate: true, 
-                    frameWidth: fw
-                };
-                animatedTextures.push(animData);
-                
-                ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
-
-                fetch(`${dir}${filename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
-                .then(mcmeta => {
-                    if (mcmeta && mcmeta.animation) {
-                        if (mcmeta.animation.frames) animData.frames = mcmeta.animation.frames;
-                        if (mcmeta.animation.frametime) animData.defaultTickRate = mcmeta.animation.frametime;
-                        if (mcmeta.animation.interpolate !== undefined) animData.interpolate = mcmeta.animation.interpolate;
-                    }
-                }).catch(e => {});
-                
-            } else {
-                cvs.width = fw; cvs.height = fh;
-                ctx.drawImage(image, 0, 0);
-                t.needsUpdate = true;
+                resolve(t);
             }
-        },
-        undefined,
-        (err) => {
-            cvs.width = 16; cvs.height = 16;
-            ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, 8, 8); ctx.fillRect(8, 8, 8, 8);
-            ctx.fillStyle = '#000000'; ctx.fillRect(8, 0, 8, 8); ctx.fillRect(0, 8, 8, 8);
-            t.needsUpdate = true;
-        }
-    );
+        );
+    });
     
     return t;
 };
@@ -1440,6 +1544,9 @@ async function loadCustomModel(bName) {
         let currentModel = await JSONReader.getModel(modelPath);
         let elements = currentModel ? currentModel.elements : null;
         let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
+        
+        // Capture the authentic Minecraft display data
+        let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
 
         let depth = 0;
         while (currentModel && currentModel.parent && depth < 10) {
@@ -1453,6 +1560,12 @@ async function loadCustomModel(bName) {
                 if (currentModel.textures) {
                     for (let k in currentModel.textures) {
                         if (!textures[k]) textures[k] = currentModel.textures[k];
+                    }
+                }
+                // Merge display properties up the parent hierarchy
+                if (currentModel.display) {
+                    for (let k in currentModel.display) {
+                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
                     }
                 }
             }
@@ -1595,6 +1708,10 @@ async function loadCustomModel(bName) {
             } else if (elementGeometries.length > 1) {
                 customGeometries[bName] = mergeBufferGeometries(elementGeometries);
             }
+            
+            // Attach the parsed display settings to the geometry for the Icon Generator
+            customGeometries[bName].userData = { display: display };
+            
         } else {
             throw new Error("No elements found");
         }
@@ -1607,8 +1724,22 @@ async function loadCustomModel(bName) {
             mat = new THREE.MeshStandardMaterial({ map: tex });
         }
         materials[bName] = mat;
-        customGeometries[bName] = geometry; 
+        
+        // Clone the fallback geometry so we can safely attach default display settings
+        customGeometries[bName] = geometry.clone(); 
+        customGeometries[bName].userData = {
+            display: { gui: { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] } }
+        };
     }
+    
+    // Ensure all textures are fully loaded before letting the icon generator take a snapshot
+    const promises = [];
+    if (Array.isArray(materials[bName])) {
+        materials[bName].forEach(mat => { if (mat.map && mat.map.loadPromise) promises.push(mat.map.loadPromise); });
+    } else if (materials[bName] && materials[bName].map && materials[bName].map.loadPromise) {
+        promises.push(materials[bName].map.loadPromise);
+    }
+    await Promise.all(promises);
 }
 
 async function generateChunk(chunkX, chunkZ) {
