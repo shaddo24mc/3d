@@ -1,5 +1,3 @@
-
-const noise = new window.Noise();
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
 scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
