@@ -19,6 +19,14 @@ document.body.appendChild(stats.dom);
 renderer.shadowMap.enabled = false; 
 
 // ----------------------------------------------------
+// Base Configuration & Directories
+// ----------------------------------------------------
+const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
+const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
+const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
+const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
+
+// ----------------------------------------------------
 // 3D INVENTORY ICON GENERATOR (AUTHENTIC MINECRAFT PIPELINE)
 // ----------------------------------------------------
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
@@ -26,12 +34,10 @@ iconRenderer.setSize(64, 64);
 const iconScene = new THREE.Scene();
 
 // Authentic GUI orthographic camera looking straight down the Z axis
-// Zoomed in from 0.8 to 0.55 so the 3D blocks fill the inventory slots beautifully
 const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-// Authentic inventory lighting (two directional lights simulating the GUI)
 iconScene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
 dirLight.position.set(1, 1, 2);
@@ -42,25 +48,37 @@ iconScene.add(dirLight2);
 
 const iconCache = {};
 
+// Specific items that should definitely load from the ITEM directory
+const STRICT_ITEMS = new Set([
+    'diamond_pickaxe', 'coal', 'raw_iron', 'raw_copper', 'raw_gold', 'diamond', 
+    'emerald', 'lapis_lazuli', 'redstone', 'snowball', 'kelp'
+]);
+
 async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    // Items, tools, and cross blocks use flat 2D textures
-    const isItem = type.includes('pickaxe') || type === 'coal' || type.includes('raw') || type === 'diamond' || type === 'emerald' || type === 'lapis_lazuli' || type === 'redstone' || type === 'snowball' || type === 'search_icon' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp';
+    // Check if this block should be rendered as a 2D flat item instead of a 3D block
+    const isItemTex = STRICT_ITEMS.has(type) || 
+                      (type.includes('door') && !type.includes('trapdoor')) || 
+                      ['candle', 'campfire', 'torch', 'lantern', 'lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) ||
+                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type)) || 
+                      type === 'search_icon';
     
-    if (isItem || (CROSS_BLOCKS && CROSS_BLOCKS.has(type))) {
+    if (isItemTex) {
         let filename = type;
-        if (type === 'diamond_pickaxe') filename = 'diamond_pickaxe';
         if (type === 'redstone') filename = 'redstone_dust';
-        if (type === 'lapis_lazuli') filename = 'lapis_lazuli';
         if (type === 'search_icon') {
             const svgUrl = `url(data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>)`;
             iconCache[type] = svgUrl;
             return svgUrl;
         }
         
-        const folder = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
+        let folder = BLOCK_TEX_DIR;
+        if (STRICT_ITEMS.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('candle')) {
+            folder = ITEM_TEX_DIR;
+        }
+        
         const url = `url(${folder}${filename}.png)`;
         iconCache[type] = url;
         return url;
@@ -78,20 +96,15 @@ async function getBlockIcon(type) {
     const mesh = new THREE.Mesh(geo, mat);
     iconScene.add(mesh);
     
-    // Reset mesh transforms
     mesh.position.set(0, 0, 0);
     mesh.rotation.set(0, 0, 0);
     mesh.scale.set(1, 1, 1);
 
-    // Grab the exact display settings parsed from the JSON model files!
     let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
     if (geo.userData && geo.userData.display && geo.userData.display.gui) {
         guiConfig = geo.userData.display.gui;
     }
 
-    // Apply authentic Minecraft transformations
-    // We subtract 180 degrees from the Y axis to correct the coordinate system difference
-    // between Three.js (Right-Handed) and Minecraft (Left-Handed), showing the correct faces!
     if (guiConfig.rotation) {
         mesh.rotation.set(
             THREE.MathUtils.degToRad(guiConfig.rotation[0]),
@@ -111,7 +124,6 @@ async function getBlockIcon(type) {
         );
     }
     
-    // Render and snapshot
     iconRenderer.render(iconScene, iconCamera);
     const dataUrl = iconRenderer.domElement.toDataURL('image/png');
     iconScene.remove(mesh);
@@ -121,7 +133,6 @@ async function getBlockIcon(type) {
     return url;
 }
 
-// Safely apply icons without race conditions during fast scrolling/typing
 function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
     if (!type) {
@@ -134,14 +145,6 @@ function applyIcon(element, type) {
         }
     });
 }
-
-// ----------------------------------------------------
-// Base Configuration & Directories
-// ----------------------------------------------------
-const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
-const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
-const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
-const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
 
 // ----------------------------------------------------
 // JSON BLOCKSTATE & MODEL READER ENGINE
@@ -257,7 +260,6 @@ STONE_TYPES.forEach(st => {
 
 const allBaseBlocks = [...new Set(generatedBlocks)];
 const extendedBlocks = [];
-// Automatically register virtual inner/outer variants for all stairs
 allBaseBlocks.forEach(b => {
     extendedBlocks.push(b);
     if (b.includes('stairs')) {
@@ -284,11 +286,13 @@ const CROSS_BLOCKS = new Set([
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
 
-const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor']);
+// Update transparent blocks heavily so they do not cull adjacent faces
+const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow']);
 const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; // Air is transparent
 ALL_BLOCKS.forEach((b) => {
-    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || b.includes('leaves') || b.includes('glass') || b.includes('door') || b.includes('trapdoor') || b.includes('fence')) {
+    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -308,10 +312,9 @@ crosshair.style.zIndex = '100';
 crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
 document.body.appendChild(crosshair);
 
-const INVENTORY_SIZE = 9; // Only Hotbar needed for underlying array in Creative
+const INVENTORY_SIZE = 9; 
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
-// Initial Hotbar loadout
 inventory[0] = { type: 'stone', count: 64 };
 inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
@@ -326,7 +329,7 @@ let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 
 // ----------------------------------------------------
-// HOTBAR UI (Authentic Minecraft Layout)
+// REAL HUD HOTBAR UI
 // ----------------------------------------------------
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
@@ -334,29 +337,30 @@ hotbarContainer.style.position = 'absolute';
 hotbarContainer.style.bottom = '10px';
 hotbarContainer.style.left = '50%';
 hotbarContainer.style.transform = 'translateX(-50%)';
-// Scale exactly 2x standard Minecraft size (182x22 -> 364x44)
 hotbarContainer.style.width = '364px';
 hotbarContainer.style.height = '44px';
+// Fallback background in case widgets.png fails to load
+hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; 
 hotbarContainer.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
-hotbarContainer.style.backgroundSize = '512px 512px'; // Original is 256x256, scaled 2x
+hotbarContainer.style.backgroundSize = '512px 512px'; 
 hotbarContainer.style.backgroundPosition = '0px 0px';
 hotbarContainer.style.imageRendering = 'pixelated';
 hotbarContainer.style.zIndex = '50';
+hotbarContainer.style.display = 'block';
 document.body.appendChild(hotbarContainer);
 
 const hotbarSelector = document.createElement('div');
 hotbarSelector.style.position = 'absolute';
-// Selector is 24x24 in original, scaled to 48x48
 hotbarSelector.style.width = '48px';
 hotbarSelector.style.height = '48px';
 hotbarSelector.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
 hotbarSelector.style.backgroundSize = '512px 512px';
-hotbarSelector.style.backgroundPosition = '0px -44px'; // 22px down in original, *2 = 44px
+hotbarSelector.style.backgroundPosition = '0px -44px'; 
 hotbarSelector.style.imageRendering = 'pixelated';
 hotbarSelector.style.top = '-2px';
 hotbarSelector.style.left = '-2px';
 hotbarSelector.style.zIndex = '51';
-hotbarSelector.style.pointerEvents = 'none'; // Ensure clicks pass through to slots underneath
+hotbarSelector.style.pointerEvents = 'none'; 
 hotbarContainer.appendChild(hotbarSelector);
 
 const hotbarSlotsUI = [];
@@ -365,10 +369,10 @@ for (let i = 0; i < 9; i++) {
     slot.style.position = 'absolute';
     slot.style.width = '32px';
     slot.style.height = '32px';
-    slot.style.left = `${6 + i * 40}px`; // Authentic 20px spacing * 2 = 40px
+    slot.style.left = `${6 + i * 40}px`; 
     slot.style.top = '6px';
     slot.style.cursor = 'pointer';
-    slot.style.zIndex = '52'; // Top priority for clicks
+    slot.style.zIndex = '52'; 
     
     const countLabel = document.createElement('span');
     countLabel.style.position = 'absolute';
@@ -378,7 +382,6 @@ for (let i = 0; i < 9; i++) {
     countLabel.style.fontWeight = 'bold';
     countLabel.style.fontFamily = 'monospace';
     countLabel.style.fontSize = '16px';
-    // Authentic Minecraft text shadow depth
     countLabel.style.textShadow = '2px 2px 0 #3f3f3f';
     slot.appendChild(countLabel);
     
@@ -396,7 +399,6 @@ for (let i = 0; i < 9; i++) {
 // ----------------------------------------------------
 // CREATIVE INVENTORY UI
 // ----------------------------------------------------
-// Categorization Logic
 const CATEGORIES = {
     building: { name: 'Building Blocks', icon: 'bricks', blocks: [] },
     colored: { name: 'Colored Blocks', icon: 'cyan_wool', blocks: [] },
@@ -408,7 +410,7 @@ const CATEGORIES = {
 };
 
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer')) return; // Hide virtual stairs
+    if (b.includes('_inner') || b.includes('_outer')) return;
     if (b === 'air') return;
 
     if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
@@ -441,7 +443,6 @@ creativeInventoryScreen.style.width = '390px';
 creativeInventoryScreen.style.userSelect = 'none';
 document.body.appendChild(creativeInventoryScreen);
 
-// Top Tabs
 const topTabsRow = document.createElement('div');
 topTabsRow.style.display = 'flex';
 topTabsRow.style.paddingLeft = '0px';
@@ -451,19 +452,16 @@ topTabsRow.style.top = '4px';
 topTabsRow.style.zIndex = '1';
 creativeInventoryScreen.appendChild(topTabsRow);
 
-// Main Body
 const invBody = document.createElement('div');
 invBody.style.width = '390px';
 invBody.style.height = '272px';
 invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
-invBody.style.backgroundSize = '512px 512px';
-invBody.style.backgroundPosition = 'top left';
+invBody.style.backgroundSize = '100% 100%'; // Safely stretch exactly to UI size
 invBody.style.imageRendering = 'pixelated';
 invBody.style.position = 'relative';
 invBody.style.zIndex = '10';
 creativeInventoryScreen.appendChild(invBody);
 
-// Search Bar Row (Hidden by default)
 const searchRow = document.createElement('div');
 searchRow.style.display = 'none';
 searchRow.style.position = 'absolute';
@@ -486,10 +484,9 @@ searchInput.style.outline = 'none';
 searchRow.appendChild(searchInput);
 invBody.appendChild(searchRow);
 
-searchInput.addEventListener('keydown', (e) => e.stopPropagation()); // Prevent player movement while typing
+searchInput.addEventListener('keydown', (e) => e.stopPropagation()); 
 searchInput.addEventListener('input', () => populateCreativeGrid());
 
-// Title
 const creativeTitle = document.createElement('div');
 creativeTitle.innerText = "Building Blocks";
 creativeTitle.style.fontFamily = "monospace";
@@ -500,17 +497,15 @@ creativeTitle.style.left = '16px';
 creativeTitle.style.top = '12px';
 invBody.appendChild(creativeTitle);
 
-// Item Grid
 const creativeGridContainer = document.createElement('div');
 creativeGridContainer.id = 'creative-grid-container';
 creativeGridContainer.style.position = 'absolute';
 creativeGridContainer.style.left = '18px';
 creativeGridContainer.style.top = '36px';
-creativeGridContainer.style.width = '360px'; 
+creativeGridContainer.style.width = '324px'; // Exactly 9 * 36px slots
 creativeGridContainer.style.height = '180px';
 creativeGridContainer.style.overflowY = 'scroll';
 creativeGridContainer.style.backgroundColor = 'transparent';
-creativeGridContainer.style.padding = '0';
 
 const creativeGrid = document.createElement('div');
 creativeGrid.style.display = 'grid';
@@ -520,7 +515,6 @@ creativeGrid.style.gap = '0px';
 creativeGridContainer.appendChild(creativeGrid);
 invBody.appendChild(creativeGridContainer);
 
-// Hotbar Area inside Creative
 const creativeHotbarGrid = document.createElement('div');
 creativeHotbarGrid.style.position = 'absolute';
 creativeHotbarGrid.style.left = '18px';
@@ -532,7 +526,6 @@ creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 36px)';
 creativeHotbarGrid.style.gap = '0px';
 invBody.appendChild(creativeHotbarGrid);
 
-// Bottom Tabs (for parity, though we map all our categories to the top for simplicity here)
 const bottomTabsRow = document.createElement('div');
 bottomTabsRow.style.display = 'flex';
 bottomTabsRow.style.paddingLeft = '0px';
@@ -541,7 +534,6 @@ bottomTabsRow.style.position = 'relative';
 bottomTabsRow.style.top = '-4px';
 creativeInventoryScreen.appendChild(bottomTabsRow);
 
-// Held Item UI
 const heldItemUI = document.createElement('div');
 heldItemUI.style.position = 'absolute';
 heldItemUI.style.width = '32px';
@@ -568,7 +560,6 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 
-// Create Tabs Function
 const allTabsUI = [];
 function createTab(catKey, isTop) {
     const cat = CATEGORIES[catKey];
@@ -613,7 +604,6 @@ function createTab(catKey, isTop) {
     allTabsUI.push({ key: catKey, elem: tab, isTop: isTop });
 }
 
-// Layout Tabs
 const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'tools', 'search'];
 topKeys.forEach(k => createTab(k, true));
 
@@ -648,7 +638,6 @@ function updateTabsUI() {
     }
 }
 
-// Populate Grid
 function populateCreativeGrid() {
     creativeGrid.innerHTML = '';
     
@@ -668,19 +657,18 @@ function populateCreativeGrid() {
         slot.style.backgroundColor = 'transparent';
         slot.style.position = 'relative';
         slot.style.cursor = 'pointer';
-        slot.style.boxSizing = 'border-box';
-        slot.style.padding = '2px';
-        slot.style.backgroundOrigin = 'content-box';
-        slot.style.backgroundClip = 'content-box';
+        
         applyIcon(slot, bName);
-        slot.style.backgroundSize = 'cover';
+        slot.style.backgroundSize = 'contain';
+        slot.style.backgroundPosition = 'center';
+        slot.style.backgroundRepeat = 'no-repeat';
         slot.style.imageRendering = 'pixelated';
 
         slot.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             if (e.button === 0) {
                 if (heldItem.type === bName) {
-                    heldItem.count = 64; // Max stack
+                    heldItem.count = 64; 
                 } else if (!heldItem.type || heldItem.type !== bName) {
                     heldItem.type = bName;
                     heldItem.count = 64;
@@ -693,7 +681,6 @@ function populateCreativeGrid() {
     });
 }
 
-// Setup Hotbar slots inside Creative UI
 const creativeHotbarSlotsUI = [];
 for (let i = 0; i < 9; i++) {
     const slot = document.createElement('div');
@@ -702,10 +689,6 @@ for (let i = 0; i < 9; i++) {
     slot.style.backgroundColor = 'transparent';
     slot.style.position = 'relative';
     slot.style.cursor = 'pointer';
-    slot.style.boxSizing = 'border-box';
-    slot.style.padding = '2px';
-    slot.style.backgroundOrigin = 'content-box';
-    slot.style.backgroundClip = 'content-box';
     
     const countLabel = document.createElement('span');
     countLabel.style.position = 'absolute';
@@ -745,10 +728,8 @@ for (let i = 0; i < 9; i++) {
 }
 
 function updateInventoryUI() {
-    // Dynamically move the Hotbar Selected Slot graphic over the chosen index
     hotbarSelector.style.left = `${-2 + selectedSlot * 40}px`;
 
-    // Update main game Hotbar
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
@@ -760,21 +741,23 @@ function updateInventoryUI() {
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
-    // Update Creative UI Hotbar
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = creativeHotbarSlotsUI[i];
         applyIcon(ui.div, item.type);
-        ui.div.style.backgroundSize = 'cover';
+        ui.div.style.backgroundSize = 'contain';
+        ui.div.style.backgroundPosition = 'center';
+        ui.div.style.backgroundRepeat = 'no-repeat';
         ui.div.style.imageRendering = 'pixelated';
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
-    // Update Held Item Cursor
     if (heldItem.type) {
         heldItemUI.style.display = 'block';
         applyIcon(heldItemUI, heldItem.type);
-        heldItemUI.style.backgroundSize = 'cover';
+        heldItemUI.style.backgroundSize = 'contain';
+        heldItemUI.style.backgroundPosition = 'center';
+        heldItemUI.style.backgroundRepeat = 'no-repeat';
         heldItemUI.style.imageRendering = 'pixelated';
         heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
     } else {
@@ -782,7 +765,6 @@ function updateInventoryUI() {
     }
 }
 
-// Clicking outside inventory to drop held item (Creative Mode Delete)
 document.addEventListener('mousedown', (e) => {
     if (creativeInventoryScreen.style.display === 'flex' && heldItem.type) {
         if (!creativeInventoryScreen.contains(e.target)) {
@@ -816,7 +798,6 @@ function addItemToInventory(type, amount) {
     updateInventoryUI();
 }
 
-// Init
 updateTabsUI();
 populateCreativeGrid();
 updateInventoryUI();
@@ -998,7 +979,6 @@ const loadTex = (filename, isItem = false) => {
     t.wrapS = THREE.ClampToEdgeWrapping;
     t.wrapT = THREE.ClampToEdgeWrapping;
 
-    // We attach a promise so the icon generator knows when the image is fully downloaded
     t.loadPromise = new Promise((resolve) => {
         imageLoader.load(
             `${dir}${filename}.png`,
@@ -1118,7 +1098,6 @@ const placedBlocks = new Map();
 const treeOverhangs = new Map(); 
 const chunksToRebuild = new Set(); 
 
-// Direction vectors mapping to Minecraft facing: 0:East, 1:North, 2:West, 3:South
 const DIRS = [ [1,0,0], [0,0,-1], [-1,0,0], [0,0,1] ];
 
 function getStairData(x, y, z) {
@@ -1150,17 +1129,14 @@ function evaluateStair(x, y, z) {
     let shape = 'straight';
     let leftOfF = (f + 1) % 4;
 
-    // Helper: checks if the block in `checkDir` prevents a corner from forming
     const canTakeShape = (checkDir) => {
         let n = getStairData(x + DIRS[checkDir][0], y, z + DIRS[checkDir][2]);
-        // If it's a stair of the same half facing the exact same way as us, we cannot take the shape
         if (n && n.half === s.half && n.facing === f) {
             return false;
         }
         return true;
     };
     
-    // 1. Evaluate FRONT for OUTER corners (Real Minecraft prioritizes Outer first)
     if (sFront && sFront.half === s.half && sFront.facing !== f && (sFront.facing % 2 !== f % 2)) {
         let oppFrontDir = (sFront.facing + 2) % 4;
         if (canTakeShape(oppFrontDir)) {
@@ -1169,7 +1145,6 @@ function evaluateStair(x, y, z) {
         }
     }
     
-    // 2. Evaluate BACK for INNER corners
     if (shape === 'straight') {
         if (sBack && sBack.half === s.half && sBack.facing !== f && (sBack.facing % 2 !== f % 2)) {
             let backDirFace = sBack.facing;
@@ -1203,7 +1178,6 @@ function evaluateStair(x, y, z) {
     let existing = placedBlocks.get(`${x},${y},${z}`);
     let targetTypeId = TYPE[finalType];
     
-    // Optimization: Only push the update if the stair's visual state actually changed
     if (!existing || existing.type !== targetTypeId || !existing.rotation || existing.rotation[0] !== rx || existing.rotation[1] !== finalRotY) {
         setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0] });
     }
@@ -1534,7 +1508,6 @@ async function loadCustomModel(bName) {
             let variantKey = "";
             let keys = Object.keys(state.variants);
             
-            // FIX: Explicitly search for the requested shape to prevent all stairs defaulting to inner corners
             let targetShape = isInner ? 'inner_left' : isOuter ? 'outer_left' : 'straight';
             
             for (let k of keys) {
@@ -1561,7 +1534,6 @@ async function loadCustomModel(bName) {
         let elements = currentModel ? currentModel.elements : null;
         let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
         
-        // Capture the authentic Minecraft display data
         let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
 
         let depth = 0;
@@ -1578,7 +1550,6 @@ async function loadCustomModel(bName) {
                         if (!textures[k]) textures[k] = currentModel.textures[k];
                     }
                 }
-                // Merge display properties up the parent hierarchy
                 if (currentModel.display) {
                     for (let k in currentModel.display) {
                         if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
@@ -1607,7 +1578,6 @@ async function loadCustomModel(bName) {
         let matIndexCounter = 0;
 
         const getMaterialForTex = (texPath) => {
-            // FIX: Always use baseName so texture loader doesn't look for acacia_stairs_inner.png
             if (!texPath) texPath = baseName; 
             texPath = texPath.replace('minecraft:', '').replace('block/', '');
             
@@ -1725,7 +1695,6 @@ async function loadCustomModel(bName) {
                 customGeometries[bName] = mergeBufferGeometries(elementGeometries);
             }
             
-            // Attach the parsed display settings to the geometry for the Icon Generator
             customGeometries[bName].userData = { display: display };
             
         } else {
@@ -1735,20 +1704,18 @@ async function loadCustomModel(bName) {
         const tex = loadTex(bName);
         let mat;
         if (TRANSPARENT_BLOCKS.has(bName)) {
-            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
+            mat = new MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
         } else {
             mat = new THREE.MeshStandardMaterial({ map: tex });
         }
         materials[bName] = mat;
         
-        // Clone the fallback geometry so we can safely attach default display settings
         customGeometries[bName] = geometry.clone(); 
         customGeometries[bName].userData = {
             display: { gui: { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] } }
         };
     }
     
-    // Ensure all textures are fully loaded before letting the icon generator take a snapshot
     const promises = [];
     if (Array.isArray(materials[bName])) {
         materials[bName].forEach(mat => { if (mat.map && mat.map.loadPromise) promises.push(mat.map.loadPromise); });
@@ -2510,7 +2477,6 @@ function updateMining() {
             chunksToRebuild.add(mining.targetMesh.chunkId);
         }
         
-        // Breaking a block might disconnect an adjacent stair, trigger neighbor rebuilds
         updateStairConnections(pX+1, pY, pZ);
         updateStairConnections(pX-1, pY, pZ);
         updateStairConnections(pX, pY, pZ+1);
@@ -2585,10 +2551,10 @@ document.addEventListener('mousedown', (e) => {
                         if (ry < 0) ry += Math.PI * 2;
                         
                         let facing = 0;
-                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facing = 1; // North
-                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facing = 2; // West
-                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facing = 3; // South
-                        else facing = 0; // East
+                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facing = 1; 
+                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facing = 2; 
+                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facing = 3; 
+                        else facing = 0; 
 
                         let isTop = (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5));
                         
@@ -2612,7 +2578,6 @@ document.addEventListener('mousedown', (e) => {
                     
                     setGlobalBlock(placeX, placeY, placeZ, placedData);
                     
-                    // If it's a stair, actively calculate corners for it and all adjacent blocks!
                     if (stairData) {
                         updateStairConnections(placeX, placeY, placeZ);
                     }
@@ -2645,29 +2610,30 @@ document.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
-    // Only capture movement keys if we aren't typing in the search bar
     if (document.activeElement !== searchInput) {
         keys[e.key.toLowerCase()] = true;
     }
     
     if (e.key.toLowerCase() === 'e') {
         if (document.activeElement === searchInput) {
-            // If typing 'e' in search, do nothing (let it type)
             return;
         }
         
         if (creativeInventoryScreen.style.display === 'none') {
+            // Authentic Minecraft behavior: the real hotbar is hidden, 
+            // the player relies on the hotbar drawn into the bottom of the creative inventory.
             creativeInventoryScreen.style.display = 'flex';
+            hotbarContainer.style.display = 'none'; 
             crosshair.style.display = 'none';
             document.exitPointerLock();
             keys = {}; 
             populateCreativeGrid();
         } else {
             creativeInventoryScreen.style.display = 'none';
+            hotbarContainer.style.display = 'block'; 
             crosshair.style.display = 'block';
             
             if (heldItem.type) {
-                // Drop held item if closing inventory
                 heldItem = { type: null, count: 0 };
                 updateInventoryUI();
             }
