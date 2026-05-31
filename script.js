@@ -26,7 +26,8 @@ iconRenderer.setSize(64, 64);
 const iconScene = new THREE.Scene();
 
 // Authentic GUI orthographic camera looking straight down the Z axis
-const iconCamera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 10);
+// Zoomed in from 0.8 to 0.55 so the 3D blocks fill the inventory slots beautifully
+const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
@@ -89,12 +90,14 @@ async function getBlockIcon(type) {
     }
 
     // Apply authentic Minecraft transformations
+    // We subtract 180 degrees from the Y axis to correct the coordinate system difference
+    // between Three.js (Right-Handed) and Minecraft (Left-Handed), showing the correct faces!
     if (guiConfig.rotation) {
         mesh.rotation.set(
             THREE.MathUtils.degToRad(guiConfig.rotation[0]),
-            THREE.MathUtils.degToRad(guiConfig.rotation[1]),
+            THREE.MathUtils.degToRad(guiConfig.rotation[1] - 180),
             THREE.MathUtils.degToRad(guiConfig.rotation[2]),
-            'YXZ'
+            'XYZ'
         );
     }
     if (guiConfig.scale) {
