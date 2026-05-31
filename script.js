@@ -268,20 +268,19 @@ let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 
 // ----------------------------------------------------
-// REAL HUD HOTBAR UI
+// REAL HUD HOTBAR UI (Absolutely ZERO CSS Styling - 100% Textures)
 // ----------------------------------------------------
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.style.position = 'absolute';
-// Match precisely where the bottom of the creative inventory will overlap it
-hotbarContainer.style.bottom = '8px'; 
+// Positioned exactly 4px from bottom to align natively with creative screen
+hotbarContainer.style.bottom = '4px'; 
 hotbarContainer.style.left = '50%';
 hotbarContainer.style.transform = 'translateX(-50%)';
-hotbarContainer.style.width = '364px';
+hotbarContainer.style.width = '364px'; // 182x22 native * 2
 hotbarContainer.style.height = '44px';
-hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; 
 hotbarContainer.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
-hotbarContainer.style.backgroundSize = '512px 512px'; // Correct 2x scaling
+hotbarContainer.style.backgroundSize = '512px 512px'; // Correct 2x scaling (256 native)
 hotbarContainer.style.backgroundPosition = '0px 0px';
 hotbarContainer.style.imageRendering = 'pixelated';
 hotbarContainer.style.zIndex = '50';
@@ -294,7 +293,7 @@ hotbarSelector.style.width = '48px';
 hotbarSelector.style.height = '48px';
 hotbarSelector.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
 hotbarSelector.style.backgroundSize = '512px 512px';
-hotbarSelector.style.backgroundPosition = '0px -44px'; 
+hotbarSelector.style.backgroundPosition = '0px -44px'; // y=22 native * 2
 hotbarSelector.style.imageRendering = 'pixelated';
 hotbarSelector.style.top = '-2px';
 hotbarSelector.style.left = '-2px';
@@ -308,7 +307,7 @@ for (let i = 0; i < 9; i++) {
     slot.style.position = 'absolute';
     slot.style.width = '32px';
     slot.style.height = '32px';
-    slot.style.left = `${6 + i * 40}px`; 
+    slot.style.left = `${6 + i * 40}px`; // 3 native + (20 native spacing) * 2
     slot.style.top = '6px';
     slot.style.cursor = 'pointer';
     slot.style.zIndex = '52'; 
@@ -321,7 +320,7 @@ for (let i = 0; i < 9; i++) {
     countLabel.style.fontWeight = 'bold';
     countLabel.style.fontFamily = 'monospace';
     countLabel.style.fontSize = '16px';
-    countLabel.style.textShadow = '2px 2px 0 #3f3f3f';
+    countLabel.style.textShadow = '2px 2px 0 #3f3f3f'; // Authentic font shadow
     slot.appendChild(countLabel);
     
     slot.addEventListener('mousedown', () => {
@@ -383,15 +382,14 @@ let currentCategory = 'building';
 const creativeInventoryScreen = document.createElement('div');
 creativeInventoryScreen.id = 'creative-inventory-screen';
 creativeInventoryScreen.style.position = 'absolute';
-// Anchor precisely to the bottom so the internal hotbar perfectly overlaps the HUD hotbar
-creativeInventoryScreen.style.top = 'auto'; 
-creativeInventoryScreen.style.bottom = '-4px'; // Exactly overlaps the 8px hotbar
+// Anchor to bottom perfectly so the internal hotbar fully eclipses the HUD hotbar
+creativeInventoryScreen.style.bottom = '-6px'; 
 creativeInventoryScreen.style.left = '50%';
 creativeInventoryScreen.style.transform = 'translateX(-50%)';
 creativeInventoryScreen.style.display = 'none';
 creativeInventoryScreen.style.flexDirection = 'column';
 creativeInventoryScreen.style.zIndex = '200';
-creativeInventoryScreen.style.width = '390px';
+creativeInventoryScreen.style.width = '390px'; // 195x136 native * 2
 creativeInventoryScreen.style.userSelect = 'none';
 document.body.appendChild(creativeInventoryScreen);
 
@@ -411,7 +409,7 @@ creativeInventoryScreen.appendChild(topTabsRow);
 const invBody = document.createElement('div');
 invBody.style.width = '390px';
 invBody.style.height = '272px';
-// CORRECT 2x SCALE (256x256 image * 2) prevents layout bleeding!
+// CORRECT 2x SCALE (256x256 image * 2) completely prevents layout bleeding!
 invBody.style.backgroundSize = '512px 512px'; 
 invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
 invBody.style.backgroundPosition = '0px 0px';
@@ -473,10 +471,62 @@ creativeGrid.style.gap = '0px';
 creativeGridContainer.appendChild(creativeGrid);
 invBody.appendChild(creativeGridContainer);
 
+// Authentic Sprite-Based Scrollbar
+const scrollTrack = document.createElement('div');
+scrollTrack.style.position = 'absolute';
+scrollTrack.style.right = '16px';
+scrollTrack.style.top = '36px';
+scrollTrack.style.width = '28px'; // 14 native
+scrollTrack.style.height = '224px'; // 112 native
+invBody.appendChild(scrollTrack);
+
+const scrollThumb = document.createElement('div');
+scrollThumb.style.position = 'absolute';
+scrollThumb.style.left = '2px';
+scrollThumb.style.top = '0px';
+scrollThumb.style.width = '24px'; // 12 native
+scrollThumb.style.height = '30px'; // 15 native
+scrollThumb.style.backgroundImage = `url(${GUI_TEX_DIR}tabs.png)`;
+scrollThumb.style.backgroundSize = '512px 512px';
+scrollThumb.style.backgroundPosition = '-464px 0px'; // Native x=232, y=0
+scrollThumb.style.imageRendering = 'pixelated';
+scrollTrack.appendChild(scrollThumb);
+
+// Custom Scrollbar dragging logic
+let isDraggingScroll = false;
+scrollThumb.addEventListener('mousedown', (e) => {
+    isDraggingScroll = true;
+    e.stopPropagation();
+});
+document.addEventListener('mousemove', (e) => {
+    if (isDraggingScroll && creativeInventoryScreen.style.display !== 'none') {
+        const trackRect = scrollTrack.getBoundingClientRect();
+        let y = e.clientY - trackRect.top - 15; // Center mouse on thumb
+        y = Math.max(0, Math.min(y, 194)); // 224 - 30
+        scrollThumb.style.top = y + 'px';
+        const scrollPct = y / 194;
+        creativeGridContainer.scrollTop = scrollPct * (creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight);
+    }
+});
+document.addEventListener('mouseup', () => { isDraggingScroll = false; });
+creativeGridContainer.addEventListener('scroll', () => {
+    if (isDraggingScroll) return;
+    const maxScroll = creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight;
+    if (maxScroll <= 0) {
+        scrollThumb.style.backgroundPosition = '-488px 0px'; // Native x=244 disabled
+        scrollThumb.style.top = '0px';
+        return;
+    }
+    scrollThumb.style.backgroundPosition = '-464px 0px'; // Native active
+    const scrollPct = creativeGridContainer.scrollTop / maxScroll;
+    scrollThumb.style.top = (scrollPct * 194) + 'px';
+});
+
+
 const creativeHotbarGrid = document.createElement('div');
 creativeHotbarGrid.style.position = 'absolute';
 creativeHotbarGrid.style.left = '18px';
-creativeHotbarGrid.style.top = '224px';
+creativeHotbarGrid.style.top = '224px'; // 112 native * 2
 creativeHotbarGrid.style.width = '324px';
 creativeHotbarGrid.style.height = '36px';
 creativeHotbarGrid.style.display = 'grid';
@@ -529,14 +579,15 @@ const allTabsUI = [];
 function createTab(catKey, isTop, isRightAlign = false, colIndex = 0) {
     const cat = CATEGORIES[catKey];
     const tab = document.createElement('div');
-    tab.style.width = '56px';
-    tab.style.height = '64px';
+    tab.style.width = '56px'; // 28 native
+    tab.style.height = '64px'; // 32 native
     tab.style.cursor = 'pointer';
     tab.style.position = 'relative';
     tab.style.display = 'flex';
     tab.style.alignItems = 'center';
     tab.style.justifyContent = 'center';
-    // Authentic tabs.png background mapping
+    
+    // Authentic tabs.png background mapping - NO CSS COLORS OR BORDERS
     tab.style.backgroundImage = `url(${GUI_TEX_DIR}tabs.png)`;
     tab.style.backgroundSize = '512px 512px'; // 256x256 * 2
     tab.style.imageRendering = 'pixelated';
@@ -596,6 +647,7 @@ function updateTabsUI() {
         searchRow.style.display = 'block';
         creativeTitle.style.display = 'none';
         creativeGridContainer.style.display = 'block';
+        scrollTrack.style.display = 'block';
         creativeGridContainer.style.top = '48px'; 
         creativeGridContainer.style.height = '144px';
         setTimeout(() => searchInput.focus(), 50);
@@ -605,11 +657,13 @@ function updateTabsUI() {
         searchRow.style.display = 'none';
         creativeTitle.style.display = 'none';
         creativeGridContainer.style.display = 'none'; 
+        scrollTrack.style.display = 'none';
     } else {
         invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
         searchRow.style.display = 'none';
         creativeTitle.style.display = 'block';
         creativeGridContainer.style.display = 'block';
+        scrollTrack.style.display = 'block';
         creativeGridContainer.style.top = '36px';
         creativeGridContainer.style.height = '180px';
     }
@@ -617,6 +671,7 @@ function updateTabsUI() {
 
 function populateCreativeGrid() {
     creativeGrid.innerHTML = '';
+    creativeGridContainer.scrollTop = 0; // Reset scroll on tab change
     
     let blocksToShow = CATEGORIES[currentCategory].blocks;
     
@@ -641,6 +696,10 @@ function populateCreativeGrid() {
         slot.style.backgroundRepeat = 'no-repeat';
         slot.style.imageRendering = 'pixelated';
 
+        // Authentic Slot Highlight on hover
+        slot.addEventListener('mouseenter', () => slot.style.backgroundColor = 'rgba(255, 255, 255, 0.4)');
+        slot.addEventListener('mouseleave', () => slot.style.backgroundColor = 'transparent');
+
         slot.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             if (e.button === 0) {
@@ -656,6 +715,9 @@ function populateCreativeGrid() {
         
         creativeGrid.appendChild(slot);
     });
+    
+    // Trigger scroll event manually to update the thumb state (active vs disabled)
+    creativeGridContainer.dispatchEvent(new Event('scroll'));
 }
 
 const creativeHotbarSlotsUI = [];
@@ -677,6 +739,9 @@ for (let i = 0; i < 9; i++) {
     countLabel.style.fontSize = '16px';
     countLabel.style.textShadow = '2px 2px 0 #3f3f3f';
     slot.appendChild(countLabel);
+    
+    slot.addEventListener('mouseenter', () => slot.style.backgroundColor = 'rgba(255, 255, 255, 0.4)');
+    slot.addEventListener('mouseleave', () => slot.style.backgroundColor = 'transparent');
     
     slot.addEventListener('mousedown', (e) => {
         e.stopPropagation();
