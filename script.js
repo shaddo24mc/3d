@@ -268,19 +268,20 @@ let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 
 // ----------------------------------------------------
-// REAL HUD HOTBAR UI (Exactly overlaps Creative Hotbar)
+// REAL HUD HOTBAR UI
 // ----------------------------------------------------
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.style.position = 'absolute';
-hotbarContainer.style.bottom = '8px'; // Perfectly aligned with Creative Inventory
+// Match precisely where the bottom of the creative inventory will overlap it
+hotbarContainer.style.bottom = '8px'; 
 hotbarContainer.style.left = '50%';
 hotbarContainer.style.transform = 'translateX(-50%)';
 hotbarContainer.style.width = '364px';
 hotbarContainer.style.height = '44px';
 hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; 
 hotbarContainer.style.backgroundImage = `url(${GUI_WIDGETS_DIR}widgets.png)`;
-hotbarContainer.style.backgroundSize = '512px 512px'; 
+hotbarContainer.style.backgroundSize = '512px 512px'; // Correct 2x scaling
 hotbarContainer.style.backgroundPosition = '0px 0px';
 hotbarContainer.style.imageRendering = 'pixelated';
 hotbarContainer.style.zIndex = '50';
@@ -383,7 +384,8 @@ const creativeInventoryScreen = document.createElement('div');
 creativeInventoryScreen.id = 'creative-inventory-screen';
 creativeInventoryScreen.style.position = 'absolute';
 // Anchor precisely to the bottom so the internal hotbar perfectly overlaps the HUD hotbar
-creativeInventoryScreen.style.bottom = '-4px'; 
+creativeInventoryScreen.style.top = 'auto'; // Remove the default vertical centering
+creativeInventoryScreen.style.bottom = '-4px'; // Exactly overlaps the 8px hotbar
 creativeInventoryScreen.style.left = '50%';
 creativeInventoryScreen.style.transform = 'translateX(-50%)';
 creativeInventoryScreen.style.display = 'none';
@@ -393,20 +395,26 @@ creativeInventoryScreen.style.width = '390px';
 creativeInventoryScreen.style.userSelect = 'none';
 document.body.appendChild(creativeInventoryScreen);
 
+// Top tabs are absolute and sit exactly above the GUI body
 const topTabsRow = document.createElement('div');
 topTabsRow.style.display = 'flex';
-topTabsRow.style.paddingLeft = '0px';
+topTabsRow.style.alignItems = 'flex-end'; // Anchor to bottom
+topTabsRow.style.position = 'absolute';
+topTabsRow.style.top = '-56px'; 
+topTabsRow.style.left = '0';
+topTabsRow.style.width = '100%';
+topTabsRow.style.paddingLeft = '8px';
 topTabsRow.style.gap = '0px';
-topTabsRow.style.position = 'relative';
-topTabsRow.style.top = '4px';
 topTabsRow.style.zIndex = '1';
 creativeInventoryScreen.appendChild(topTabsRow);
 
 const invBody = document.createElement('div');
 invBody.style.width = '390px';
 invBody.style.height = '272px';
+// CORRECT 2x SCALE (256x256 image * 2) prevents layout bleeding
+invBody.style.backgroundSize = '512px 512px'; 
 invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
-invBody.style.backgroundSize = '100% 100%'; 
+invBody.style.backgroundPosition = 'top left';
 invBody.style.imageRendering = 'pixelated';
 invBody.style.position = 'relative';
 invBody.style.zIndex = '10';
@@ -415,9 +423,9 @@ creativeInventoryScreen.appendChild(invBody);
 const searchRow = document.createElement('div');
 searchRow.style.display = 'none';
 searchRow.style.position = 'absolute';
-searchRow.style.left = '164px';
-searchRow.style.top = '12px';
-searchRow.style.width = '178px';
+searchRow.style.left = '180px';
+searchRow.style.top = '10px';
+searchRow.style.width = '180px';
 searchRow.style.height = '24px';
 const searchInput = document.createElement('input');
 searchInput.id = 'creative-search';
@@ -452,8 +460,8 @@ creativeGridContainer.id = 'creative-grid-container';
 creativeGridContainer.style.position = 'absolute';
 creativeGridContainer.style.left = '18px';
 creativeGridContainer.style.top = '36px';
-creativeGridContainer.style.width = '342px'; // Account for scrollbar
-creativeGridContainer.style.height = '144px'; // 4 visible rows natively
+creativeGridContainer.style.width = '354px'; 
+creativeGridContainer.style.height = '180px'; // Exactly 5 rows of items
 creativeGridContainer.style.overflowY = 'scroll';
 creativeGridContainer.style.backgroundColor = 'transparent';
 
@@ -476,12 +484,17 @@ creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 36px)';
 creativeHotbarGrid.style.gap = '0px';
 invBody.appendChild(creativeHotbarGrid);
 
+// Bottom tabs are absolute and sit beneath the GUI body
 const bottomTabsRow = document.createElement('div');
 bottomTabsRow.style.display = 'flex';
-bottomTabsRow.style.paddingLeft = '0px';
+bottomTabsRow.style.alignItems = 'flex-start'; // Anchor to top
+bottomTabsRow.style.position = 'absolute';
+bottomTabsRow.style.bottom = '-56px';
+bottomTabsRow.style.left = '0';
+bottomTabsRow.style.width = '100%';
+bottomTabsRow.style.paddingLeft = '8px';
 bottomTabsRow.style.gap = '0px';
-bottomTabsRow.style.position = 'relative';
-bottomTabsRow.style.top = '-4px';
+bottomTabsRow.style.zIndex = '1';
 creativeInventoryScreen.appendChild(bottomTabsRow);
 
 const heldItemUI = document.createElement('div');
@@ -514,25 +527,12 @@ const allTabsUI = [];
 function createTab(catKey, isTop, isRightAlign = false) {
     const cat = CATEGORIES[catKey];
     const tab = document.createElement('div');
-    tab.style.width = '55px';
-    tab.style.height = '56px';
-    tab.style.backgroundColor = '#8b8b8b';
-    tab.style.border = '4px solid #555';
-    if (isTop) {
-        tab.style.borderBottom = 'none';
-        tab.style.borderRadius = '8px 8px 0 0';
-    } else {
-        tab.style.borderTop = 'none';
-        tab.style.borderRadius = '0 0 8px 8px';
-    }
+    tab.style.width = '56px';
     tab.style.cursor = 'pointer';
     tab.style.position = 'relative';
     tab.style.display = 'flex';
     tab.style.alignItems = 'center';
     tab.style.justifyContent = 'center';
-    tab.style.marginBottom = isTop ? '-4px' : '0';
-    tab.style.marginTop = isTop ? '0' : '-4px';
-    tab.style.zIndex = '1';
     if (isRightAlign) tab.style.marginLeft = 'auto';
     
     const icon = document.createElement('div');
@@ -557,6 +557,7 @@ function createTab(catKey, isTop, isRightAlign = false) {
     allTabsUI.push({ key: catKey, elem: tab, isTop: isTop });
 }
 
+// Layout authentic tabs
 const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'misc'];
 topKeys.forEach(k => createTab(k, true));
 createTab('search', true, true); // Search tab on far right
@@ -568,11 +569,24 @@ function updateTabsUI() {
         if (tabObj.key === currentCategory) {
             tabObj.elem.style.backgroundColor = '#c6c6c6';
             tabObj.elem.style.height = '64px';
-            tabObj.elem.style.zIndex = '10';
+            tabObj.elem.style.zIndex = '20';
+            // Selected tabs merge smoothly into the UI frame
+            if (tabObj.isTop) {
+                tabObj.elem.style.boxShadow = 'inset 4px 4px 0 #fff, inset -4px 0 0 #555';
+                tabObj.elem.style.transform = 'translateY(4px)';
+                tabObj.elem.style.paddingTop = '8px';
+            } else {
+                tabObj.elem.style.boxShadow = 'inset 4px 0 0 #fff, inset -4px -4px 0 #555';
+                tabObj.elem.style.transform = 'translateY(-4px)';
+                tabObj.elem.style.paddingBottom = '8px';
+            }
         } else {
             tabObj.elem.style.backgroundColor = '#8b8b8b';
             tabObj.elem.style.height = '56px';
             tabObj.elem.style.zIndex = '1';
+            tabObj.elem.style.boxShadow = 'inset 4px 4px 0 #fff, inset -4px -4px 0 #555';
+            tabObj.elem.style.transform = 'none';
+            tabObj.elem.style.padding = '0';
         }
     });
 
@@ -582,15 +596,11 @@ function updateTabsUI() {
         invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_item_search.png)`;
         searchRow.style.display = 'block';
         creativeTitle.style.display = 'none';
-        creativeGridContainer.style.top = '48px'; 
-        creativeGridContainer.style.height = '144px';
         setTimeout(() => searchInput.focus(), 50);
     } else {
         invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
         searchRow.style.display = 'none';
         creativeTitle.style.display = 'block';
-        creativeGridContainer.style.top = '36px';
-        creativeGridContainer.style.height = '144px';
     }
 }
 
