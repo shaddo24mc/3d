@@ -27,27 +27,6 @@ const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/
 const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
 
 // ----------------------------------------------------
-// 3D INVENTORY ICON GENERATOR (AUTHENTIC MINECRAFT PIPELINE)
-// ----------------------------------------------------
-const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-iconRenderer.setSize(64, 64);
-const iconScene = new THREE.Scene();
-
-const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
-iconCamera.position.set(0, 0, 5); 
-iconCamera.lookAt(0, 0, 0);
-
-iconScene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-dirLight.position.set(1, 1, 2);
-iconScene.add(dirLight);
-const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
-dirLight2.position.set(-1, -1, 2);
-iconScene.add(dirLight2);
-
-const iconCache = {};
-
-// ----------------------------------------------------
 // MASSIVE ITEM & BLOCK REGISTRY DATABASE
 // ----------------------------------------------------
 const ITEMS = [
@@ -156,744 +135,6 @@ ALL_BLOCKS.forEach((b) => {
     }
 });
 
-async function getBlockIcon(type) {
-    if (!type) return 'none';
-    if (iconCache[type]) return iconCache[type];
-    
-    // Explicitly force these items to render as flat 2D PNGs
-    const isItemTex = STRICT_ITEMS.has(type) || 
-                      (type.includes('door') && !type.includes('trapdoor')) || 
-                      ['candle', 'campfire', 'torch', 'lantern', 'lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'sign'].some(kw => type.includes(kw)) ||
-                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
-    
-    if (isItemTex) {
-        let filename = type;
-        if (type === 'redstone') filename = 'redstone_dust';
-        
-        let folder = BLOCK_TEX_DIR;
-        if (STRICT_ITEMS.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'lantern'].some(kw => type.includes(kw))) {
-            folder = ITEM_TEX_DIR;
-        }
-        
-        const url = `url(${folder}${filename}.png)`;
-        iconCache[type] = url;
-        return url;
-    }
-
-    if (!customGeometries[type]) await loadCustomModel(type);
-    const geo = customGeometries[type];
-    const mat = materials[type];
-    if (!geo || !mat) return 'none';
-    
-    const mesh = new THREE.Mesh(geo, mat);
-    iconScene.add(mesh);
-    
-    mesh.position.set(0, 0, 0);
-    mesh.rotation.set(0, 0, 0);
-    mesh.scale.set(1, 1, 1);
-
-    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
-    if (geo.userData && geo.userData.display && geo.userData.display.gui) {
-        guiConfig = geo.userData.display.gui;
-    }
-
-    if (guiConfig.rotation) {
-        mesh.rotation.set(
-            THREE.MathUtils.degToRad(guiConfig.rotation[0]),
-            THREE.MathUtils.degToRad(guiConfig.rotation[1] - 180),
-            THREE.MathUtils.degToRad(guiConfig.rotation[2]),
-            'XYZ'
-        );
-    }
-    if (guiConfig.scale) {
-        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
-    }
-    if (guiConfig.translation) {
-        mesh.position.set(
-            guiConfig.translation[0] / 16,
-            guiConfig.translation[1] / 16,
-            guiConfig.translation[2] / 16
-        );
-    }
-    
-    iconRenderer.render(iconScene, iconCamera);
-    const dataUrl = iconRenderer.domElement.toDataURL('image/png');
-    iconScene.remove(mesh);
-    
-    const url = `url(${dataUrl})`;
-    iconCache[type] = url;
-    return url;
-}
-
-function applyIcon(element, type) {
-    element.dataset.iconType = type || 'none';
-    if (!type) { element.style.backgroundImage = 'none'; return; }
-    getBlockIcon(type).then(url => {
-        if (element.dataset.iconType === type) element.style.backgroundImage = url;
-    });
-}
-
-// ----------------------------------------------------
-// UI: Smart Dual-Loader for 1.20+ Sprites vs Legacy Sheets
-// ----------------------------------------------------
-function setFallbackBg(element, urls, configOnSuccess) {
-    let i = 0;
-    function tryNext() {
-        if (i >= urls.length) return;
-        let img = new Image();
-        img.onload = () => {
-            element.style.backgroundImage = `url(${urls[i]})`;
-            if(configOnSuccess) configOnSuccess(i);
-        };
-        img.onerror = () => { i++; tryNext(); };
-        img.src = urls[i];
-    }
-    tryNext();
-}
-
-// ----------------------------------------------------
-// Core UI Scaffolding (1x Scale Native Dimensions)
-// ----------------------------------------------------
-let currentGuiScale = 2;
-function calculateGuiScale() {
-    let scale = 1;
-    // Minecraft logic: find largest integer scale where 320x240 fits inside window
-    while (window.innerWidth / (scale + 1) >= 320 && window.innerHeight / (scale + 1) >= 240) {
-        scale++;
-    }
-    currentGuiScale = Math.max(1, scale);
-    document.getElementById('creative-scale-center').style.transform = `scale(${currentGuiScale})`;
-    document.getElementById('hotbar-scale-center').style.transform = `scale(${currentGuiScale})`;
-    document.getElementById('held-item-wrapper').style.transform = `translate(-50%, -50%) scale(${currentGuiScale})`;
-}
-
-// Wrapping layout
-const guiScaleWrapper = document.createElement('div');
-guiScaleWrapper.id = 'gui-scale-wrapper';
-guiScaleWrapper.style.position = 'absolute';
-guiScaleWrapper.style.inset = '0';
-guiScaleWrapper.style.pointerEvents = 'none';
-guiScaleWrapper.style.zIndex = '9999';
-document.body.appendChild(guiScaleWrapper);
-
-const crosshair = document.createElement('div');
-crosshair.style.position = 'absolute';
-crosshair.style.top = '50%';
-crosshair.style.left = '50%';
-crosshair.style.width = '20px';
-crosshair.style.height = '20px';
-crosshair.style.transform = 'translate(-50%, -50%)';
-crosshair.style.pointerEvents = 'none';
-crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
-guiScaleWrapper.appendChild(crosshair);
-
-const INVENTORY_SIZE = 9; 
-const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
-
-inventory[0] = { type: 'stone', count: 64 };
-inventory[1] = { type: 'dirt', count: 64 };
-inventory[2] = { type: 'grass_block', count: 64 };
-inventory[3] = { type: 'sculk_shrieker', count: 64 };
-inventory[4] = { type: 'sculk_sensor', count: 64 };
-inventory[5] = { type: 'acacia_stairs', count: 64 };
-inventory[6] = { type: 'magma_block', count: 64 };
-inventory[7] = { type: 'cobblestone', count: 64 };
-inventory[8] = { type: 'diamond_pickaxe', count: 1 };
-
-let selectedSlot = 0;
-let heldItem = { type: null, count: 0 };
-
-// ----------------------------------------------------
-// REAL HUD HOTBAR UI (182x22 native)
-// ----------------------------------------------------
-const hotbarScaleCenter = document.createElement('div');
-hotbarScaleCenter.id = 'hotbar-scale-center';
-hotbarScaleCenter.style.position = 'absolute';
-hotbarScaleCenter.style.bottom = '0px';
-hotbarScaleCenter.style.left = '50%';
-hotbarScaleCenter.style.transformOrigin = 'bottom center';
-guiScaleWrapper.appendChild(hotbarScaleCenter);
-
-const hotbarContainer = document.createElement('div');
-hotbarContainer.id = 'hotbar';
-hotbarContainer.className = 'pixelated';
-hotbarContainer.style.position = 'absolute';
-hotbarContainer.style.left = '-91px'; // Center 182px wide element
-hotbarContainer.style.bottom = '0px'; 
-hotbarContainer.style.width = '182px'; 
-hotbarContainer.style.height = '22px';
-hotbarContainer.style.display = 'block';
-hotbarScaleCenter.appendChild(hotbarContainer);
-
-// Fallback logic for Hotbar
-setFallbackBg(hotbarContainer, 
-    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`],
-    (idx) => { hotbarContainer.style.backgroundSize = idx === 0 ? '182px 22px' : '256px 256px'; }
-);
-
-const hotbarSelector = document.createElement('div');
-hotbarSelector.className = 'pixelated';
-hotbarSelector.style.position = 'absolute';
-hotbarSelector.style.width = '24px';
-hotbarSelector.style.height = '24px';
-hotbarSelector.style.top = '-1px';
-hotbarSelector.style.left = '-1px';
-hotbarSelector.style.pointerEvents = 'none'; 
-hotbarSelector.style.zIndex = '51';
-hotbarContainer.appendChild(hotbarSelector);
-
-setFallbackBg(hotbarSelector, 
-    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`],
-    (idx) => {
-        hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px';
-        hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px';
-    }
-);
-
-const hotbarSlotsUI = [];
-for (let i = 0; i < 9; i++) {
-    const slotWrap = document.createElement('div');
-    slotWrap.style.position = 'absolute';
-    slotWrap.style.width = '16px';
-    slotWrap.style.height = '16px';
-    slotWrap.style.left = `${3 + i * 20}px`; 
-    slotWrap.style.top = '3px';
-    slotWrap.style.cursor = 'pointer';
-    slotWrap.style.pointerEvents = 'auto';
-    slotWrap.style.zIndex = '52'; 
-    
-    const itemSprite = document.createElement('div');
-    itemSprite.className = 'pixelated';
-    itemSprite.style.width = '100%';
-    itemSprite.style.height = '100%';
-    slotWrap.appendChild(itemSprite);
-    
-    const countLabel = document.createElement('span');
-    countLabel.className = 'mc-text';
-    countLabel.style.position = 'absolute';
-    countLabel.style.bottom = '-4px';
-    countLabel.style.right = '-2px';
-    slotWrap.appendChild(countLabel);
-    
-    hotbarContainer.appendChild(slotWrap);
-    hotbarSlotsUI.push({ div: itemSprite, label: countLabel });
-}
-
-// ----------------------------------------------------
-// CREATIVE INVENTORY UI (195x136 native)
-// ----------------------------------------------------
-const CATEGORIES = {
-    building: { name: 'Building Blocks', icon: 'bricks', blocks: [] },
-    colored: { name: 'Colored Blocks', icon: 'cyan_wool', blocks: [] },
-    natural: { name: 'Natural Blocks', icon: 'grass_block', blocks: [] },
-    functional: { name: 'Functional Blocks', icon: 'oak_sign', blocks: [] },
-    redstone: { name: 'Redstone Blocks', icon: 'redstone', blocks: [] },
-    misc: { name: 'Miscellaneous', icon: 'bookshelf', blocks: [] },
-    search: { name: 'Search Items', icon: 'compass', blocks: [] },
-    tools: { name: 'Tools', icon: 'iron_pickaxe', blocks: [] },
-    combat: { name: 'Combat', icon: 'iron_sword', blocks: [] },
-    food: { name: 'Food & Drinks', icon: 'golden_apple', blocks: [] },
-    materials: { name: 'Materials', icon: 'iron_ingot', blocks: [] },
-    spawns: { name: 'Spawn Eggs', icon: 'creeper_head', blocks: [] },
-    operator: { name: 'Operator Utilities', icon: 'command_block', blocks: [] },
-    inventory: { name: 'Survival Inventory', icon: 'chest', blocks: [] }
-};
-
-ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer') || b === 'air') return;
-
-    if (STRICT_ITEMS.has(b)) {
-        if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
-        else if (['apple', 'beef', 'bread', 'porkchop', 'potato', 'chicken', 'mutton', 'rabbit', 'salmon', 'cod', 'cookie', 'melon_slice'].some(k=>b.includes(k))) CATEGORIES.food.blocks.push(b);
-        else if (b.includes('pickaxe') || b.includes('axe') || b.includes('shovel') || b.includes('hoe') || b === 'compass' || b === 'clock' || b === 'flint_and_steel') CATEGORIES.tools.blocks.push(b);
-        else if (b.includes('head') || b.includes('skull') || b === 'egg') CATEGORIES.spawns.blocks.push(b);
-        else if (b === 'command_block') CATEGORIES.operator.blocks.push(b);
-        else CATEGORIES.materials.blocks.push(b);
-    } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
-        CATEGORIES.colored.blocks.push(b);
-    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp')) {
-        CATEGORIES.redstone.blocks.push(b);
-    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign'].some(kw => b.includes(kw))) {
-        CATEGORIES.functional.blocks.push(b);
-    } else if (['dirt', 'grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
-        CATEGORIES.natural.blocks.push(b);
-    } else {
-        CATEGORIES.building.blocks.push(b);
-    }
-});
-
-let currentCategory = 'building';
-
-const creativeScaleCenter = document.createElement('div');
-creativeScaleCenter.id = 'creative-scale-center';
-creativeScaleCenter.style.position = 'absolute';
-creativeScaleCenter.style.top = '50%';
-creativeScaleCenter.style.left = '50%';
-creativeScaleCenter.style.transformOrigin = 'center';
-creativeScaleCenter.style.display = 'none';
-guiScaleWrapper.appendChild(creativeScaleCenter);
-
-const creativeInventoryScreen = document.createElement('div');
-creativeInventoryScreen.id = 'creative-inventory-screen';
-creativeInventoryScreen.style.position = 'absolute';
-creativeInventoryScreen.style.left = '-97.5px'; // 195 / 2
-creativeInventoryScreen.style.top = '-68px'; // 136 / 2
-creativeInventoryScreen.style.width = '195px'; 
-creativeInventoryScreen.style.height = '136px';
-creativeInventoryScreen.style.userSelect = 'none';
-creativeScaleCenter.appendChild(creativeInventoryScreen);
-
-// Top tabs
-const topTabsRow = document.createElement('div');
-topTabsRow.style.display = 'flex';
-topTabsRow.style.alignItems = 'flex-end'; 
-topTabsRow.style.position = 'absolute';
-topTabsRow.style.top = '-28px'; 
-topTabsRow.style.left = '0';
-topTabsRow.style.width = '100%';
-topTabsRow.style.zIndex = '1';
-creativeInventoryScreen.appendChild(topTabsRow);
-
-const invBody = document.createElement('div');
-invBody.className = 'pixelated';
-invBody.style.position = 'absolute';
-invBody.style.inset = '0';
-invBody.style.width = '100%';
-invBody.style.height = '100%';
-invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`; 
-invBody.style.backgroundSize = '256px 256px'; 
-invBody.style.backgroundPosition = '0px 0px';
-invBody.style.pointerEvents = 'auto';
-invBody.style.zIndex = '10';
-creativeInventoryScreen.appendChild(invBody);
-
-const searchInput = document.createElement('input');
-searchInput.id = 'creative-search';
-searchInput.type = 'text';
-searchInput.style.position = 'absolute';
-searchInput.style.left = '82px';
-searchInput.style.top = '4px';
-searchInput.style.width = '89px';
-searchInput.style.height = '12px';
-searchInput.style.padding = '0 2px';
-searchInput.style.backgroundColor = 'transparent';
-searchInput.style.color = '#fff';
-searchInput.style.border = 'none';
-searchInput.style.fontFamily = 'monospace';
-searchInput.style.fontSize = '8px';
-searchInput.style.outline = 'none';
-searchInput.style.display = 'none';
-invBody.appendChild(searchInput);
-
-searchInput.addEventListener('keydown', (e) => e.stopPropagation()); 
-searchInput.addEventListener('input', () => populateCreativeGrid());
-
-const creativeTitle = document.createElement('div');
-creativeTitle.className = 'mc-title';
-creativeTitle.innerText = "Building Blocks";
-creativeTitle.style.position = 'absolute';
-creativeTitle.style.left = '8px';
-creativeTitle.style.top = '6px';
-invBody.appendChild(creativeTitle);
-
-const creativeGridContainer = document.createElement('div');
-creativeGridContainer.id = 'creative-grid-container';
-creativeGridContainer.style.position = 'absolute';
-creativeGridContainer.style.left = '9px';
-creativeGridContainer.style.top = '18px';
-creativeGridContainer.style.width = '162px'; // 9 * 18
-creativeGridContainer.style.height = '90px'; // 5 * 18
-creativeGridContainer.style.overflowY = 'scroll';
-creativeGridContainer.style.display = 'grid';
-creativeGridContainer.style.gridTemplateColumns = 'repeat(9, 18px)';
-creativeGridContainer.style.gridAutoRows = '18px';
-invBody.appendChild(creativeGridContainer);
-
-// Authentic Sprite-Based Scrollbar
-const scrollTrack = document.createElement('div');
-scrollTrack.style.position = 'absolute';
-scrollTrack.style.right = '8px';
-scrollTrack.style.top = '18px';
-scrollTrack.style.width = '14px'; 
-scrollTrack.style.height = '112px'; 
-invBody.appendChild(scrollTrack);
-
-const scrollThumb = document.createElement('div');
-scrollThumb.className = 'pixelated';
-scrollThumb.style.position = 'absolute';
-scrollThumb.style.left = '1px';
-scrollThumb.style.top = '0px';
-scrollThumb.style.width = '12px'; 
-scrollThumb.style.height = '15px'; 
-scrollTrack.appendChild(scrollThumb);
-
-function updateScrollThumbVisuals(disabled) {
-    const sprite = disabled ? 'scroller_disabled.png' : 'scroller.png';
-    const legacyX = disabled ? -244 : -232;
-    setFallbackBg(scrollThumb, 
-        [`${GUI_WIDGETS_DIR}sprites/container/creative_inventory/${sprite}`, `${GUI_TEX_DIR}tabs.png`],
-        (idx) => {
-            scrollThumb.style.backgroundSize = idx === 0 ? '12px 15px' : '256px 256px';
-            scrollThumb.style.backgroundPosition = idx === 0 ? '0 0' : `${legacyX}px 0`;
-        }
-    );
-}
-updateScrollThumbVisuals(false);
-
-let isDraggingScroll = false;
-scrollThumb.addEventListener('mousedown', (e) => {
-    isDraggingScroll = true;
-    e.stopPropagation();
-});
-document.addEventListener('mousemove', (e) => {
-    if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
-        const trackRect = scrollTrack.getBoundingClientRect();
-        // Calculate true mathematical height accounting for global GUI scale
-        let trueHeight = 97 * currentGuiScale; // 112 track - 15 thumb = 97 travel distance
-        let y = e.clientY - trackRect.top - (7.5 * currentGuiScale); // center mouse
-        y = Math.max(0, Math.min(y, trueHeight)); 
-        const scrollPct = y / trueHeight;
-        creativeGridContainer.scrollTop = scrollPct * (creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight);
-    }
-});
-document.addEventListener('mouseup', () => { isDraggingScroll = false; });
-creativeGridContainer.addEventListener('scroll', () => {
-    if (isDraggingScroll) return;
-    const maxScroll = creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight;
-    if (maxScroll <= 0) {
-        updateScrollThumbVisuals(true);
-        scrollThumb.style.top = '0px';
-        return;
-    }
-    updateScrollThumbVisuals(false);
-    const scrollPct = creativeGridContainer.scrollTop / maxScroll;
-    scrollThumb.style.top = (scrollPct * 97) + 'px'; // 112 - 15 = 97
-});
-
-const creativeHotbarGrid = document.createElement('div');
-creativeHotbarGrid.style.position = 'absolute';
-creativeHotbarGrid.style.left = '9px';
-creativeHotbarGrid.style.top = '112px'; 
-creativeHotbarGrid.style.width = '162px';
-creativeHotbarGrid.style.height = '18px';
-creativeHotbarGrid.style.display = 'grid';
-creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 18px)';
-invBody.appendChild(creativeHotbarGrid);
-
-// Bottom tabs
-const bottomTabsRow = document.createElement('div');
-bottomTabsRow.style.display = 'flex';
-bottomTabsRow.style.alignItems = 'flex-start'; // Unselected align to top
-bottomTabsRow.style.position = 'absolute';
-bottomTabsRow.style.bottom = '-28px';
-bottomTabsRow.style.left = '0';
-bottomTabsRow.style.width = '100%';
-bottomTabsRow.style.zIndex = '1';
-creativeInventoryScreen.appendChild(bottomTabsRow);
-
-// Held Item (Follows Cursor freely outside of native scaling flow)
-const heldItemWrapper = document.createElement('div');
-heldItemWrapper.id = 'held-item-wrapper';
-heldItemWrapper.style.position = 'absolute';
-heldItemWrapper.style.pointerEvents = 'none';
-heldItemWrapper.style.zIndex = '10000';
-heldItemWrapper.style.display = 'none';
-guiScaleWrapper.appendChild(heldItemWrapper);
-
-const heldItemUI = document.createElement('div');
-heldItemUI.className = 'pixelated';
-heldItemUI.style.position = 'absolute';
-// Center the 16x16 item precisely on the cursor coordinate
-heldItemUI.style.left = '-8px';
-heldItemUI.style.top = '-8px';
-heldItemUI.style.width = '16px';
-heldItemUI.style.height = '16px';
-heldItemWrapper.appendChild(heldItemUI);
-
-const heldLabel = document.createElement('span');
-heldLabel.className = 'mc-text';
-heldLabel.style.position = 'absolute';
-heldLabel.style.bottom = '-4px';
-heldLabel.style.right = '-2px';
-heldItemUI.appendChild(heldLabel);
-
-document.addEventListener('mousemove', (e) => {
-    if (creativeScaleCenter.style.display === 'flex') {
-        heldItemWrapper.style.left = e.clientX + 'px';
-        heldItemWrapper.style.top = e.clientY + 'px';
-    }
-});
-
-const allTabsUI = [];
-
-function createTab(catKey, isTop, isRightAlign = false, colIndex = 0) {
-    const cat = CATEGORIES[catKey];
-    const tab = document.createElement('div');
-    tab.className = 'pixelated';
-    tab.style.width = '28px'; 
-    tab.style.cursor = 'pointer';
-    tab.style.position = 'relative';
-    tab.style.display = 'flex';
-    tab.style.alignItems = 'center';
-    tab.style.justifyContent = 'center';
-    tab.style.pointerEvents = 'auto';
-    if (isRightAlign) tab.style.marginLeft = 'auto';
-    
-    const icon = document.createElement('div');
-    icon.className = 'pixelated';
-    icon.style.width = '16px';
-    icon.style.height = '16px';
-    icon.style.backgroundSize = 'contain';
-    icon.style.backgroundPosition = 'center';
-    icon.style.backgroundRepeat = 'no-repeat';
-    applyIcon(icon, cat.icon);
-    tab.appendChild(icon);
-
-    tab.addEventListener('mousedown', () => {
-        currentCategory = catKey;
-        updateTabsUI();
-        populateCreativeGrid();
-    });
-
-    if (isTop) topTabsRow.appendChild(tab);
-    else bottomTabsRow.appendChild(tab);
-    
-    allTabsUI.push({ key: catKey, elem: tab, icon: icon, isTop: isTop, colIndex: colIndex });
-}
-
-// 7 exact column indices matching tabs.png spritesheet
-const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'misc'];
-topKeys.forEach((k, i) => createTab(k, true, false, i));
-createTab('search', true, true, 6); 
-
-const bottomKeys = ['tools', 'combat', 'food', 'materials', 'spawns', 'operator', 'inventory'];
-bottomKeys.forEach((k, i) => createTab(k, false, false, i));
-
-function updateTabsUI() {
-    allTabsUI.forEach(tabObj => {
-        const isSelected = tabObj.key === currentCategory;
-        const col = tabObj.colIndex;
-        const isTop = tabObj.isTop;
-        
-        tabObj.elem.style.zIndex = isSelected ? '20' : '1';
-        tabObj.elem.style.height = isSelected ? '32px' : '28px';
-        
-        // Push icon visually to center of the tab depending on orientation
-        if (isSelected) {
-            tabObj.icon.style.transform = 'translateY(0px)';
-        } else {
-            tabObj.icon.style.transform = isTop ? 'translateY(2px)' : 'translateY(-2px)';
-        }
-
-        const legacyX = -(col * 28);
-        const legacyY = isTop ? (isSelected ? -32 : 0) : (isSelected ? -96 : -64);
-        
-        const spritePrefix = `${GUI_WIDGETS_DIR}sprites/container/creative_inventory/tab_${isTop ? 'top' : 'bottom'}_${isSelected ? 'selected' : 'unselected'}_${col + 1}.png`;
-        const legacyPath = `${GUI_TEX_DIR}tabs.png`;
-
-        setFallbackBg(tabObj.elem, [spritePrefix, legacyPath], (idx) => {
-            if (idx === 0) { // Modern split sprite
-                tabObj.elem.style.backgroundSize = '28px 32px';
-                tabObj.elem.style.backgroundPosition = '0 0';
-            } else { // Legacy tabs.png
-                tabObj.elem.style.backgroundSize = '256px 256px';
-                tabObj.elem.style.backgroundPosition = `${legacyX}px ${legacyY}px`;
-            }
-        });
-    });
-
-    creativeTitle.innerText = CATEGORIES[currentCategory].name;
-    
-    if (currentCategory === 'search') {
-        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_item_search.png)`;
-        searchRow.style.display = 'block';
-        creativeTitle.style.display = 'none';
-        creativeGridContainer.style.display = 'grid';
-        scrollTrack.style.display = 'block';
-        setTimeout(() => searchInput.focus(), 50);
-    } else if (currentCategory === 'inventory') {
-        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_inventory.png)`;
-        searchRow.style.display = 'none';
-        creativeTitle.style.display = 'none';
-        creativeGridContainer.style.display = 'none'; 
-        scrollTrack.style.display = 'none';
-    } else {
-        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
-        searchRow.style.display = 'none';
-        creativeTitle.style.display = 'block';
-        creativeGridContainer.style.display = 'grid';
-        scrollTrack.style.display = 'block';
-    }
-}
-
-function createItemSlot(bName, i, sourceArray) {
-    const slotWrap = document.createElement('div');
-    slotWrap.style.width = '18px';
-    slotWrap.style.height = '18px';
-    slotWrap.style.position = 'relative';
-    slotWrap.style.cursor = 'pointer';
-    slotWrap.style.pointerEvents = 'auto';
-    
-    const itemSprite = document.createElement('div');
-    itemSprite.className = 'pixelated';
-    itemSprite.style.position = 'absolute';
-    itemSprite.style.left = '1px';
-    itemSprite.style.top = '1px';
-    itemSprite.style.width = '16px';
-    itemSprite.style.height = '16px';
-    itemSprite.style.backgroundSize = 'contain';
-    itemSprite.style.backgroundPosition = 'center';
-    itemSprite.style.backgroundRepeat = 'no-repeat';
-    applyIcon(itemSprite, bName);
-    slotWrap.appendChild(itemSprite);
-
-    const highlight = document.createElement('div');
-    highlight.style.position = 'absolute';
-    highlight.style.inset = '1px';
-    highlight.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
-    highlight.style.display = 'none';
-    highlight.style.zIndex = '5';
-    slotWrap.appendChild(highlight);
-
-    slotWrap.addEventListener('mouseenter', () => highlight.style.display = 'block');
-    slotWrap.addEventListener('mouseleave', () => highlight.style.display = 'none');
-
-    slotWrap.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-        if (e.button === 0) {
-            if (sourceArray) { // Interaction from Hotbar row
-                let tempType = sourceArray[i].type;
-                let tempCount = sourceArray[i].count;
-                
-                if (heldItem.type === sourceArray[i].type && heldItem.type !== null) {
-                    let space = 64 - sourceArray[i].count;
-                    let toMove = Math.min(space, heldItem.count);
-                    sourceArray[i].count += toMove;
-                    heldItem.count -= toMove;
-                    if (heldItem.count <= 0) heldItem.type = null;
-                } else {
-                    sourceArray[i].type = heldItem.type;
-                    sourceArray[i].count = heldItem.count;
-                    heldItem.type = tempType;
-                    heldItem.count = tempCount;
-                }
-            } else { // Interaction from Creative Grid
-                if (heldItem.type === bName) {
-                    heldItem.count = 64; 
-                } else if (!heldItem.type || heldItem.type !== bName) {
-                    heldItem.type = bName;
-                    heldItem.count = 64;
-                }
-            }
-            updateInventoryUI();
-        }
-    });
-    
-    return slotWrap;
-}
-
-function populateCreativeGrid() {
-    creativeGrid.innerHTML = '';
-    creativeGridContainer.scrollTop = 0; 
-    
-    let blocksToShow = CATEGORIES[currentCategory].blocks;
-    
-    if (currentCategory === 'search') {
-        const query = searchInput.value.toLowerCase();
-        blocksToShow = ALL_BLOCKS.filter(b => 
-            !b.includes('_inner') && !b.includes('_outer') && b !== 'air' && b.includes(query)
-        );
-    }
-
-    blocksToShow.forEach(bName => {
-        creativeGrid.appendChild(createItemSlot(bName, null, null));
-    });
-    
-    creativeGridContainer.dispatchEvent(new Event('scroll'));
-}
-
-const creativeHotbarSlotsUI = [];
-for (let i = 0; i < 9; i++) {
-    const slotWrap = createItemSlot(null, i, inventory);
-    const countLabel = document.createElement('span');
-    countLabel.className = 'mc-text';
-    countLabel.style.position = 'absolute';
-    countLabel.style.bottom = '-4px';
-    countLabel.style.right = '-2px';
-    countLabel.style.zIndex = '6';
-    slotWrap.appendChild(countLabel);
-
-    creativeHotbarGrid.appendChild(slotWrap);
-    creativeHotbarSlotsUI.push({ div: slotWrap.firstChild, label: countLabel });
-}
-
-function updateInventoryUI() {
-    hotbarSelector.style.left = `${-1 + selectedSlot * 20}px`; // 20px stride
-
-    for (let i = 0; i < 9; i++) {
-        const item = inventory[i];
-        const ui = hotbarSlotsUI[i];
-        applyIcon(ui.div, item.type);
-        ui.label.innerText = (item.count > 1) ? item.count : '';
-    }
-    
-    for (let i = 0; i < 9; i++) {
-        const item = inventory[i];
-        const ui = creativeHotbarSlotsUI[i];
-        applyIcon(ui.div, item.type);
-        ui.label.innerText = (item.count > 1) ? item.count : '';
-    }
-    
-    if (heldItem.type) {
-        heldItemWrapper.style.display = 'block';
-        applyIcon(heldItemUI, heldItem.type);
-        heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
-    } else {
-        heldItemWrapper.style.display = 'none';
-    }
-}
-
-document.addEventListener('mousedown', (e) => {
-    if (creativeScaleCenter.style.display === 'flex' && heldItem.type) {
-        // Drop item if clicked outside the GUI body
-        if (!invBody.contains(e.target) && !topTabsRow.contains(e.target) && !bottomTabsRow.contains(e.target)) {
-            heldItem.type = null;
-            heldItem.count = 0;
-            updateInventoryUI();
-        }
-    }
-});
-
-function addItemToInventory(type, amount) {
-    for (let i = 0; i < INVENTORY_SIZE; i++) {
-        if (inventory[i].type === type && inventory[i].count < 64) {
-            let space = 64 - inventory[i].count;
-            let toAdd = Math.min(space, amount);
-            inventory[i].count += toAdd;
-            amount -= toAdd;
-            if (amount <= 0) break;
-        }
-    }
-    if (amount > 0) {
-        for (let i = 0; i < INVENTORY_SIZE; i++) {
-            if (inventory[i].type === null) {
-                inventory[i].type = type;
-                inventory[i].count = amount;
-                amount = 0;
-                break;
-            }
-        }
-    }
-    updateInventoryUI();
-}
-
-calculateGuiScale();
-window.addEventListener('resize', calculateGuiScale);
-
-updateTabsUI();
-populateCreativeGrid();
-updateInventoryUI();
-
 // ----------------------------------------------------
 // JSON BLOCKSTATE & MODEL READER ENGINE
 // ----------------------------------------------------
@@ -935,165 +176,36 @@ const JSONReader = {
 };
 
 // ----------------------------------------------------
-// REAL MINECRAFT BLOCK HARDNESS & TOOLS
+// CORE GEOMETRIES, MATERIALS & TEXTURES
 // ----------------------------------------------------
-const REAL_MINECRAFT_HARDNESS = {
-    air: 0.0, grass: 0.0, fern: 0.0, dead_bush: 0.0, dandelion: 0.0, poppy: 0.0, blue_orchid: 0.0,
-    allium: 0.0, azure_bluet: 0.0, red_tulip: 0.0, orange_tulip: 0.0, white_tulip: 0.0, pink_tulip: 0.0,
-    oxeye_daisy: 0.0, cornflower: 0.0, lily_of_the_valley: 0.0, wither_rose: 0.0,
-    dirt: 0.5, coarse_dirt: 0.5, podzol: 0.5, rooted_dirt: 0.5, mud: 0.5, grass_block: 0.6,
-    snowy_grass_block: 0.6, sand: 0.5, red_sand: 0.5, gravel: 0.6, clay: 0.6, soul_sand: 0.5, soul_soil: 0.5,
-    stone: 1.5, granite: 1.5, polished_granite: 1.5, diorite: 1.5, polished_diorite: 1.5,
-    andesite: 1.5, polished_andesite: 1.5, cobblestone: 2.0, mossy_cobblestone: 2.0,
-    deepslate: 3.0, cobbled_deepslate: 3.5, tuff: 1.8, calcite: 0.75, basalt: 1.25, polished_basalt: 1.25,
-    obsidian: 50.0, crying_obsidian: 50.0, sandstone: 0.8, red_sandstone: 0.8,
-    stone_bricks: 1.5, mossy_stone_bricks: 1.5, cracked_stone_bricks: 1.5, chiseled_stone_bricks: 1.5,
-    oak_log: 2.0, spruce_log: 2.0, birch_log: 2.0, jungle_log: 2.0, acacia_log: 2.0, dark_oak_log: 2.0,
-    oak_planks: 2.0, spruce_planks: 2.0, birch_planks: 2.0, jungle_planks: 2.0,
-    coal_ore: 3.0, iron_ore: 3.0, copper_ore: 3.0, gold_ore: 3.0, redstone_ore: 3.0,
-    emerald_ore: 3.0, lapis_ore: 3.0, diamond_ore: 3.0,
-    deepslate_coal_ore: 4.5, deepslate_iron_ore: 4.5, deepslate_copper_ore: 4.5,
-    deepslate_gold_ore: 4.5, deepslate_redstone_ore: 4.5, deepslate_emerald_ore: 4.5,
-    deepslate_lapis_ore: 4.5, deepslate_diamond_ore: 4.5,
-    chest: 2.5, crafting_table: 2.5, furnace: 3.5, bookshelf: 1.5, bricks: 2.0,
-    glass: 0.3, tinted_glass: 0.3, ice: 0.5, packed_ice: 0.5, blue_ice: 0.5,
-    oak_leaves: 0.2, spruce_leaves: 0.2, birch_leaves: 0.2, jungle_leaves: 0.2,
-    glowstone: 0.3, sea_lantern: 0.3, snow: 0.1, snow_block: 0.2,
-    bedrock: -1.0
-};
+const chunkSize = 16;
+const renderDistance = 2; 
+const worldHeight = 256;
+const minworldY = -64;
 
-const BLOCK_TOOL_CLASSIFICATION = {
-    stone: 'pickaxe', cobblestone: 'pickaxe', deepslate: 'pickaxe', cobbled_deepslate: 'pickaxe',
-    granite: 'pickaxe', diorite: 'pickaxe', andesite: 'pickaxe', sandstone: 'pickaxe', red_sandstone: 'pickaxe',
-    tuff: 'pickaxe', basalt: 'pickaxe', stone_bricks: 'pickaxe', bricks: 'pickaxe', furnace: 'pickaxe',
-    coal_ore: 'pickaxe', iron_ore: 'pickaxe', copper_ore: 'pickaxe', gold_ore: 'pickaxe', redstone_ore: 'pickaxe',
-    emerald_ore: 'pickaxe', lapis_ore: 'pickaxe', diamond_ore: 'pickaxe',
-    deepslate_coal_ore: 'pickaxe', deepslate_iron_ore: 'pickaxe', deepslate_copper_ore: 'pickaxe',
-    deepslate_gold_ore: 'pickaxe', deepslate_redstone_ore: 'pickaxe', deepslate_emerald_ore: 'pickaxe',
-    deepslate_lapis_ore: 'pickaxe', deepslate_diamond_ore: 'pickaxe',
-    obsidian: 'pickaxe', crying_obsidian: 'pickaxe',
-    dirt: 'shovel', coarse_dirt: 'shovel', podzol: 'shovel', grass_block: 'shovel', snowy_grass_block: 'shovel',
-    sand: 'shovel', red_sand: 'shovel', gravel: 'shovel', clay: 'shovel', snow: 'shovel', snow_block: 'shovel',
-    soul_sand: 'shovel', soul_soil: 'shovel',
-    oak_log: 'axe', spruce_log: 'axe', birch_log: 'axe', jungle_log: 'axe', acacia_log: 'axe', dark_oak_log: 'axe',
-    oak_planks: 'axe', spruce_planks: 'axe', birch_planks: 'axe', chest: 'axe', crafting_table: 'axe', bookshelf: 'axe'
-};
-
-const BLOCK_DROPS = {
-    grass_block: { item: 'dirt', count: 1 },
-    snowy_grass_block: { item: 'dirt', count: 1 },
-    dirt: { item: 'dirt', count: 1 },
-    sand: { item: 'sand', count: 1 },
-    sandstone: { item: 'sandstone', count: 1 },
-    snow_block: { item: 'snowball', count: 4 },
-    oak_sapling: { item: 'oak_sapling', count: 1 },
-    spruce_sapling: { item: 'spruce_sapling', count: 1 },
-    stone: { item: 'cobblestone', count: 1 },
-    deepslate: { item: 'cobbled_deepslate', count: 1 },
-    cobblestone: { item: 'cobblestone', count: 1 },
-    cobbled_deepslate: { item: 'cobbled_deepslate', count: 1 },
-    coal_ore: { item: 'coal', count: 1 },
-    iron_ore: { item: 'raw_iron', count: 1 },
-    copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) },
-    gold_ore: { item: 'raw_gold', count: 1 },
-    diamond_ore: { item: 'diamond', count: 1 },
-    lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) },
-    redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) },
-    emerald_ore: { item: 'emerald', count: 1 },
-    deepslate_coal_ore: { item: 'coal', count: 1 },
-    deepslate_iron_ore: { item: 'raw_iron', count: 1 },
-    deepslate_copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) },
-    deepslate_gold_ore: { item: 'raw_gold', count: 1 },
-    deepslate_diamond_ore: { item: 'diamond', count: 1 },
-    deepslate_lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) },
-    deepslate_redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) },
-    deepslate_emerald_ore: { item: 'emerald', count: 1 },
-    oak_log: { item: 'oak_log', count: 1 },
-    spruce_log: { item: 'spruce_log', count: 1 },
-    oak_leaves: { item: 'oak_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
-    spruce_leaves: { item: 'spruce_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
-    bedrock: null
-};
-
-const TOOL_MULTIPLIERS = {
-    hand: 1.0, wood: 2.0, stone: 4.0, iron: 6.0, diamond: 8.0, netherite: 9.0, gold: 12.0
-};
-
-function isMatchingTool(blockName, heldItemType) {
-    const requiredToolClass = BLOCK_TOOL_CLASSIFICATION[blockName];
-    if (!requiredToolClass) return true; 
-    if (!heldItemType) return false;
-    return heldItemType.includes(requiredToolClass);
-}
-
-function canHarvestBlock(blockName, heldItemType) {
-    const requiredToolClass = BLOCK_TOOL_CLASSIFICATION[blockName];
-    if (!requiredToolClass) return true; 
-    
-    if (requiredToolClass === 'pickaxe') {
-        if (!heldItemType || !heldItemType.includes('pickaxe')) return false;
-        if (blockName === 'obsidian' || blockName === 'crying_obsidian') {
-            return heldItemType.includes('diamond') || heldItemType.includes('netherite');
-        }
-        if (blockName.includes('diamond') || blockName.includes('redstone') || blockName.includes('emerald') || blockName.includes('lapis')) {
-            return heldItemType.includes('iron') || heldItemType.includes('diamond') || heldItemType.includes('netherite');
-        }
-        if (blockName.includes('iron') || blockName.includes('copper') || blockName.includes('lapis')) {
-            return heldItemType.includes('stone') || heldItemType.includes('iron') || heldItemType.includes('diamond') || heldItemType.includes('netherite');
-        }
-        return true; 
-    }
-    return isMatchingTool(blockName, heldItemType);
-}
-
-function calculateMiningTime(blockName, heldItemType) {
-    const hardness = REAL_MINECRAFT_HARDNESS[blockName] !== undefined ? REAL_MINECRAFT_HARDNESS[blockName] : 1.5;
-    if (hardness < 0) return Infinity; 
-    if (hardness === 0) return 0; 
-    
-    let speedMultiplier = 1.0;
-    const matching = isMatchingTool(blockName, heldItemType);
-    
-    if (matching && heldItemType) {
-        let tier = 'wood';
-        if (heldItemType.includes('stone')) tier = 'stone';
-        else if (heldItemType.includes('iron')) tier = 'iron';
-        else if (heldItemType.includes('diamond')) tier = 'diamond';
-        else if (heldItemType.includes('netherite')) tier = 'netherite';
-        else if (heldItemType.includes('gold')) tier = 'gold';
-        speedMultiplier = TOOL_MULTIPLIERS[tier] || 1.0;
-    }
-    
-    const constantMultiplier = matching ? 1.5 : 5.0;
-    const timeInSeconds = (hardness * constantMultiplier) / speedMultiplier;
-    return timeInSeconds * 1000; 
-}
-
-const ORE_CONFIG = {
-    emerald_ore: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
-    diamond_ore: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
-    lapis_ore:   [
-        { min: -64, max: 64,  peak: 0, threshold: 0.68 }, 
-        { min: -32, max: 32,  threshold: 0.65 } 
-    ],
-    gold_ore:    [{ min: -64, max: 32,  peak: -16, threshold: 0.68 }],
-    redstone_ore:[
-        { min: -64, max: 15,  threshold: 0.65 },
-        { min: -64, max: -32, peak: -64, threshold: 0.62 }
-    ],
-    copper_ore:  [{ min: -16, max: 112, peak: 48, threshold: 0.60 }],
-    iron_ore:    [
-        { min: -64, max: 72,  peak: 16, threshold: 0.55 },
-        { min: 80,  max: 320, peak: 232, threshold: 0.55 },
-        { min: -64, max: -32, threshold: 0.58 }
-    ],
-    coal_ore:    [
-        { min: 0,   max: 192, peak: 96, threshold: 0.50 },
-        { min: 136, max: 320, threshold: 0.55 }
-    ],
-};
-
+const customGeometries = {};
+const materials = {};
+const iconCache = {};
 const animatedTextures = [];
+
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const crossGeo = new THREE.BufferGeometry();
+const crossPositions = new Float32Array([
+    -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
+     0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
+    -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
+     0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
+]);
+const crossUVs = new Float32Array([
+    0,0,  1,0,  0,1,
+    1,0,  1,1,  0,1,
+    0,0,  1,0,  0,1,
+    1,0,  1,1,  0,1
+]);
+crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
+crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
+crossGeo.computeVertexNormals();
+
 const imageLoader = new THREE.ImageLoader();
 imageLoader.setCrossOrigin('anonymous');
 
@@ -1170,8 +282,6 @@ const loadTex = (filename, isItem = false) => {
     return t;
 };
 
-const materials = {};
-
 const destroyTextures = [];
 for (let i = 0; i < 10; i++) {
     destroyTextures.push(loadTex(`destroy_stage_${i}`));
@@ -1184,432 +294,6 @@ const destroyMat = new THREE.MeshBasicMaterial({
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
-
-const BIOME_REGISTRY = [
-    { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20, treeType: 'oak' },
-    { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8, treeType: 'oak' },
-    { name: "Desert", temp: 0.35, moist: -0.35, depth: 0.0, topBlock: 'sand', subBlock: 'sand', deepSubBlock: 'sandstone', treeChance: 0.0, heightScale: 12, treeType: 'oak' },
-    { name: "Snowy Tundra", temp: -0.35, moist: 0.1, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.002, heightScale: 15, treeType: 'spruce' },
-    { name: "Mountains", temp: 0.3, moist: 0.3, depth: 0.0, topBlock: 'stone', subBlock: 'stone', deepSubBlock: 'stone', treeChance: 0.0, heightScale: 55, treeType: 'spruce' }
-];
-
-const chunkSize = 16;
-const renderDistance = 2; 
-const worldHeight = 256;
-const minworldY = -64;
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-
-const crossGeo = new THREE.BufferGeometry();
-const crossPositions = new Float32Array([
-    -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
-     0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
-    -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
-     0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
-]);
-const crossUVs = new Float32Array([
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1,
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1
-]);
-crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
-crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
-crossGeo.computeVertexNormals();
-
-const worldSeed = Math.random(); 
-noise.seed(worldSeed);
-
-const mapOffsetX = Math.floor(Math.random() * 1000000);
-const mapOffsetZ = Math.floor(Math.random() * 1000000);
-
-const activeChunks = {};
-const chunkQueue = []; 
-const interactableMeshes = [];
-const brokenBlocks = new Set(); 
-const placedBlocks = new Map(); 
-const treeOverhangs = new Map(); 
-const chunksToRebuild = new Set(); 
-
-const DIRS = [ [1,0,0], [0,0,-1], [-1,0,0], [0,0,1] ];
-
-function getStairData(x, y, z) {
-    let k = `${x},${y},${z}`;
-    if (placedBlocks.has(k)) {
-        let data = placedBlocks.get(k);
-        if (data && data.isStair) {
-            let typeId = data.type;
-            let bName = REVERSE_TYPE[typeId];
-            if (bName.includes('_inner')) bName = bName.replace('_inner', '');
-            if (bName.includes('_outer')) bName = bName.replace('_outer', '');
-            return { ...data, baseName: bName };
-        }
-    }
-    return null;
-}
-
-function evaluateStair(x, y, z) {
-    let s = getStairData(x, y, z);
-    if (!s) return;
-    
-    let f = s.facing;
-    let backDir = (f + 2) % 4;
-    let frontDir = f;
-    
-    let sFront = getStairData(x + DIRS[frontDir][0], y, z + DIRS[frontDir][2]);
-    let sBack = getStairData(x + DIRS[backDir][0], y, z + DIRS[backDir][2]);
-    
-    let shape = 'straight';
-    let leftOfF = (f + 1) % 4;
-
-    const canTakeShape = (checkDir) => {
-        let n = getStairData(x + DIRS[checkDir][0], y, z + DIRS[checkDir][2]);
-        if (n && n.half === s.half && n.facing === f) {
-            return false;
-        }
-        return true;
-    };
-    
-    if (sFront && sFront.half === s.half && sFront.facing !== f && (sFront.facing % 2 !== f % 2)) {
-        let oppFrontDir = (sFront.facing + 2) % 4;
-        if (canTakeShape(oppFrontDir)) {
-            if (sFront.facing === leftOfF) shape = 'outer_left';
-            else shape = 'outer_right';
-        }
-    }
-    
-    if (shape === 'straight') {
-        if (sBack && sBack.half === s.half && sBack.facing !== f && (sBack.facing % 2 !== f % 2)) {
-            let backDirFace = sBack.facing;
-            if (canTakeShape(backDirFace)) {
-                if (sBack.facing === leftOfF) shape = 'inner_left';
-                else shape = 'inner_right';
-            }
-        }
-    }
-    
-    let rotY = 0;
-    if (f === 0) rotY = 0; 
-    else if (f === 1) rotY = Math.PI/2; 
-    else if (f === 2) rotY = Math.PI; 
-    else if (f === 3) rotY = -Math.PI/2; 
-    
-    if (s.half === 'top') {
-        rotY = -rotY;
-    }
-    
-    let finalType = s.baseName;
-    let finalRotY = rotY;
-    
-    if (shape === 'inner_left') { finalType += '_inner'; finalRotY = rotY + Math.PI/2; }
-    else if (shape === 'inner_right') { finalType += '_inner'; finalRotY = rotY; }
-    else if (shape === 'outer_left') { finalType += '_outer'; finalRotY = rotY + Math.PI/2; }
-    else if (shape === 'outer_right') { finalType += '_outer'; finalRotY = rotY; }
-
-    let rx = s.half === 'top' ? Math.PI : 0;
-    
-    let existing = placedBlocks.get(`${x},${y},${z}`);
-    let targetTypeId = TYPE[finalType];
-    
-    if (!existing || existing.type !== targetTypeId || !existing.rotation || existing.rotation[0] !== rx || existing.rotation[1] !== finalRotY) {
-        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0] });
-    }
-}
-
-function updateStairConnections(x, y, z) {
-    evaluateStair(x, y, z);
-    evaluateStair(x+1, y, z);
-    evaluateStair(x-1, y, z);
-    evaluateStair(x, y, z+1);
-    evaluateStair(x, y, z-1);
-}
-
-function getGlobalBlock(gx, gy, gz) {
-    if (gy < minworldY || gy >= minworldY + worldHeight) return null;
-    let cx = Math.floor(gx / chunkSize);
-    let cz = Math.floor(gz / chunkSize);
-    let chunkId = `${cx},${cz}`;
-    let chunk = activeChunks[chunkId];
-    if (!chunk || chunk.pending) return null; 
-    
-    let lx = gx - (cx * chunkSize);
-    let lz = gz - (cz * chunkSize);
-    let ly = gy - minworldY;
-    
-    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
-    return chunk.blocks[idx];
-}
-
-function setGlobalBlock(gx, gy, gz, typeData) {
-    if (gy < minworldY || gy >= minworldY + worldHeight) return;
-    
-    let blockKey = `${gx},${gy},${gz}`;
-    let typeId = typeof typeData === 'object' ? typeData.type : typeData;
-
-    if (typeId === 0) {
-        brokenBlocks.add(blockKey);
-        placedBlocks.delete(blockKey);
-    } else {
-        brokenBlocks.delete(blockKey);
-        placedBlocks.set(blockKey, typeData);
-    }
-
-    let cx = Math.floor(gx / chunkSize);
-    let cz = Math.floor(gz / chunkSize);
-    let chunkId = `${cx},${cz}`;
-    let chunk = activeChunks[chunkId];
-    
-    if (!chunk || chunk.pending) return; 
-    
-    let lx = gx - (cx * chunkSize);
-    let lz = gz - (cz * chunkSize);
-    let ly = gy - minworldY;
-    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
-    
-    if (chunk.blocks[idx] !== typeId) {
-        chunk.blocks[idx] = typeId;
-    }
-    
-    chunksToRebuild.add(chunkId);
-    if (lx === 0) chunksToRebuild.add(`${cx - 1},${cz}`);
-    if (lx === chunkSize - 1) chunksToRebuild.add(`${cx + 1},${cz}`);
-    if (lz === 0) chunksToRebuild.add(`${cx},${cz - 1}`);
-    if (lz === chunkSize - 1) chunksToRebuild.add(`${cx},${cz + 1}`);
-}
-
-function checkIsSnowy(gx, gy, gz) {
-    const blockAbove = getGlobalBlock(gx, gy + 1, gz);
-    if (blockAbove === TYPE.snow || blockAbove === TYPE.snow_block || blockAbove === TYPE.powder_snow) {
-        return true;
-    }
-    return false;
-}
-
-function doRandomTicks() {
-    for (const chunkId in activeChunks) {
-        const chunk = activeChunks[chunkId];
-        if (!chunk || chunk.pending || !chunk.blocks) continue;
-
-        const [cx, cz] = chunkId.split(',').map(Number);
-        
-        for (let i = 0; i < 3; i++) {
-            let lx = Math.floor(Math.random() * chunkSize);
-            let lz = Math.floor(Math.random() * chunkSize);
-            let ly = Math.floor(Math.random() * worldHeight);
-            
-            let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
-            let blockType = chunk.blocks[idx];
-
-            if (blockType === TYPE.grass_block || blockType === TYPE.snowy_grass_block) {
-                let gx = (cx * chunkSize) + lx;
-                let gy = ly + minworldY;
-                let gz = (cz * chunkSize) + lz;
-
-                let above = getGlobalBlock(gx, gy + 1, gz);
-                
-                if (above !== null && above !== 0 && above !== TYPE.oak_leaves && above !== TYPE.spruce_leaves && above !== TYPE.snow_block && above !== TYPE.oak_sapling && above !== TYPE.spruce_sapling) {
-                    setGlobalBlock(gx, gy, gz, TYPE.dirt);
-                } 
-                else if (above === 0 || above === TYPE.oak_leaves || above === TYPE.spruce_leaves || above === TYPE.snow_block) {
-                    let ox = Math.floor(Math.random() * 3) - 1; 
-                    let oz = Math.floor(Math.random() * 3) - 1;
-                    let oy = Math.floor(Math.random() * 5) - 3; 
-                    
-                    let tx = gx + ox;
-                    let ty = gy + oy;
-                    let tz = gz + oz;
-                    
-                    let target = getGlobalBlock(tx, ty, tz);
-                    if (target === TYPE.dirt) {
-                        let targetAbove = getGlobalBlock(tx, ty + 1, tz);
-                        if (targetAbove === 0 || targetAbove === TYPE.oak_leaves || targetAbove === TYPE.spruce_leaves || targetAbove === TYPE.snow_block || targetAbove === TYPE.oak_sapling || targetAbove === TYPE.spruce_sapling) {
-                            const snowy = checkIsSnowy(tx, ty, tz);
-                            setGlobalBlock(tx, ty, tz, snowy ? TYPE.snowy_grass_block : TYPE.grass_block);
-                        }
-                    }
-                }
-            } 
-        }
-    }
-}
-
-function getBiome(temp, moist, depth) {
-    let closestBiome = BIOME_REGISTRY[0];
-    let minDist = Infinity;
-    for (let b of BIOME_REGISTRY) {
-        let dist = (temp - b.temp)*(temp - b.temp) + (moist - b.moist)*(moist - b.moist);
-        if (dist < minDist) { minDist = dist; closestBiome = b; }
-    }
-    return closestBiome;
-}
-
-function getInterpolatedHeightScale(x, z) {
-    const range = 8; 
-    const step = 4; 
-    let totalScale = 0; 
-    let samples = 0;
-    
-    for (let offX = -range; offX <= range; offX += step) {
-        for (let offZ = -range; offZ <= range; offZ += step) {
-            let temp = fbm2(x + offX + mapOffsetX, z + offZ + mapOffsetZ, 2, 400);
-            let moist = fbm2(x + offX + mapOffsetX + 10000, z + offZ + mapOffsetZ + 10000, 2, 400);
-            totalScale += getBiome(temp, moist, 0).heightScale;
-            samples++;
-        }
-    }
-    return totalScale / samples; 
-}
-
-function getDeterministicRandom(x, y, z) {
-    let str = `${x},${y},${z},${worldSeed}`;
-    let h = 2166136261; 
-    for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
-    return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
-}
-
-function fbm2(x, z, octaves = 4, scale = 400) {
-    let total = 0;
-    let frequency = 1;
-    let amplitude = 1;
-    let maxValue = 0;
-    for(let i = 0; i < octaves; i++) {
-        total += noise.perlin2((x / scale) * frequency, (z / scale) * frequency) * amplitude;
-        maxValue += amplitude;
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-    return total / maxValue;
-}
-
-function fbm3(x, y, z, octaves = 2, scale = 40) {
-    let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
-    for(let i = 0; i < octaves; i++) {
-        total += noise.perlin3((x / scale) * frequency, (y / scale) * frequency, (z / scale) * frequency) * amplitude;
-        maxValue += amplitude;
-        amplitude *= 0.5;
-        frequency *= 2.0;
-    }
-    return total / maxValue;
-}
-
-function getBlockCapacity(key) {
-    if (key === 'stone' || key === 'deepslate') return 45000;
-    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'snowy_grass_block' || key === 'sand' || key === 'bedrock') return 15000;
-    if (key.includes('leaves') || key.includes('log')) return 8000;
-    return 4000;
-}
-
-function mergeBufferGeometries(geos) {
-    let vertexCount = 0;
-    let indexCount = 0;
-    for (let g of geos) {
-        vertexCount += g.attributes.position.count;
-        indexCount += g.index ? g.index.count : g.attributes.position.count;
-    }
-    
-    let posArray = new Float32Array(vertexCount * 3);
-    let normArray = new Float32Array(vertexCount * 3);
-    let uvArray = new Float32Array(vertexCount * 2);
-    let indArray = new Uint32Array(indexCount);
-    
-    let vOff = 0;
-    let iOff = 0;
-    let groupStart = 0;
-    const mergedGeo = new THREE.BufferGeometry();
-    
-    for (let g of geos) {
-        posArray.set(g.attributes.position.array, vOff * 3);
-        normArray.set(g.attributes.normal.array, vOff * 3);
-        uvArray.set(g.attributes.uv.array, vOff * 2);
-        
-        if (g.index) {
-            for(let i=0; i<g.index.count; i++) indArray[iOff + i] = g.index.array[i] + vOff;
-        } else {
-            for(let i=0; i<g.attributes.position.count; i++) indArray[iOff + i] = i + vOff;
-        }
-        
-        for (let grp of g.groups) {
-            mergedGeo.addGroup(groupStart + grp.start, grp.count, grp.materialIndex);
-        }
-        
-        vOff += g.attributes.position.count;
-        iOff += g.index ? g.index.count : g.attributes.position.count;
-        groupStart += g.index ? g.index.count : g.attributes.position.count;
-    }
-    
-    mergedGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    mergedGeo.setAttribute('normal', new THREE.BufferAttribute(normArray, 3));
-    mergedGeo.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
-    mergedGeo.setIndex(new THREE.BufferAttribute(indArray, 1));
-    
-    return mergedGeo;
-}
-
-function computeChunkLight(blocks) {
-    const lightMap = new Uint8Array(chunkSize * chunkSize * worldHeight);
-    const queue = new Int32Array(chunkSize * chunkSize * worldHeight * 2);
-    let head = 0, tail = 0;
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
-
-    for (let x = 0; x < chunkSize; x++) {
-        for (let z = 0; z < chunkSize; z++) {
-            let currentLight = 15;
-            for (let y = worldHeight - 1; y >= 0; y--) {
-                let idx = getIdx(x, y, z);
-                let b = blocks[idx];
-                
-                if (b !== 0 && !isTransparent[b]) {
-                    currentLight = 0;
-                } else if (b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.water) {
-                    currentLight = Math.max(0, currentLight - 2); 
-                }
-
-                lightMap[idx] = currentLight;
-                if (currentLight > 0) {
-                    queue[tail++] = idx;
-                }
-            }
-        }
-    }
-
-    while (head < tail) {
-        let idx = queue[head++];
-        let light = lightMap[idx];
-        if (light <= 1) continue;
-
-        let x = idx % chunkSize;
-        let z = Math.floor(idx / chunkSize) % chunkSize;
-        let y = Math.floor(idx / (chunkSize * chunkSize));
-
-        let nextLight = light - 1;
-
-        const processN = (nx, ny, nz) => {
-            if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
-                let nIdx = getIdx(nx, ny, nz);
-                let b = blocks[nIdx];
-                if ((b === 0 || isTransparent[b]) && lightMap[nIdx] < nextLight) {
-                    let drop = 1;
-                    if (b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.water) drop = 2;
-                    let targetLight = light - drop;
-                    
-                    if (targetLight > lightMap[nIdx]) {
-                        lightMap[nIdx] = targetLight;
-                        queue[tail++] = nIdx;
-                    }
-                }
-            }
-        };
-
-        processN(x - 1, y, z);
-        processN(x + 1, y, z);
-        processN(x, y - 1, z);
-        processN(x, y + 1, z);
-        processN(x, y, z - 1);
-        processN(x, y, z + 1);
-    }
-    return lightMap;
-}
-
-const customGeometries = {};
 
 async function loadCustomModel(bName) {
     if (customGeometries[bName]) return; 
@@ -1855,6 +539,964 @@ async function loadCustomModel(bName) {
         promises.push(materials[bName].map.loadPromise);
     }
     await Promise.all(promises);
+}
+
+// ----------------------------------------------------
+// 3D INVENTORY ICON GENERATOR
+// ----------------------------------------------------
+const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+iconRenderer.setSize(64, 64);
+const iconScene = new THREE.Scene();
+
+const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
+iconCamera.position.set(0, 0, 5); 
+iconCamera.lookAt(0, 0, 0);
+
+iconScene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(1, 1, 2);
+iconScene.add(dirLight);
+const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+dirLight2.position.set(-1, -1, 2);
+iconScene.add(dirLight2);
+
+async function getBlockIcon(type) {
+    if (!type) return 'none';
+    if (iconCache[type]) return iconCache[type];
+    
+    const isItemTex = STRICT_ITEMS.has(type) || 
+                      (type.includes('door') && !type.includes('trapdoor')) || 
+                      ['candle', 'campfire', 'torch', 'lantern', 'lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'sign'].some(kw => type.includes(kw)) ||
+                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
+    
+    if (isItemTex) {
+        let filename = type;
+        if (type === 'redstone') filename = 'redstone_dust';
+        
+        let folder = BLOCK_TEX_DIR;
+        if (STRICT_ITEMS.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'lantern'].some(kw => type.includes(kw))) {
+            folder = ITEM_TEX_DIR;
+        }
+        
+        const url = `url(${folder}${filename}.png)`;
+        iconCache[type] = url;
+        return url;
+    }
+
+    if (!customGeometries[type]) await loadCustomModel(type);
+    const geo = customGeometries[type];
+    const mat = materials[type];
+    if (!geo || !mat) return 'none';
+    
+    const mesh = new THREE.Mesh(geo, mat);
+    iconScene.add(mesh);
+    
+    mesh.position.set(0, 0, 0);
+    mesh.rotation.set(0, 0, 0);
+    mesh.scale.set(1, 1, 1);
+
+    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    if (geo.userData && geo.userData.display && geo.userData.display.gui) {
+        guiConfig = geo.userData.display.gui;
+    }
+
+    if (guiConfig.rotation) {
+        mesh.rotation.set(
+            THREE.MathUtils.degToRad(guiConfig.rotation[0]),
+            THREE.MathUtils.degToRad(guiConfig.rotation[1] - 180),
+            THREE.MathUtils.degToRad(guiConfig.rotation[2]),
+            'XYZ'
+        );
+    }
+    if (guiConfig.scale) {
+        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
+    }
+    if (guiConfig.translation) {
+        mesh.position.set(
+            guiConfig.translation[0] / 16,
+            guiConfig.translation[1] / 16,
+            guiConfig.translation[2] / 16
+        );
+    }
+    
+    iconRenderer.render(iconScene, iconCamera);
+    const dataUrl = iconRenderer.domElement.toDataURL('image/png');
+    iconScene.remove(mesh);
+    
+    const url = `url(${dataUrl})`;
+    iconCache[type] = url;
+    return url;
+}
+
+function applyIcon(element, type) {
+    element.dataset.iconType = type || 'none';
+    if (!type) { element.style.backgroundImage = 'none'; return; }
+    getBlockIcon(type).then(url => {
+        if (element.dataset.iconType === type) element.style.backgroundImage = url;
+    });
+}
+
+// ----------------------------------------------------
+// UI: Smart Dual-Loader for Fallbacks
+// ----------------------------------------------------
+function setFallbackBg(element, urls, configOnSuccess) {
+    let i = 0;
+    function tryNext() {
+        if (i >= urls.length) return;
+        let img = new Image();
+        img.onload = () => {
+            element.style.backgroundImage = `url(${urls[i]})`;
+            if(configOnSuccess) configOnSuccess(i);
+        };
+        img.onerror = () => { i++; tryNext(); };
+        img.src = urls[i];
+    }
+    tryNext();
+}
+
+// ----------------------------------------------------
+// Core UI Scaffolding & Layout Generation
+// ----------------------------------------------------
+let currentGuiScale = 2;
+function calculateGuiScale() {
+    let scale = 1;
+    while (window.innerWidth / (scale + 1) >= 320 && window.innerHeight / (scale + 1) >= 240) {
+        scale++;
+    }
+    currentGuiScale = Math.max(1, scale);
+    document.getElementById('creative-scale-center').style.transform = `scale(${currentGuiScale})`;
+    document.getElementById('hotbar-scale-center').style.transform = `scale(${currentGuiScale})`;
+    document.getElementById('held-item-wrapper').style.transform = `translate(-50%, -50%) scale(${currentGuiScale})`;
+}
+
+const guiScaleWrapper = document.createElement('div');
+guiScaleWrapper.id = 'gui-scale-wrapper';
+guiScaleWrapper.style.position = 'absolute';
+guiScaleWrapper.style.inset = '0';
+guiScaleWrapper.style.pointerEvents = 'none';
+guiScaleWrapper.style.zIndex = '9999';
+document.body.appendChild(guiScaleWrapper);
+
+const crosshair = document.createElement('div');
+crosshair.style.position = 'absolute';
+crosshair.style.top = '50%';
+crosshair.style.left = '50%';
+crosshair.style.width = '20px';
+crosshair.style.height = '20px';
+crosshair.style.transform = 'translate(-50%, -50%)';
+crosshair.style.pointerEvents = 'none';
+crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
+guiScaleWrapper.appendChild(crosshair);
+
+const INVENTORY_SIZE = 9; 
+const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
+
+inventory[0] = { type: 'stone', count: 64 };
+inventory[1] = { type: 'dirt', count: 64 };
+inventory[2] = { type: 'grass_block', count: 64 };
+inventory[3] = { type: 'sculk_shrieker', count: 64 };
+inventory[4] = { type: 'sculk_sensor', count: 64 };
+inventory[5] = { type: 'acacia_stairs', count: 64 };
+inventory[6] = { type: 'magma_block', count: 64 };
+inventory[7] = { type: 'cobblestone', count: 64 };
+inventory[8] = { type: 'diamond_pickaxe', count: 1 };
+
+let selectedSlot = 0;
+let heldItem = { type: null, count: 0 };
+
+const hotbarScaleCenter = document.createElement('div');
+hotbarScaleCenter.id = 'hotbar-scale-center';
+hotbarScaleCenter.style.position = 'absolute';
+hotbarScaleCenter.style.bottom = '0px';
+hotbarScaleCenter.style.left = '50%';
+hotbarScaleCenter.style.transformOrigin = 'bottom center';
+guiScaleWrapper.appendChild(hotbarScaleCenter);
+
+const hotbarContainer = document.createElement('div');
+hotbarContainer.id = 'hotbar';
+hotbarContainer.className = 'pixelated';
+hotbarContainer.style.position = 'absolute';
+hotbarContainer.style.left = '-91px'; 
+hotbarContainer.style.bottom = '0px'; 
+hotbarContainer.style.width = '182px'; 
+hotbarContainer.style.height = '22px';
+hotbarContainer.style.display = 'block';
+hotbarScaleCenter.appendChild(hotbarContainer);
+
+setFallbackBg(hotbarContainer, 
+    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    (idx) => { hotbarContainer.style.backgroundSize = idx === 0 ? '182px 22px' : '256px 256px'; }
+);
+
+const hotbarSelector = document.createElement('div');
+hotbarSelector.className = 'pixelated';
+hotbarSelector.style.position = 'absolute';
+hotbarSelector.style.width = '24px';
+hotbarSelector.style.height = '24px';
+hotbarSelector.style.top = '-1px';
+hotbarSelector.style.left = '-1px';
+hotbarSelector.style.pointerEvents = 'none'; 
+hotbarSelector.style.zIndex = '51';
+hotbarContainer.appendChild(hotbarSelector);
+
+setFallbackBg(hotbarSelector, 
+    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    (idx) => {
+        hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px';
+        hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px';
+    }
+);
+
+const hotbarSlotsUI = [];
+for (let i = 0; i < 9; i++) {
+    const slotWrap = document.createElement('div');
+    slotWrap.style.position = 'absolute';
+    slotWrap.style.width = '16px';
+    slotWrap.style.height = '16px';
+    slotWrap.style.left = `${3 + i * 20}px`; 
+    slotWrap.style.top = '3px';
+    slotWrap.style.cursor = 'pointer';
+    slotWrap.style.pointerEvents = 'auto';
+    slotWrap.style.zIndex = '52'; 
+    
+    const itemSprite = document.createElement('div');
+    itemSprite.className = 'pixelated';
+    itemSprite.style.width = '100%';
+    itemSprite.style.height = '100%';
+    slotWrap.appendChild(itemSprite);
+    
+    const countLabel = document.createElement('span');
+    countLabel.className = 'mc-text';
+    countLabel.style.position = 'absolute';
+    countLabel.style.bottom = '-4px';
+    countLabel.style.right = '-2px';
+    slotWrap.appendChild(countLabel);
+    
+    hotbarContainer.appendChild(slotWrap);
+    hotbarSlotsUI.push({ div: itemSprite, label: countLabel });
+}
+
+const CATEGORIES = {
+    building: { name: 'Building Blocks', icon: 'bricks', blocks: [] },
+    colored: { name: 'Colored Blocks', icon: 'cyan_wool', blocks: [] },
+    natural: { name: 'Natural Blocks', icon: 'grass_block', blocks: [] },
+    functional: { name: 'Functional Blocks', icon: 'oak_sign', blocks: [] },
+    redstone: { name: 'Redstone Blocks', icon: 'redstone', blocks: [] },
+    misc: { name: 'Miscellaneous', icon: 'bookshelf', blocks: [] },
+    search: { name: 'Search Items', icon: 'compass', blocks: [] },
+    tools: { name: 'Tools', icon: 'iron_pickaxe', blocks: [] },
+    combat: { name: 'Combat', icon: 'iron_sword', blocks: [] },
+    food: { name: 'Food & Drinks', icon: 'golden_apple', blocks: [] },
+    materials: { name: 'Materials', icon: 'iron_ingot', blocks: [] },
+    spawns: { name: 'Spawn Eggs', icon: 'creeper_head', blocks: [] },
+    operator: { name: 'Operator Utilities', icon: 'command_block', blocks: [] },
+    inventory: { name: 'Survival Inventory', icon: 'chest', blocks: [] }
+};
+
+ALL_BLOCKS.forEach(b => {
+    if (b.includes('_inner') || b.includes('_outer') || b === 'air') return;
+
+    if (STRICT_ITEMS.has(b)) {
+        if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
+        else if (['apple', 'beef', 'bread', 'porkchop', 'potato', 'chicken', 'mutton', 'rabbit', 'salmon', 'cod', 'cookie', 'melon_slice'].some(k=>b.includes(k))) CATEGORIES.food.blocks.push(b);
+        else if (b.includes('pickaxe') || b.includes('axe') || b.includes('shovel') || b.includes('hoe') || b === 'compass' || b === 'clock' || b === 'flint_and_steel') CATEGORIES.tools.blocks.push(b);
+        else if (b.includes('head') || b.includes('skull') || b === 'egg') CATEGORIES.spawns.blocks.push(b);
+        else if (b === 'command_block') CATEGORIES.operator.blocks.push(b);
+        else CATEGORIES.materials.blocks.push(b);
+    } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
+        CATEGORIES.colored.blocks.push(b);
+    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp')) {
+        CATEGORIES.redstone.blocks.push(b);
+    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign'].some(kw => b.includes(kw))) {
+        CATEGORIES.functional.blocks.push(b);
+    } else if (['dirt', 'grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
+        CATEGORIES.natural.blocks.push(b);
+    } else {
+        CATEGORIES.building.blocks.push(b);
+    }
+});
+
+let currentCategory = 'building';
+
+const creativeScaleCenter = document.createElement('div');
+creativeScaleCenter.id = 'creative-scale-center';
+creativeScaleCenter.style.position = 'absolute';
+creativeScaleCenter.style.top = '50%';
+creativeScaleCenter.style.left = '50%';
+creativeScaleCenter.style.transformOrigin = 'center';
+creativeScaleCenter.style.display = 'none';
+guiScaleWrapper.appendChild(creativeScaleCenter);
+
+const creativeInventoryScreen = document.createElement('div');
+creativeInventoryScreen.id = 'creative-inventory-screen';
+creativeInventoryScreen.style.position = 'absolute';
+creativeInventoryScreen.style.left = '-97.5px'; 
+creativeInventoryScreen.style.top = '-68px'; 
+creativeInventoryScreen.style.width = '195px'; 
+creativeInventoryScreen.style.height = '136px';
+creativeInventoryScreen.style.userSelect = 'none';
+creativeScaleCenter.appendChild(creativeInventoryScreen);
+
+const topTabsRow = document.createElement('div');
+topTabsRow.style.display = 'flex';
+topTabsRow.style.alignItems = 'flex-end'; 
+topTabsRow.style.position = 'absolute';
+topTabsRow.style.top = '-28px'; 
+topTabsRow.style.left = '0';
+topTabsRow.style.width = '100%';
+topTabsRow.style.zIndex = '1';
+creativeInventoryScreen.appendChild(topTabsRow);
+
+const invBody = document.createElement('div');
+invBody.className = 'pixelated';
+invBody.style.position = 'absolute';
+invBody.style.inset = '0';
+invBody.style.width = '100%';
+invBody.style.height = '100%';
+invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`; 
+invBody.style.backgroundSize = '256px 256px'; 
+invBody.style.backgroundPosition = '0px 0px';
+invBody.style.pointerEvents = 'auto';
+invBody.style.zIndex = '10';
+creativeInventoryScreen.appendChild(invBody);
+
+const searchInput = document.createElement('input');
+searchInput.id = 'creative-search';
+searchInput.type = 'text';
+searchInput.style.position = 'absolute';
+searchInput.style.left = '82px';
+searchInput.style.top = '4px';
+searchInput.style.width = '89px';
+searchInput.style.height = '12px';
+searchInput.style.padding = '0 2px';
+searchInput.style.backgroundColor = 'transparent';
+searchInput.style.color = '#fff';
+searchInput.style.border = 'none';
+searchInput.style.fontFamily = 'monospace';
+searchInput.style.fontSize = '8px';
+searchInput.style.outline = 'none';
+searchInput.style.display = 'none';
+invBody.appendChild(searchInput);
+
+searchInput.addEventListener('keydown', (e) => e.stopPropagation()); 
+searchInput.addEventListener('input', () => populateCreativeGrid());
+
+const creativeTitle = document.createElement('div');
+creativeTitle.className = 'mc-title';
+creativeTitle.innerText = "Building Blocks";
+creativeTitle.style.position = 'absolute';
+creativeTitle.style.left = '8px';
+creativeTitle.style.top = '6px';
+invBody.appendChild(creativeTitle);
+
+const creativeGridContainer = document.createElement('div');
+creativeGridContainer.id = 'creative-grid-container';
+creativeGridContainer.style.position = 'absolute';
+creativeGridContainer.style.left = '9px';
+creativeGridContainer.style.top = '18px';
+creativeGridContainer.style.width = '162px'; 
+creativeGridContainer.style.height = '90px'; 
+creativeGridContainer.style.overflowY = 'scroll';
+creativeGridContainer.style.backgroundColor = 'transparent';
+creativeGridContainer.style.display = 'grid';
+creativeGridContainer.style.gridTemplateColumns = 'repeat(9, 18px)';
+creativeGridContainer.style.gridAutoRows = '18px';
+invBody.appendChild(creativeGridContainer);
+
+const scrollTrack = document.createElement('div');
+scrollTrack.style.position = 'absolute';
+scrollTrack.style.right = '8px';
+scrollTrack.style.top = '18px';
+scrollTrack.style.width = '14px'; 
+scrollTrack.style.height = '112px'; 
+invBody.appendChild(scrollTrack);
+
+const scrollThumb = document.createElement('div');
+scrollThumb.className = 'pixelated';
+scrollThumb.style.position = 'absolute';
+scrollThumb.style.left = '1px';
+scrollThumb.style.top = '0px';
+scrollThumb.style.width = '12px'; 
+scrollThumb.style.height = '15px'; 
+scrollTrack.appendChild(scrollThumb);
+
+function updateScrollThumbVisuals(disabled) {
+    const sprite = disabled ? 'scroller_disabled.png' : 'scroller.png';
+    const legacyX = disabled ? -244 : -232;
+    setFallbackBg(scrollThumb, 
+        [`${GUI_WIDGETS_DIR}sprites/container/creative_inventory/${sprite}`, `${GUI_TEX_DIR}tabs.png`],
+        (idx) => {
+            scrollThumb.style.backgroundSize = idx === 0 ? '12px 15px' : '256px 256px';
+            scrollThumb.style.backgroundPosition = idx === 0 ? '0 0' : `${legacyX}px 0`;
+        }
+    );
+}
+updateScrollThumbVisuals(false);
+
+let isDraggingScroll = false;
+scrollThumb.addEventListener('mousedown', (e) => {
+    isDraggingScroll = true;
+    e.stopPropagation();
+});
+document.addEventListener('mousemove', (e) => {
+    if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
+        const trackRect = scrollTrack.getBoundingClientRect();
+        let trueHeight = 97 * currentGuiScale; 
+        let y = e.clientY - trackRect.top - (7.5 * currentGuiScale); 
+        y = Math.max(0, Math.min(y, trueHeight)); 
+        const scrollPct = y / trueHeight;
+        creativeGridContainer.scrollTop = scrollPct * (creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight);
+    }
+});
+document.addEventListener('mouseup', () => { isDraggingScroll = false; });
+creativeGridContainer.addEventListener('scroll', () => {
+    if (isDraggingScroll) return;
+    const maxScroll = creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight;
+    if (maxScroll <= 0) {
+        updateScrollThumbVisuals(true);
+        scrollThumb.style.top = '0px';
+        return;
+    }
+    updateScrollThumbVisuals(false);
+    const scrollPct = creativeGridContainer.scrollTop / maxScroll;
+    scrollThumb.style.top = (scrollPct * 97) + 'px';
+});
+
+const creativeHotbarGrid = document.createElement('div');
+creativeHotbarGrid.style.position = 'absolute';
+creativeHotbarGrid.style.left = '9px';
+creativeHotbarGrid.style.top = '112px'; 
+creativeHotbarGrid.style.width = '162px';
+creativeHotbarGrid.style.height = '18px';
+creativeHotbarGrid.style.display = 'grid';
+creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 18px)';
+invBody.appendChild(creativeHotbarGrid);
+
+const bottomTabsRow = document.createElement('div');
+bottomTabsRow.style.display = 'flex';
+bottomTabsRow.style.alignItems = 'flex-start'; 
+bottomTabsRow.style.position = 'absolute';
+bottomTabsRow.style.bottom = '-28px';
+bottomTabsRow.style.left = '0';
+bottomTabsRow.style.width = '100%';
+bottomTabsRow.style.zIndex = '1';
+creativeInventoryScreen.appendChild(bottomTabsRow);
+
+const heldItemWrapper = document.createElement('div');
+heldItemWrapper.id = 'held-item-wrapper';
+heldItemWrapper.style.position = 'absolute';
+heldItemWrapper.style.pointerEvents = 'none';
+heldItemWrapper.style.zIndex = '10000';
+heldItemWrapper.style.display = 'none';
+guiScaleWrapper.appendChild(heldItemWrapper);
+
+const heldItemUI = document.createElement('div');
+heldItemUI.className = 'pixelated';
+heldItemUI.style.position = 'absolute';
+heldItemUI.style.left = '-8px';
+heldItemUI.style.top = '-8px';
+heldItemUI.style.width = '16px';
+heldItemUI.style.height = '16px';
+heldItemWrapper.appendChild(heldItemUI);
+
+const heldLabel = document.createElement('span');
+heldLabel.className = 'mc-text';
+heldLabel.style.position = 'absolute';
+heldLabel.style.bottom = '-4px';
+heldLabel.style.right = '-2px';
+heldItemUI.appendChild(heldLabel);
+
+document.addEventListener('mousemove', (e) => {
+    if (creativeScaleCenter.style.display === 'flex') {
+        heldItemWrapper.style.left = e.clientX + 'px';
+        heldItemWrapper.style.top = e.clientY + 'px';
+    }
+});
+
+const allTabsUI = [];
+
+function createTab(catKey, isTop, isRightAlign = false, colIndex = 0) {
+    const cat = CATEGORIES[catKey];
+    const tab = document.createElement('div');
+    tab.className = 'pixelated';
+    tab.style.width = '28px'; 
+    tab.style.cursor = 'pointer';
+    tab.style.position = 'relative';
+    tab.style.display = 'flex';
+    tab.style.alignItems = 'center';
+    tab.style.justifyContent = 'center';
+    tab.style.pointerEvents = 'auto';
+    if (isRightAlign) tab.style.marginLeft = 'auto';
+    
+    const icon = document.createElement('div');
+    icon.className = 'pixelated';
+    icon.style.width = '16px';
+    icon.style.height = '16px';
+    icon.style.backgroundSize = 'contain';
+    icon.style.backgroundPosition = 'center';
+    icon.style.backgroundRepeat = 'no-repeat';
+    applyIcon(icon, cat.icon);
+    tab.appendChild(icon);
+
+    tab.addEventListener('mousedown', () => {
+        currentCategory = catKey;
+        updateTabsUI();
+        populateCreativeGrid();
+    });
+
+    if (isTop) topTabsRow.appendChild(tab);
+    else bottomTabsRow.appendChild(tab);
+    
+    allTabsUI.push({ key: catKey, elem: tab, icon: icon, isTop: isTop, colIndex: colIndex });
+}
+
+const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'misc'];
+topKeys.forEach((k, i) => createTab(k, true, false, i));
+createTab('search', true, true, 6); 
+
+const bottomKeys = ['tools', 'combat', 'food', 'materials', 'spawns', 'operator', 'inventory'];
+bottomKeys.forEach((k, i) => createTab(k, false, false, i));
+
+function updateTabsUI() {
+    allTabsUI.forEach(tabObj => {
+        const isSelected = tabObj.key === currentCategory;
+        const col = tabObj.colIndex;
+        const isTop = tabObj.isTop;
+        
+        tabObj.elem.style.zIndex = isSelected ? '20' : '1';
+        tabObj.elem.style.height = isSelected ? '32px' : '28px';
+        
+        if (isSelected) {
+            tabObj.icon.style.transform = 'translateY(0px)';
+        } else {
+            tabObj.icon.style.transform = isTop ? 'translateY(2px)' : 'translateY(-2px)';
+        }
+
+        const legacyX = -(col * 28);
+        const legacyY = isTop ? (isSelected ? -32 : 0) : (isSelected ? -96 : -64);
+        
+        const spritePrefix = `${GUI_WIDGETS_DIR}sprites/container/creative_inventory/tab_${isTop ? 'top' : 'bottom'}_${isSelected ? 'selected' : 'unselected'}_${col + 1}.png`;
+        const legacyPath = `${GUI_TEX_DIR}tabs.png`;
+
+        setFallbackBg(tabObj.elem, [spritePrefix, legacyPath], (idx) => {
+            if (idx === 0) { 
+                tabObj.elem.style.backgroundSize = '28px 32px';
+                tabObj.elem.style.backgroundPosition = '0 0';
+            } else { 
+                tabObj.elem.style.backgroundSize = '256px 256px';
+                tabObj.elem.style.backgroundPosition = `${legacyX}px ${legacyY}px`;
+            }
+        });
+    });
+
+    creativeTitle.innerText = CATEGORIES[currentCategory].name;
+    
+    if (currentCategory === 'search') {
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_item_search.png)`;
+        searchInput.style.display = 'block';
+        creativeTitle.style.display = 'none';
+        creativeGridContainer.style.display = 'grid';
+        scrollTrack.style.display = 'block';
+        setTimeout(() => searchInput.focus(), 50);
+    } else if (currentCategory === 'inventory') {
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_inventory.png)`;
+        searchInput.style.display = 'none';
+        creativeTitle.style.display = 'none';
+        creativeGridContainer.style.display = 'none'; 
+        scrollTrack.style.display = 'none';
+    } else {
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
+        searchInput.style.display = 'none';
+        creativeTitle.style.display = 'block';
+        creativeGridContainer.style.display = 'grid';
+        scrollTrack.style.display = 'block';
+    }
+}
+
+function createItemSlot(bName, i, sourceArray) {
+    const slotWrap = document.createElement('div');
+    slotWrap.style.width = '18px';
+    slotWrap.style.height = '18px';
+    slotWrap.style.position = 'relative';
+    slotWrap.style.cursor = 'pointer';
+    slotWrap.style.pointerEvents = 'auto';
+    
+    const itemSprite = document.createElement('div');
+    itemSprite.className = 'pixelated';
+    itemSprite.style.position = 'absolute';
+    itemSprite.style.left = '1px';
+    itemSprite.style.top = '1px';
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
+    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.backgroundPosition = 'center';
+    itemSprite.style.backgroundRepeat = 'no-repeat';
+    applyIcon(itemSprite, bName);
+    slotWrap.appendChild(itemSprite);
+
+    const highlight = document.createElement('div');
+    highlight.style.position = 'absolute';
+    highlight.style.inset = '1px';
+    highlight.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+    highlight.style.display = 'none';
+    highlight.style.zIndex = '5';
+    slotWrap.appendChild(highlight);
+
+    slotWrap.addEventListener('mouseenter', () => highlight.style.display = 'block');
+    slotWrap.addEventListener('mouseleave', () => highlight.style.display = 'none');
+
+    slotWrap.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        if (e.button === 0) {
+            if (sourceArray) { 
+                let tempType = sourceArray[i].type;
+                let tempCount = sourceArray[i].count;
+                
+                if (heldItem.type === sourceArray[i].type && heldItem.type !== null) {
+                    let space = 64 - sourceArray[i].count;
+                    let toMove = Math.min(space, heldItem.count);
+                    sourceArray[i].count += toMove;
+                    heldItem.count -= toMove;
+                    if (heldItem.count <= 0) heldItem.type = null;
+                } else {
+                    sourceArray[i].type = heldItem.type;
+                    sourceArray[i].count = heldItem.count;
+                    heldItem.type = tempType;
+                    heldItem.count = tempCount;
+                }
+            } else { 
+                if (heldItem.type === bName) {
+                    heldItem.count = 64; 
+                } else if (!heldItem.type || heldItem.type !== bName) {
+                    heldItem.type = bName;
+                    heldItem.count = 64;
+                }
+            }
+            updateInventoryUI();
+        }
+    });
+    
+    return slotWrap;
+}
+
+function populateCreativeGrid() {
+    creativeGrid.innerHTML = '';
+    creativeGridContainer.scrollTop = 0; 
+    
+    let blocksToShow = CATEGORIES[currentCategory].blocks;
+    
+    if (currentCategory === 'search') {
+        const query = searchInput.value.toLowerCase();
+        blocksToShow = ALL_BLOCKS.filter(b => 
+            !b.includes('_inner') && !b.includes('_outer') && b !== 'air' && b.includes(query)
+        );
+    }
+
+    blocksToShow.forEach(bName => {
+        creativeGrid.appendChild(createItemSlot(bName, null, null));
+    });
+    
+    creativeGridContainer.dispatchEvent(new Event('scroll'));
+}
+
+const creativeHotbarSlotsUI = [];
+for (let i = 0; i < 9; i++) {
+    const slotWrap = createItemSlot(null, i, inventory);
+    const countLabel = document.createElement('span');
+    countLabel.className = 'mc-text';
+    countLabel.style.position = 'absolute';
+    countLabel.style.bottom = '-4px';
+    countLabel.style.right = '-2px';
+    countLabel.style.zIndex = '6';
+    slotWrap.appendChild(countLabel);
+
+    creativeHotbarGrid.appendChild(slotWrap);
+    creativeHotbarSlotsUI.push({ div: slotWrap.firstChild, label: countLabel });
+}
+
+function updateInventoryUI() {
+    hotbarSelector.style.left = `${-1 + selectedSlot * 20}px`; 
+
+    for (let i = 0; i < 9; i++) {
+        const item = inventory[i];
+        const ui = hotbarSlotsUI[i];
+        applyIcon(ui.div, item.type);
+        ui.label.innerText = (item.count > 1) ? item.count : '';
+    }
+    
+    for (let i = 0; i < 9; i++) {
+        const item = inventory[i];
+        const ui = creativeHotbarSlotsUI[i];
+        applyIcon(ui.div, item.type);
+        ui.label.innerText = (item.count > 1) ? item.count : '';
+    }
+    
+    if (heldItem.type) {
+        heldItemWrapper.style.display = 'block';
+        applyIcon(heldItemUI, heldItem.type);
+        heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
+    } else {
+        heldItemWrapper.style.display = 'none';
+    }
+}
+
+document.addEventListener('mousedown', (e) => {
+    if (creativeScaleCenter.style.display === 'flex' && heldItem.type) {
+        if (!invBody.contains(e.target) && !topTabsRow.contains(e.target) && !bottomTabsRow.contains(e.target)) {
+            heldItem.type = null;
+            heldItem.count = 0;
+            updateInventoryUI();
+        }
+    }
+});
+
+function addItemToInventory(type, amount) {
+    for (let i = 0; i < INVENTORY_SIZE; i++) {
+        if (inventory[i].type === type && inventory[i].count < 64) {
+            let space = 64 - inventory[i].count;
+            let toAdd = Math.min(space, amount);
+            inventory[i].count += toAdd;
+            amount -= toAdd;
+            if (amount <= 0) break;
+        }
+    }
+    if (amount > 0) {
+        for (let i = 0; i < INVENTORY_SIZE; i++) {
+            if (inventory[i].type === null) {
+                inventory[i].type = type;
+                inventory[i].count = amount;
+                amount = 0;
+                break;
+            }
+        }
+    }
+    updateInventoryUI();
+}
+
+calculateGuiScale();
+window.addEventListener('resize', calculateGuiScale);
+
+updateTabsUI();
+populateCreativeGrid();
+updateInventoryUI();
+
+
+// ----------------------------------------------------
+// REAL MINECRAFT BLOCK HARDNESS & TOOLS
+// ----------------------------------------------------
+const REAL_MINECRAFT_HARDNESS = {
+    air: 0.0, grass: 0.0, fern: 0.0, dead_bush: 0.0, dandelion: 0.0, poppy: 0.0, blue_orchid: 0.0,
+    allium: 0.0, azure_bluet: 0.0, red_tulip: 0.0, orange_tulip: 0.0, white_tulip: 0.0, pink_tulip: 0.0,
+    oxeye_daisy: 0.0, cornflower: 0.0, lily_of_the_valley: 0.0, wither_rose: 0.0,
+    dirt: 0.5, coarse_dirt: 0.5, podzol: 0.5, rooted_dirt: 0.5, mud: 0.5, grass_block: 0.6,
+    snowy_grass_block: 0.6, sand: 0.5, red_sand: 0.5, gravel: 0.6, clay: 0.6, soul_sand: 0.5, soul_soil: 0.5,
+    stone: 1.5, granite: 1.5, polished_granite: 1.5, diorite: 1.5, polished_diorite: 1.5,
+    andesite: 1.5, polished_andesite: 1.5, cobblestone: 2.0, mossy_cobblestone: 2.0,
+    deepslate: 3.0, cobbled_deepslate: 3.5, tuff: 1.8, calcite: 0.75, basalt: 1.25, polished_basalt: 1.25,
+    obsidian: 50.0, crying_obsidian: 50.0, sandstone: 0.8, red_sandstone: 0.8,
+    stone_bricks: 1.5, mossy_stone_bricks: 1.5, cracked_stone_bricks: 1.5, chiseled_stone_bricks: 1.5,
+    oak_log: 2.0, spruce_log: 2.0, birch_log: 2.0, jungle_log: 2.0, acacia_log: 2.0, dark_oak_log: 2.0,
+    oak_planks: 2.0, spruce_planks: 2.0, birch_planks: 2.0, jungle_planks: 2.0,
+    coal_ore: 3.0, iron_ore: 3.0, copper_ore: 3.0, gold_ore: 3.0, redstone_ore: 3.0,
+    emerald_ore: 3.0, lapis_ore: 3.0, diamond_ore: 3.0,
+    deepslate_coal_ore: 4.5, deepslate_iron_ore: 4.5, deepslate_copper_ore: 4.5,
+    deepslate_gold_ore: 4.5, deepslate_redstone_ore: 4.5, deepslate_emerald_ore: 4.5,
+    deepslate_lapis_ore: 4.5, deepslate_diamond_ore: 4.5,
+    chest: 2.5, crafting_table: 2.5, furnace: 3.5, bookshelf: 1.5, bricks: 2.0,
+    glass: 0.3, tinted_glass: 0.3, ice: 0.5, packed_ice: 0.5, blue_ice: 0.5,
+    oak_leaves: 0.2, spruce_leaves: 0.2, birch_leaves: 0.2, jungle_leaves: 0.2,
+    glowstone: 0.3, sea_lantern: 0.3, snow: 0.1, snow_block: 0.2,
+    bedrock: -1.0
+};
+
+const BLOCK_TOOL_CLASSIFICATION = {
+    stone: 'pickaxe', cobblestone: 'pickaxe', deepslate: 'pickaxe', cobbled_deepslate: 'pickaxe',
+    granite: 'pickaxe', diorite: 'pickaxe', andesite: 'pickaxe', sandstone: 'pickaxe', red_sandstone: 'pickaxe',
+    tuff: 'pickaxe', basalt: 'pickaxe', stone_bricks: 'pickaxe', bricks: 'pickaxe', furnace: 'pickaxe',
+    coal_ore: 'pickaxe', iron_ore: 'pickaxe', copper_ore: 'pickaxe', gold_ore: 'pickaxe', redstone_ore: 'pickaxe',
+    emerald_ore: 'pickaxe', lapis_ore: 'pickaxe', diamond_ore: 'pickaxe',
+    deepslate_coal_ore: 'pickaxe', deepslate_iron_ore: 'pickaxe', deepslate_copper_ore: 'pickaxe',
+    deepslate_gold_ore: 'pickaxe', deepslate_redstone_ore: 'pickaxe', deepslate_emerald_ore: 'pickaxe',
+    deepslate_lapis_ore: 'pickaxe', deepslate_diamond_ore: 'pickaxe',
+    obsidian: 'pickaxe', crying_obsidian: 'pickaxe',
+    dirt: 'shovel', coarse_dirt: 'shovel', podzol: 'shovel', grass_block: 'shovel', snowy_grass_block: 'shovel',
+    sand: 'shovel', red_sand: 'shovel', gravel: 'shovel', clay: 'shovel', snow: 'shovel', snow_block: 'shovel',
+    soul_sand: 'shovel', soul_soil: 'shovel',
+    oak_log: 'axe', spruce_log: 'axe', birch_log: 'axe', jungle_log: 'axe', acacia_log: 'axe', dark_oak_log: 'axe',
+    oak_planks: 'axe', spruce_planks: 'axe', birch_planks: 'axe', chest: 'axe', crafting_table: 'axe', bookshelf: 'axe'
+};
+
+const BLOCK_DROPS = {
+    grass_block: { item: 'dirt', count: 1 },
+    snowy_grass_block: { item: 'dirt', count: 1 },
+    dirt: { item: 'dirt', count: 1 },
+    sand: { item: 'sand', count: 1 },
+    sandstone: { item: 'sandstone', count: 1 },
+    snow_block: { item: 'snowball', count: 4 },
+    oak_sapling: { item: 'oak_sapling', count: 1 },
+    spruce_sapling: { item: 'spruce_sapling', count: 1 },
+    stone: { item: 'cobblestone', count: 1 },
+    deepslate: { item: 'cobbled_deepslate', count: 1 },
+    cobblestone: { item: 'cobblestone', count: 1 },
+    cobbled_deepslate: { item: 'cobbled_deepslate', count: 1 },
+    coal_ore: { item: 'coal', count: 1 },
+    iron_ore: { item: 'raw_iron', count: 1 },
+    copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) },
+    gold_ore: { item: 'raw_gold', count: 1 },
+    diamond_ore: { item: 'diamond', count: 1 },
+    lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) },
+    redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) },
+    emerald_ore: { item: 'emerald', count: 1 },
+    deepslate_coal_ore: { item: 'coal', count: 1 },
+    deepslate_iron_ore: { item: 'raw_iron', count: 1 },
+    deepslate_copper_ore: { item: 'raw_copper', count: () => 2 + Math.floor(Math.random() * 4) },
+    deepslate_gold_ore: { item: 'raw_gold', count: 1 },
+    deepslate_diamond_ore: { item: 'diamond', count: 1 },
+    deepslate_lapis_ore: { item: 'lapis_lazuli', count: () => 4 + Math.floor(Math.random() * 6) },
+    deepslate_redstone_ore: { item: 'redstone', count: () => 4 + Math.floor(Math.random() * 2) },
+    deepslate_emerald_ore: { item: 'emerald', count: 1 },
+    oak_log: { item: 'oak_log', count: 1 },
+    spruce_log: { item: 'spruce_log', count: 1 },
+    oak_leaves: { item: 'oak_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
+    spruce_leaves: { item: 'spruce_sapling', count: () => Math.random() < 0.05 ? 1 : 0 },
+    bedrock: null
+};
+
+const TOOL_MULTIPLIERS = {
+    hand: 1.0, wood: 2.0, stone: 4.0, iron: 6.0, diamond: 8.0, netherite: 9.0, gold: 12.0
+};
+
+function isMatchingTool(blockName, heldItemType) {
+    const requiredToolClass = BLOCK_TOOL_CLASSIFICATION[blockName];
+    if (!requiredToolClass) return true; 
+    if (!heldItemType) return false;
+    return heldItemType.includes(requiredToolClass);
+}
+
+function canHarvestBlock(blockName, heldItemType) {
+    const requiredToolClass = BLOCK_TOOL_CLASSIFICATION[blockName];
+    if (!requiredToolClass) return true; 
+    
+    if (requiredToolClass === 'pickaxe') {
+        if (!heldItemType || !heldItemType.includes('pickaxe')) return false;
+        if (blockName === 'obsidian' || blockName === 'crying_obsidian') {
+            return heldItemType.includes('diamond') || heldItemType.includes('netherite');
+        }
+        if (blockName.includes('diamond') || blockName.includes('redstone') || blockName.includes('emerald') || blockName.includes('lapis')) {
+            return heldItemType.includes('iron') || heldItemType.includes('diamond') || heldItemType.includes('netherite');
+        }
+        if (blockName.includes('iron') || blockName.includes('copper') || blockName.includes('lapis')) {
+            return heldItemType.includes('stone') || heldItemType.includes('iron') || heldItemType.includes('diamond') || heldItemType.includes('netherite');
+        }
+        return true; 
+    }
+    return isMatchingTool(blockName, heldItemType);
+}
+
+function calculateMiningTime(blockName, heldItemType) {
+    const hardness = REAL_MINECRAFT_HARDNESS[blockName] !== undefined ? REAL_MINECRAFT_HARDNESS[blockName] : 1.5;
+    if (hardness < 0) return Infinity; 
+    if (hardness === 0) return 0; 
+    
+    let speedMultiplier = 1.0;
+    const matching = isMatchingTool(blockName, heldItemType);
+    
+    if (matching && heldItemType) {
+        let tier = 'wood';
+        if (heldItemType.includes('stone')) tier = 'stone';
+        else if (heldItemType.includes('iron')) tier = 'iron';
+        else if (heldItemType.includes('diamond')) tier = 'diamond';
+        else if (heldItemType.includes('netherite')) tier = 'netherite';
+        else if (heldItemType.includes('gold')) tier = 'gold';
+        speedMultiplier = TOOL_MULTIPLIERS[tier] || 1.0;
+    }
+    
+    const constantMultiplier = matching ? 1.5 : 5.0;
+    const timeInSeconds = (hardness * constantMultiplier) / speedMultiplier;
+    return timeInSeconds * 1000; 
+}
+
+const ORE_CONFIG = {
+    emerald_ore: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
+    diamond_ore: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
+    lapis_ore:   [
+        { min: -64, max: 64,  peak: 0, threshold: 0.68 }, 
+        { min: -32, max: 32,  threshold: 0.65 } 
+    ],
+    gold_ore:    [{ min: -64, max: 32,  peak: -16, threshold: 0.68 }],
+    redstone_ore:[
+        { min: -64, max: 15,  threshold: 0.65 },
+        { min: -64, max: -32, peak: -64, threshold: 0.62 }
+    ],
+    copper_ore:  [{ min: -16, max: 112, peak: 48, threshold: 0.60 }],
+    iron_ore:    [
+        { min: -64, max: 72,  peak: 16, threshold: 0.55 },
+        { min: 80,  max: 320, peak: 232, threshold: 0.55 },
+        { min: -64, max: -32, threshold: 0.58 }
+    ],
+    coal_ore:    [
+        { min: 0,   max: 192, peak: 96, threshold: 0.50 },
+        { min: 136, max: 320, threshold: 0.55 }
+    ],
+};
+
+function getBiome(temp, moist, depth) {
+    let closestBiome = BIOME_REGISTRY[0];
+    let minDist = Infinity;
+    for (let b of BIOME_REGISTRY) {
+        let dist = (temp - b.temp)*(temp - b.temp) + (moist - b.moist)*(moist - b.moist);
+        if (dist < minDist) { minDist = dist; closestBiome = b; }
+    }
+    return closestBiome;
+}
+
+function getInterpolatedHeightScale(x, z) {
+    const range = 8; 
+    const step = 4; 
+    let totalScale = 0; 
+    let samples = 0;
+    
+    for (let offX = -range; offX <= range; offX += step) {
+        for (let offZ = -range; offZ <= range; offZ += step) {
+            let temp = fbm2(x + offX + mapOffsetX, z + offZ + mapOffsetZ, 2, 400);
+            let moist = fbm2(x + offX + mapOffsetX + 10000, z + offZ + mapOffsetZ + 10000, 2, 400);
+            totalScale += getBiome(temp, moist, 0).heightScale;
+            samples++;
+        }
+    }
+    return totalScale / samples; 
+}
+
+function getDeterministicRandom(x, y, z) {
+    let str = `${x},${y},${z},${worldSeed}`;
+    let h = 2166136261; 
+    for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+    return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
+}
+
+function fbm2(x, z, octaves = 4, scale = 400) {
+    let total = 0;
+    let frequency = 1;
+    let amplitude = 1;
+    let maxValue = 0;
+    for(let i = 0; i < octaves; i++) {
+        total += noise.perlin2((x / scale) * frequency, (z / scale) * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+    return total / maxValue;
+}
+
+function fbm3(x, y, z, octaves = 2, scale = 40) {
+    let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
+    for(let i = 0; i < octaves; i++) {
+        total += noise.perlin3((x / scale) * frequency, (y / scale) * frequency, (z / scale) * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+    return total / maxValue;
 }
 
 async function generateChunk(chunkX, chunkZ) {
