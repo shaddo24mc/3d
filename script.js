@@ -138,7 +138,7 @@ WOODS.forEach(w => {
 
 STONE_TYPES.forEach(st => {
     generatedBlocks.push(`${st}_slab`, `${st}_stairs`);
-    if (st !== 'dark_prismarine') generatedBlocks.push(`${st}_wall`);
+    if (st !== 'dark_prismarine' && st !== 'stone') generatedBlocks.push(`${st}_wall`);
 });
 
 const allBaseBlocks = [...new Set(generatedBlocks)];
@@ -285,9 +285,10 @@ const loadTex = (filename, isItem = false) => {
             (image) => {
                 const fw = image.width;
                 const fh = image.height;
-                const totalFrames = Math.round(fh / fw);
+                if (fw === 0 || fh === 0) return resolve(t); // WebGL safety catch
+                const totalFrames = Math.max(1, Math.floor(fh / fw));
 
-                if (totalFrames > 1) {
+                if (totalFrames > 1 && fh % fw === 0) {
                     cvs.width = fw; cvs.height = fw;
                     t.needsUpdate = true;
 
@@ -340,6 +341,7 @@ function resolveFallbackTexture(name) {
     if (name.includes('shulker_box')) return 'shulker_box';
     if (name.includes('anvil')) return 'anvil_base';
     if (name === 'packed_mud') return 'mud';
+    if (name.includes('stained_glass_pane')) return name.replace('_pane', '');
     
     // Correctly map mob heads and custom model overrides to their raw layout locations
     if (name === 'creeper_head') return '../entity/creeper/creeper';
@@ -446,10 +448,38 @@ crossGeo.computeVertexNormals();
 async function loadCustomModel(bName) {
     if (customGeometries[bName]) return; 
 
+    // Handle Skull Model generation overriding
+    if (bName.includes('head') || bName.includes('skull')) {
+        const fallbackName = resolveFallbackTexture(bName);
+        const tex = loadTex(fallbackName);
+        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+        
+        const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        headGeo.translate(0, -0.25, 0); 
+        
+        const uvs = headGeo.attributes.uv.array;
+        const setUV = (faceIdx, u1, v1, u2, v2) => {
+            const i = faceIdx * 8;
+            uvs[i+0] = u1; uvs[i+1] = 1-v1; uvs[i+2] = u2; uvs[i+3] = 1-v1;
+            uvs[i+4] = u1; uvs[i+5] = 1-v2; uvs[i+6] = u2; uvs[i+7] = 1-v2;
+        };
+        const u = 1/64;
+        setUV(0, 0*u, 8*u, 8*u, 16*u);   // Right/East
+        setUV(1, 16*u, 8*u, 24*u, 16*u); // Left/West
+        setUV(2, 8*u, 0*u, 16*u, 8*u);   // Top/Up
+        setUV(3, 16*u, 0*u, 24*u, 8*u);  // Bottom/Down
+        setUV(4, 8*u, 8*u, 16*u, 16*u);  // Front/South
+        setUV(5, 24*u, 8*u, 32*u, 16*u); // Back/North
+
+        materials[bName] = mat;
+        customGeometries[bName] = headGeo;
+        return;
+    }
+
     if (CROSS_BLOCKS.has(bName)) {
         const fallbackTex = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackTex);
-        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: false });
+        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true });
         if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
             mat.color.setHex(0x71b054);
         }
@@ -465,8 +495,11 @@ async function loadCustomModel(bName) {
         if (isInner) baseName = bName.replace('_inner', '');
         if (isOuter) baseName = bName.replace('_outer', '');
 
-        let modelPath = baseName;
+        // Redirects to prevent model 404s
+        if (baseName === 'stone_wall') baseName = 'cobblestone_wall';
+        if (baseName === 'snowy_grass_block') baseName = 'grass_block';
 
+        let modelPath = baseName;
         const state = await JSONReader.getBlockstate(baseName);
         
         if (state && state.variants) {
@@ -529,7 +562,8 @@ async function loadCustomModel(bName) {
                     key = textures[key].substring(1);
                     safe--;
                 }
-                return textures[key];
+                if (textures[key]) return textures[key];
+                return resolveFallbackTexture(baseName); // Use the base block name as ultimate fallback!
             }
             return texStr;
         };
@@ -548,9 +582,14 @@ async function loadCustomModel(bName) {
             let mat;
             let isOverlay = texPath.includes('overlay');
 
-            if (TRANSPARENT_BLOCKS.has(baseName) || texPath.includes('leaves') || texPath.includes('glass') || isOverlay) {
-                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5 });
-                if (isOverlay) mat.depthWrite = false; 
+            const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice');
+            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+
+            if (isTranslucent || isOverlay) {
+                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
+            } else if (isCutout) {
+                // Strict alpha clipping to fix black borders on things like ladders, doors, etc
+                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
             } else {
                 mat = new THREE.MeshStandardMaterial({ map: tex });
             }
@@ -691,7 +730,7 @@ async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    const isItemTex = flatItems.has(type) || 
+    const isItemTex = flatItems.has(type) || type === 'compass_tab' ||
                       (type.includes('door') && !type.includes('trapdoor')) || 
                       ['torch', 'soul_torch', 'lantern', 'soul_lantern', 'campfire', 'soul_campfire', 'candle', 'kelp'].includes(type) || type.includes('sign') ||
                       ['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) ||
@@ -709,11 +748,11 @@ async function getBlockIcon(type) {
         if (type === 'clock') filename = 'clock_00';
         
         let folder = BLOCK_TEX_DIR;
-        if (flatItems.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'soul_torch', 'lantern', 'soul_lantern'].includes(type)) {
+        if (flatItems.has(type) || type === 'compass_tab' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'soul_torch', 'lantern', 'soul_lantern'].includes(type)) {
             folder = ITEM_TEX_DIR;
+            if (type === 'campfire') filename = 'campfire_log';
+            if (type === 'soul_campfire') filename = 'soul_campfire_log';
         }
-        
-        if (type === 'compass_tab') folder = ITEM_TEX_DIR;
         
         const url = `url(${folder}${filename}.png)`;
         iconCache[type] = url;
