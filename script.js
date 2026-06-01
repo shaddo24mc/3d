@@ -133,13 +133,15 @@ WOODS.forEach(w => {
     if (wood) generatedBlocks.push(wood);
     if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
     if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
-    generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_trapdoor`);
+    generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_door_top`, `${w}_trapdoor`);
 });
 
 STONE_TYPES.forEach(st => {
     generatedBlocks.push(`${st}_slab`, `${st}_stairs`);
     if (st !== 'dark_prismarine' && st !== 'stone') generatedBlocks.push(`${st}_wall`);
 });
+
+generatedBlocks.push('iron_door', 'iron_door_top');
 
 const allBaseBlocks = [...new Set(generatedBlocks)];
 const extendedBlocks = [];
@@ -164,12 +166,12 @@ const CROSS_BLOCKS = new Set([
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
 
-const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow']);
+const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core']);
 const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral'].some(kw => b.includes(kw))) {
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -192,7 +194,7 @@ const CATEGORIES = {
 };
 
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer') || b === 'air') return;
+    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b === 'air') return;
 
     if (STRICT_ITEMS.has(b)) {
         if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
@@ -287,8 +289,9 @@ const loadTex = (filename, isItem = false) => {
                 const fh = image.height;
                 if (fw === 0 || fh === 0) return resolve(t); // WebGL safety catch
                 const totalFrames = Math.max(1, Math.floor(fh / fw));
+                const isStandardSkin = ['creeper', 'zombie', 'skeleton', 'steve'].some(kw => filename.includes(kw));
 
-                if (totalFrames > 1 && fh % fw === 0) {
+                if (totalFrames > 1 && fh % fw === 0 && !isStandardSkin) {
                     cvs.width = fw; cvs.height = fw;
                     t.needsUpdate = true;
 
@@ -312,7 +315,8 @@ const loadTex = (filename, isItem = false) => {
                         resolve(t);
                     }).catch(e => { resolve(t); });
                 } else {
-                    cvs.width = fw; cvs.height = fh;
+                    cvs.width = isStandardSkin ? 64 : fw;
+                    cvs.height = isStandardSkin ? 64 : fh;
                     ctx.drawImage(image, 0, 0);
                     t.needsUpdate = true;
                     resolve(t);
@@ -458,18 +462,24 @@ async function loadCustomModel(bName) {
         headGeo.translate(0, -0.25, 0); 
         
         const uvs = headGeo.attributes.uv.array;
-        const setUV = (faceIdx, u1, v1, u2, v2) => {
+        const setUV = (faceIdx, px, py, pw, ph) => {
+            const u1 = px / 64;
+            const u2 = (px + pw) / 64;
+            const v1 = 1 - (py + ph) / 64;
+            const v2 = 1 - py / 64;
             const i = faceIdx * 8;
-            uvs[i+0] = u1; uvs[i+1] = 1-v1; uvs[i+2] = u2; uvs[i+3] = 1-v1;
-            uvs[i+4] = u1; uvs[i+5] = 1-v2; uvs[i+6] = u2; uvs[i+7] = 1-v2;
+            uvs[i+0] = u1; uvs[i+1] = v2;
+            uvs[i+2] = u2; uvs[i+3] = v2;
+            uvs[i+4] = u1; uvs[i+5] = v1;
+            uvs[i+6] = u2; uvs[i+7] = v1;
         };
-        const u = 1/64;
-        setUV(0, 0*u, 8*u, 8*u, 16*u);   // Right/East
-        setUV(1, 16*u, 8*u, 24*u, 16*u); // Left/West
-        setUV(2, 8*u, 0*u, 16*u, 8*u);   // Top/Up
-        setUV(3, 16*u, 0*u, 24*u, 8*u);  // Bottom/Down
-        setUV(4, 8*u, 8*u, 16*u, 16*u);  // Front/South
-        setUV(5, 24*u, 8*u, 32*u, 16*u); // Back/North
+        // BoxGeo Faces: Right(0), Left(1), Top(2), Bottom(3), Front(4), Back(5)
+        setUV(0, 0, 8, 8, 8);   // Right
+        setUV(1, 16, 8, 8, 8);  // Left
+        setUV(2, 8, 0, 8, 8);   // Top
+        setUV(3, 16, 0, 8, 8);  // Bottom
+        setUV(4, 8, 8, 8, 8);   // Front
+        setUV(5, 24, 8, 8, 8);  // Back
 
         materials[bName] = mat;
         customGeometries[bName] = headGeo;
@@ -491,9 +501,11 @@ async function loadCustomModel(bName) {
     try {
         let isInner = bName.endsWith('_inner');
         let isOuter = bName.endsWith('_outer');
+        let isTop = bName.endsWith('_top');
         let baseName = bName;
         if (isInner) baseName = bName.replace('_inner', '');
         if (isOuter) baseName = bName.replace('_outer', '');
+        if (isTop) baseName = bName.replace('_top', '');
 
         // Redirects to prevent model 404s
         if (baseName === 'stone_wall') baseName = 'cobblestone_wall';
@@ -506,9 +518,16 @@ async function loadCustomModel(bName) {
             let variantKey = "";
             let keys = Object.keys(state.variants);
             let targetShape = isInner ? 'inner_left' : isOuter ? 'outer_left' : 'straight';
+            let targetHalf = isTop ? 'upper' : (baseName.includes('door') ? 'lower' : 'bottom');
             
             for (let k of keys) {
-                if (k.includes(`shape=${targetShape}`) && k.includes('half=bottom')) {
+                let matchHalf = k.includes(`half=${targetHalf}`);
+                if (!k.includes('half=')) matchHalf = true;
+                
+                let matchShape = k.includes(`shape=${targetShape}`);
+                if (!k.includes('shape=')) matchShape = true;
+                
+                if (matchHalf && matchShape) {
                     variantKey = k;
                     break;
                 }
@@ -583,7 +602,7 @@ async function loadCustomModel(bName) {
             let isOverlay = texPath.includes('overlay');
 
             const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice');
-            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
             if (isTranslucent || isOverlay) {
                 mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
@@ -1297,7 +1316,7 @@ function populateCreativeGrid() {
     if (currentCategory === 'search') {
         const query = searchInput.value.toLowerCase();
         blocksToShow = ALL_BLOCKS.filter(b => 
-            !b.includes('_inner') && !b.includes('_outer') && b !== 'air' && b.includes(query)
+            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && b !== 'air' && b.includes(query)
         );
     }
 
@@ -2791,6 +2810,7 @@ document.addEventListener('mousedown', (e) => {
                 let rotation = [0, 0, 0];
                 let t = selectedItem.type;
                 let stairData = null;
+                let extraBlock = null; 
                 
                 if (t.includes('log') || t.includes('pillar') || t === 'basalt' || t === 'polished_basalt' || t === 'bone_block' || t === 'purpur_pillar' || t === 'quartz_pillar' || t === 'hay_block') {
                     let axis = 'y';
@@ -2812,6 +2832,19 @@ document.addEventListener('mousedown', (e) => {
                     
                     stairData = { isStair: true, facing: facing, half: isTop ? 'top' : 'bottom' };
                 }
+                else if (t.includes('door') && !t.includes('trapdoor')) {
+                    let ry = yaw % (Math.PI * 2);
+                    if (ry < 0) ry += Math.PI * 2;
+                    
+                    let rotY = 0;
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
+                    else rotY = Math.PI/2; 
+
+                    rotation = [0, rotY, 0];
+                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[t + '_top'], rotation: [0, rotY, 0] };
+                }
                 else if (t.includes('furnace') || t === 'chest' || t === 'carved_pumpkin' || t === 'jack_o_lantern' || t === 'loom' || t === 'observer' || t === 'dispenser' || t === 'dropper') {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
@@ -2828,18 +2861,26 @@ document.addEventListener('mousedown', (e) => {
                 let placedData = { type: TYPE[selectedItem.type], rotation: rotation };
                 if (stairData) placedData = { ...placedData, ...stairData };
                 
-                setGlobalBlock(placeX, placeY, placeZ, placedData);
-                
-                if (stairData) {
-                    updateStairConnections(placeX, placeY, placeZ);
+                if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
+                    // Do nothing - not enough room to place the door
+                } else {
+                    setGlobalBlock(placeX, placeY, placeZ, placedData);
+                    
+                    if (extraBlock) {
+                        setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation });
+                    }
+                    
+                    if (stairData) {
+                        updateStairConnections(placeX, placeY, placeZ);
+                    }
+                    
+                    selectedItem.count--;
+                    if (selectedItem.count <= 0) {
+                        selectedItem.type = null;
+                        selectedItem.count = 0;
+                    }
+                    updateInventoryUI();
                 }
-                
-                selectedItem.count--;
-                if (selectedItem.count <= 0) {
-                    selectedItem.type = null;
-                    selectedItem.count = 0;
-                }
-                updateInventoryUI();
             }
         }
     }
