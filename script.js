@@ -723,14 +723,26 @@ async function loadCustomModel(bName) {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
         let mat;
-        if (TRANSPARENT_BLOCKS.has(bName)) {
-            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
+        
+        const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
+        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
+
+        if (isTranslucent) {
+            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
+        } else if (isCutout) {
+            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
         } else {
             mat = new THREE.MeshStandardMaterial({ map: tex });
         }
         materials[bName] = mat;
         
-        customGeometries[bName] = geometry.clone(); 
+        let customGeo = geometry.clone(); 
+        if (bName === 'heavy_core') {
+            customGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            customGeo.translate(0, -0.25, 0); // Position it at the bottom center
+        }
+        
+        customGeometries[bName] = customGeo; 
         customGeometries[bName].userData = {
             display: { gui: { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] } }
         };
