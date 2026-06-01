@@ -37,6 +37,34 @@ const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
 dirLight2.position.set(-1, -1, 2);
 iconScene.add(dirLight2);
 
+// Environment Lighting & Celestial Bodies
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+
+const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
+scene.add(sunLight);
+
+const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2);
+scene.add(moonLight);
+
+const sunGeo = new THREE.PlaneGeometry(30, 30);
+const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, side: THREE.DoubleSide, fog: false });
+const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+scene.add(sunMesh);
+
+const moonGeo = new THREE.PlaneGeometry(20, 20);
+const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff, side: THREE.DoubleSide, fog: false });
+const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+scene.add(moonMesh);
+
+const starsGeo = new THREE.BufferGeometry();
+const starsPos = new Float32Array(1000 * 3);
+for(let i=0; i<3000; i++) starsPos[i] = (Math.random() - 0.5) * 400;
+starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, transparent: true });
+const starsMesh = new THREE.Points(starsGeo, starsMat);
+scene.add(starsMesh);
+
 // ============================================================================
 // 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
 // ============================================================================
@@ -201,6 +229,14 @@ inventory[6] = { type: 'magma_block', count: 64 };
 inventory[7] = { type: 'cobblestone', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
+const activeChunks = {};
+const chunkQueue = [];
+const placedBlocks = new Map();
+const brokenBlocks = new Set();
+const treeOverhangs = new Map();
+const chunksToRebuild = new Set();
+const interactableMeshes = [];
+
 const customGeometries = {};
 const materials = {};
 const iconCache = {};
@@ -214,6 +250,7 @@ const imageLoader = new THREE.ImageLoader();
 imageLoader.setCrossOrigin('anonymous');
 
 const loadTex = (filename, isItem = false) => {
+    if (!filename) filename = 'missingno';
     const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
     const cvs = document.createElement('canvas');
     cvs.width = 16; cvs.height = 16;
@@ -1421,6 +1458,33 @@ function calculateMiningTime(blockName, heldItemType) {
 // ============================================================================
 // 9. CHUNK GENERATION & GAME LOOP
 // ============================================================================
+
+// Minimal Perlin Noise Fallback implementation
+const noise = {
+    p: new Uint8Array(512),
+    seed: function(s) {
+        let r = () => { s = Math.sin(s) * 10000; return s - Math.floor(s); };
+        for(let i=0; i<256; i++) this.p[i] = Math.floor(r()*256);
+        for(let i=0; i<256; i++) this.p[256+i] = this.p[i];
+    },
+    fade: function(t) { return t * t * t * (t * (t * 6 - 15) + 10); },
+    lerp: function(t, a, b) { return a + t * (b - a); },
+    grad: function(hash, x, y, z) {
+        let h = hash & 15, u = h < 8 ? x : y, v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    },
+    perlin2: function(x, y) { return this.perlin3(x, y, 0); },
+    perlin3: function(x, y, z) {
+        let X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+        x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+        let u = this.fade(x), v = this.fade(y), w = this.fade(z);
+        let A = this.p[X]+Y, AA = this.p[A]+Z, AB = this.p[A+1]+Z, B = this.p[X+1]+Y, BA = this.p[B]+Z, BB = this.p[B+1]+Z;
+        return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, z), this.grad(this.p[BA], x-1, y, z)),
+                       this.lerp(u, this.grad(this.p[AB], x, y-1, z), this.grad(this.p[BB], x-1, y-1, z))),
+               this.lerp(v, this.lerp(u, this.grad(this.p[AA+1], x, y, z-1), this.grad(this.p[BA+1], x-1, y, z-1)),
+                       this.lerp(u, this.grad(this.p[AB+1], x, y-1, z-1), this.grad(this.p[BB+1], x-1, y-1, z-1))));
+    }
+};
 
 const ORE_CONFIG = {
     emerald_ore: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
