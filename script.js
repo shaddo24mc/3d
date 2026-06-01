@@ -69,9 +69,13 @@ scene.add(starsMesh);
 // 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
 // ============================================================================
 const ITEMS = [
-    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign'
+    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign',
+    'angler_pottery_sherd', 'archer_pottery_sherd', 'arms_up_pottery_sherd', 'blade_pottery_sherd', 'brewer_pottery_sherd', 'burn_pottery_sherd', 'danger_pottery_sherd', 'explorer_pottery_sherd', 'friend_pottery_sherd', 'heart_pottery_sherd', 'heartbreak_pottery_sherd', 'howl_pottery_sherd', 'miner_pottery_sherd', 'mourner_pottery_sherd', 'plenty_pottery_sherd', 'prize_pottery_sherd', 'sheaf_pottery_sherd', 'shelter_pottery_sherd', 'skull_pottery_sherd', 'snort_pottery_sherd'
 ];
 const STRICT_ITEMS = new Set(ITEMS);
+
+const flatItems = new Set([...STRICT_ITEMS]);
+['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block'].forEach(k => flatItems.delete(k));
 
 const baseBlocks = [
     'air', 'stone', 'granite', 'polished_granite', 'diorite', 'polished_diorite', 'andesite', 'polished_andesite',
@@ -92,8 +96,8 @@ const baseBlocks = [
     'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
     'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
     'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
-    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_cube_coral_block', 'dead_brain_coral_block', 'dead_bubble_coral_block',
-    'dead_fire_coral_block', 'dead_horn_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
+    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_brain_coral_block', 'dead_bubble_coral_block',
+    'dead_fire_coral_block', 'dead_horn_coral_block', 'dead_tube_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
     'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
     'sweet_berry_bush', 'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
     'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
@@ -120,19 +124,21 @@ COLORS.forEach(c => {
 
 WOODS.forEach(w => {
     let log = w === 'crimson' || w === 'warped' ? `${w}_stem` : w === 'bamboo' ? `${w}_block` : `${w}_log`;
-    let wood = w === 'crimson' || w === 'warped' ? `${w}_hyphae` : `${w}_wood`;
+    let wood = w === 'crimson' || w === 'warped' ? `${w}_hyphae` : w === 'bamboo' ? null : `${w}_wood`;
     let planks = `${w}_planks`;
-    let leaves = w === 'crimson' || w === 'warped' ? `${w}_wart_block` : w === 'bamboo' ? null : `${w}_leaves`;
-    let sapling = w === 'crimson' || w === 'warped' ? `${w}_fungus` : w === 'mangrove' ? `mangrove_propagule` : w === 'bamboo' ? `bamboo_shoot` : `${w}_sapling`;
+    let leaves = w === 'crimson' ? 'nether_wart_block' : w === 'warped' ? 'warped_wart_block' : w === 'bamboo' ? null : `${w}_leaves`;
+    let sapling = w === 'crimson' || w === 'warped' ? `${w}_fungus` : w === 'mangrove' ? `mangrove_propagule` : w === 'bamboo' ? `bamboo` : `${w}_sapling`;
     
-    generatedBlocks.push(log, wood, planks);
+    generatedBlocks.push(log, planks);
+    if (wood) generatedBlocks.push(wood);
     if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
     if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
     generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_trapdoor`);
 });
 
 STONE_TYPES.forEach(st => {
-    generatedBlocks.push(`${st}_slab`, `${st}_stairs`, `${st}_wall`);
+    generatedBlocks.push(`${st}_slab`, `${st}_stairs`);
+    if (st !== 'dark_prismarine') generatedBlocks.push(`${st}_wall`);
 });
 
 const allBaseBlocks = [...new Set(generatedBlocks)];
@@ -175,7 +181,7 @@ const CATEGORIES = {
     functional: { name: 'Functional Blocks', icon: 'oak_sign', blocks: [] },
     redstone: { name: 'Redstone Blocks', icon: 'redstone', blocks: [] },
     misc: { name: 'Miscellaneous', icon: 'bookshelf', blocks: [] },
-    search: { name: 'Search Items', icon: 'compass', blocks: [] },
+    search: { name: 'Search Items', icon: 'compass_tab', blocks: [] },
     tools: { name: 'Tools', icon: 'iron_pickaxe', blocks: [] },
     combat: { name: 'Combat', icon: 'iron_sword', blocks: [] },
     food: { name: 'Food & Drinks', icon: 'golden_apple', blocks: [] },
@@ -222,11 +228,11 @@ const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, coun
 inventory[0] = { type: 'stone', count: 64 };
 inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
-inventory[3] = { type: 'sculk_shrieker', count: 64 };
+inventory[3] = { type: 'compass', count: 1 };
 inventory[4] = { type: 'sculk_sensor', count: 64 };
 inventory[5] = { type: 'acacia_stairs', count: 64 };
 inventory[6] = { type: 'magma_block', count: 64 };
-inventory[7] = { type: 'cobblestone', count: 64 };
+inventory[7] = { type: 'creeper_head', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
 const activeChunks = {};
@@ -251,7 +257,17 @@ imageLoader.setCrossOrigin('anonymous');
 
 const loadTex = (filename, isItem = false) => {
     if (!filename) filename = 'missingno';
-    const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
+    let dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
+    
+    if (filename === 'compass') filename = 'compass_00';
+    if (filename === 'compass_tab') { filename = 'compass_01'; dir = ITEM_TEX_DIR; }
+    if (filename === 'redstone') { filename = 'redstone'; dir = ITEM_TEX_DIR; }
+    if (filename === 'sweet_berry_bush') filename = 'sweet_berry_bush_stage_3';
+    if (filename === 'grass') filename = 'short_grass'; 
+    if (filename === 'rose_bush') filename = 'rose_bush_top';
+    if (filename === 'large_fern') filename = 'large_fern_top';
+    if (filename === 'tall_grass') filename = 'tall_grass_top';
+    
     const cvs = document.createElement('canvas');
     cvs.width = 16; cvs.height = 16;
     const ctx = cvs.getContext('2d', { willReadFrequently: true });
@@ -323,6 +339,24 @@ function resolveFallbackTexture(name) {
     if (name === 'furnace') return 'furnace_front';
     if (name.includes('shulker_box')) return 'shulker_box';
     if (name.includes('anvil')) return 'anvil_base';
+    if (name === 'packed_mud') return 'mud';
+    
+    // Correctly map mob heads and custom model overrides to their raw layout locations
+    if (name === 'creeper_head') return '../entity/creeper/creeper';
+    if (name === 'zombie_head') return '../entity/zombie/zombie';
+    if (name === 'skeleton_skull') return '../entity/skeleton/skeleton';
+    if (name === 'wither_skeleton_skull') return '../entity/skeleton/wither_skeleton';
+    if (name === 'dragon_head') return '../entity/enderdragon/dragon';
+    if (name === 'player_head') return '../entity/player/wide/steve';
+    if (name === 'decorated_pot') return '../entity/decorated_pot/decorated_pot_side';
+    
+    // Plant visual fallbacks
+    if (name === 'sweet_berry_bush') return 'sweet_berry_bush_stage_3';
+    if (name === 'rose_bush') return 'rose_bush_top';
+    if (name === 'large_fern') return 'large_fern_top';
+    if (name === 'tall_grass') return 'tall_grass_top';
+    if (name === 'grass') return 'short_grass';
+    
     return name;
 }
 
@@ -657,19 +691,29 @@ async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    const isItemTex = STRICT_ITEMS.has(type) || 
+    const isItemTex = flatItems.has(type) || 
                       (type.includes('door') && !type.includes('trapdoor')) || 
-                      ['candle', 'campfire', 'torch', 'lantern', 'lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'sign'].some(kw => type.includes(kw)) ||
+                      ['torch', 'soul_torch', 'lantern', 'soul_lantern', 'campfire', 'soul_campfire', 'candle', 'kelp'].includes(type) || type.includes('sign') ||
+                      ['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) ||
                       (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
     
     if (isItemTex) {
         let filename = type;
-        if (type === 'redstone') filename = 'redstone_dust';
+        if (type === 'redstone') filename = 'redstone';
+        if (type === 'compass_tab') filename = 'compass_01';
+        if (type === 'sweet_berry_bush') filename = 'sweet_berry_bush_stage_3';
+        if (type === 'rose_bush') filename = 'rose_bush_top';
+        if (type === 'large_fern') filename = 'large_fern_top';
+        if (type === 'tall_grass') filename = 'tall_grass_top';
+        if (type === 'grass') filename = 'short_grass';
+        if (type === 'clock') filename = 'clock_00';
         
         let folder = BLOCK_TEX_DIR;
-        if (STRICT_ITEMS.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'lantern'].some(kw => type.includes(kw))) {
+        if (flatItems.has(type) || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'soul_torch', 'lantern', 'soul_lantern'].includes(type)) {
             folder = ITEM_TEX_DIR;
         }
+        
+        if (type === 'compass_tab') folder = ITEM_TEX_DIR;
         
         const url = `url(${folder}${filename}.png)`;
         iconCache[type] = url;
@@ -724,6 +768,10 @@ async function getBlockIcon(type) {
 function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
     if (!type) { element.style.backgroundImage = 'none'; return; }
+    
+    // Animate loop handles live compass hooks directly
+    if (type === 'compass') return;
+    
     getBlockIcon(type).then(url => {
         if (element.dataset.iconType === type) element.style.backgroundImage = url;
     });
@@ -2869,6 +2917,19 @@ function animate() {
             anim.texture.needsUpdate = true;
         }
     }
+
+    // Dynamic compass animation hook
+    const dx = -camera.position.x;
+    const dz = -camera.position.z;
+    const targetAngle = Math.atan2(dx, dz);
+    let relAngle = (targetAngle - yaw) % (Math.PI * 2);
+    if (relAngle < 0) relAngle += Math.PI * 2;
+    let compassFrame = Math.floor((relAngle / (Math.PI * 2)) * 32) % 32;
+    let frameStr = compassFrame.toString().padStart(2, '0');
+    let compassUrl = `url(${ITEM_TEX_DIR}compass_${frameStr}.png)`;
+    document.querySelectorAll('[data-icon-type="compass"]').forEach(el => {
+        if (el.style.backgroundImage !== compassUrl) el.style.backgroundImage = compassUrl;
+    });
 
     if (chunkQueue.length > 0 && !isGeneratingChunk) {
         isGeneratingChunk = true;
