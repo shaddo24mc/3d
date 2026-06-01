@@ -2,6 +2,8 @@ const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
 const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
 const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
 const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
+const SPRITE_CREATIVE_DIR = 'assets/minecraft/textures/gui/sprites/container/creative_inventory/';
+const SPRITE_HUD_DIR = 'assets/minecraft/textures/gui/sprites/hud/';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
@@ -695,6 +697,105 @@ function applyIcon(element, type) {
 // 5. DOM UI CREATION & STRUCTURING 
 // ============================================================================
 
+const guiScaleWrapper = document.createElement('div');
+guiScaleWrapper.id = 'gui-scale-wrapper';
+guiScaleWrapper.style.position = 'absolute';
+guiScaleWrapper.style.top = '0';
+guiScaleWrapper.style.left = '0';
+guiScaleWrapper.style.width = '100vw';
+guiScaleWrapper.style.height = '100vh';
+guiScaleWrapper.style.transformOrigin = 'top left';
+guiScaleWrapper.style.pointerEvents = 'none'; 
+guiScaleWrapper.style.zIndex = '100';
+document.body.appendChild(guiScaleWrapper);
+
+function calculateGuiScale() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let scale = 1;
+    while (scale < 4 && w / (scale + 1) >= 320 && h / (scale + 1) >= 240) scale++;
+    currentGuiScale = scale;
+    guiScaleWrapper.style.transform = `scale(${currentGuiScale})`;
+    guiScaleWrapper.style.width = `${w / currentGuiScale}px`;
+    guiScaleWrapper.style.height = `${h / currentGuiScale}px`;
+}
+
+const hotbarContainer = document.createElement('div');
+hotbarContainer.id = 'hotbar';
+hotbarContainer.className = 'pixelated';
+hotbarContainer.style.position = 'absolute';
+hotbarContainer.style.bottom = '2px';
+hotbarContainer.style.left = '50%';
+hotbarContainer.style.transform = 'translateX(-50%)';
+hotbarContainer.style.width = '182px';
+hotbarContainer.style.height = '22px';
+hotbarContainer.style.pointerEvents = 'auto';
+guiScaleWrapper.appendChild(hotbarContainer);
+
+const hotbarSelector = document.createElement('div');
+hotbarSelector.className = 'pixelated';
+hotbarSelector.style.position = 'absolute';
+hotbarSelector.style.top = '-1px';
+hotbarSelector.style.left = '-1px';
+hotbarSelector.style.width = '24px';
+hotbarSelector.style.height = '24px';
+hotbarSelector.style.zIndex = '2';
+hotbarContainer.appendChild(hotbarSelector);
+
+const hotbarSlotsUI = [];
+for (let i = 0; i < 9; i++) {
+    const slotWrap = document.createElement('div');
+    slotWrap.style.position = 'absolute';
+    slotWrap.style.left = `${3 + i * 20}px`;
+    slotWrap.style.top = '3px';
+    slotWrap.style.width = '16px';
+    slotWrap.style.height = '16px';
+    slotWrap.style.zIndex = '1';
+
+    const itemSprite = document.createElement('div');
+    itemSprite.className = 'pixelated';
+    itemSprite.style.width = '100%';
+    itemSprite.style.height = '100%';
+    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.backgroundPosition = 'center';
+    itemSprite.style.backgroundRepeat = 'no-repeat';
+    slotWrap.appendChild(itemSprite);
+
+    const countLabel = document.createElement('span');
+    countLabel.className = 'mc-text';
+    countLabel.style.position = 'absolute';
+    countLabel.style.bottom = '-4px';
+    countLabel.style.right = '-2px';
+    countLabel.style.color = 'white';
+    countLabel.style.textShadow = '1px 1px 0 #3f3f3f';
+    countLabel.style.fontSize = '10px';
+    countLabel.style.fontFamily = 'monospace';
+    slotWrap.appendChild(countLabel);
+
+    hotbarContainer.appendChild(slotWrap);
+    hotbarSlotsUI.push({ div: itemSprite, label: countLabel });
+}
+
+const crosshair = document.createElement('div');
+crosshair.id = 'crosshair';
+crosshair.className = 'pixelated';
+crosshair.style.position = 'absolute';
+crosshair.style.top = '50%';
+crosshair.style.left = '50%';
+crosshair.style.transform = 'translate(-50%, -50%)';
+crosshair.style.width = '15px';
+crosshair.style.height = '15px';
+crosshair.style.pointerEvents = 'none';
+guiScaleWrapper.appendChild(crosshair);
+
+setFallbackBg(crosshair, 
+    [`${SPRITE_HUD_DIR}crosshair.png`, `${GUI_WIDGETS_DIR}icons.png`],
+    (idx) => {
+        crosshair.style.backgroundSize = idx === 0 ? '15px 15px' : '256px 256px';
+        crosshair.style.backgroundPosition = idx === 0 ? '0 0' : '0 0';
+    }
+);
+
 const creativeScaleCenter = document.createElement('div');
 creativeScaleCenter.id = 'creative-scale-center';
 creativeScaleCenter.style.position = 'absolute';
@@ -848,7 +949,7 @@ function updateScrollThumbVisuals(disabled) {
     const sprite = disabled ? 'scroller_disabled.png' : 'scroller.png';
     const legacyX = disabled ? -244 : -232;
     setFallbackBg(scrollThumb, 
-        [`${GUI_WIDGETS_DIR}sprites/container/creative_inventory/${sprite}`, `${GUI_TEX_DIR}tabs.png`],
+        [`${SPRITE_CREATIVE_DIR}${sprite}`, `${GUI_TEX_DIR}tabs.png`],
         (idx) => {
             scrollThumb.style.backgroundSize = idx === 0 ? '12px 15px' : '256px 256px';
             scrollThumb.style.backgroundPosition = idx === 0 ? '0 0' : `${legacyX}px 0`;
@@ -909,7 +1010,7 @@ function updateTabsUI() {
         const legacyX = -(col * 28);
         const legacyY = isTop ? (isSelected ? -32 : 0) : (isSelected ? -96 : -64);
         
-        const spritePrefix = `${GUI_WIDGETS_DIR}sprites/container/creative_inventory/tab_${isTop ? 'top' : 'bottom'}_${isSelected ? 'selected' : 'unselected'}_${col + 1}.png`;
+        const spritePrefix = `${SPRITE_CREATIVE_DIR}tab_${isTop ? 'top' : 'bottom'}_${isSelected ? 'selected' : 'unselected'}_${col + 1}.png`;
         const legacyPath = `${GUI_TEX_DIR}tabs.png`;
 
         setFallbackBg(tabObj.elem, [spritePrefix, legacyPath], (idx) => {
@@ -1014,7 +1115,7 @@ function createItemSlot(bName, i, sourceArray) {
 }
 
 function populateCreativeGrid() {
-    creativeGrid.innerHTML = '';
+    creativeGridContainer.innerHTML = '';
     creativeGridContainer.scrollTop = 0; 
     
     let blocksToShow = CATEGORIES[currentCategory].blocks;
@@ -1027,7 +1128,7 @@ function populateCreativeGrid() {
     }
 
     blocksToShow.forEach(bName => {
-        creativeGrid.appendChild(createItemSlot(bName, null, null));
+        creativeGridContainer.appendChild(createItemSlot(bName, null, null));
     });
     
     creativeGridContainer.dispatchEvent(new Event('scroll'));
@@ -1088,12 +1189,12 @@ function addItemToInventory(type, amount) {
 // ============================================================================
 
 setFallbackBg(hotbarContainer, 
-    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    [`${SPRITE_HUD_DIR}hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`],
     (idx) => { hotbarContainer.style.backgroundSize = idx === 0 ? '182px 22px' : '256px 256px'; }
 );
 
 setFallbackBg(hotbarSelector, 
-    [`${GUI_WIDGETS_DIR}sprites/hud/hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    [`${SPRITE_HUD_DIR}hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`],
     (idx) => {
         hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px';
         hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px';
@@ -2745,9 +2846,9 @@ function animate() {
 // ============================================================================
 // 10. INITIALIZATION EXECUTION (SAFE FROM TDZ)
 // ============================================================================
-setFallbackBg(hotbarContainer, [`${GUI_WIDGETS_DIR}sprites/hud/hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`], 
+setFallbackBg(hotbarContainer, [`${SPRITE_HUD_DIR}hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`], 
     (idx) => { hotbarContainer.style.backgroundSize = idx === 0 ? '182px 22px' : '256px 256px'; });
-setFallbackBg(hotbarSelector, [`${GUI_WIDGETS_DIR}sprites/hud/hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`], 
+setFallbackBg(hotbarSelector, [`${SPRITE_HUD_DIR}hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`], 
     (idx) => { hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px'; hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px'; });
 
 updateScrollThumbVisuals(false);
