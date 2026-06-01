@@ -2852,8 +2852,6 @@ setFallbackBg(hotbarSelector, [`${SPRITE_HUD_DIR}hotbar_selection.png`, `${GUI_W
     (idx) => { hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px'; hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px'; });
 
 updateScrollThumbVisuals(false);
-
-const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'misc'];
 topKeys.forEach((k, i) => createTab(k, true, false, i));
 createTab('search', true, true, 6); 
 
