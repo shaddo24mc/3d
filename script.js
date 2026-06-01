@@ -757,6 +757,11 @@ function calculateGuiScale() {
     guiScaleWrapper.style.height = `${h / currentGuiScale}px`;
 }
 
+function formatName(str) {
+    if (!str) return '';
+    return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
 hotbarContainer.className = 'pixelated';
@@ -808,6 +813,16 @@ for (let i = 0; i < 9; i++) {
     countLabel.style.fontSize = '10px';
     countLabel.style.fontFamily = 'monospace';
     slotWrap.appendChild(countLabel);
+
+    slotWrap.addEventListener('mouseenter', () => {
+        if (creativeScaleCenter.style.display !== 'none' && inventory[i].type) {
+            tooltip.innerText = formatName(inventory[i].type);
+            tooltip.style.display = 'block';
+        }
+    });
+    slotWrap.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+    });
 
     hotbarContainer.appendChild(slotWrap);
     hotbarSlotsUI.push({ div: itemSprite, label: countLabel });
@@ -978,6 +993,22 @@ heldLabel.style.bottom = '-4px';
 heldLabel.style.right = '-2px';
 heldItemUI.appendChild(heldLabel);
 
+const tooltip = document.createElement('div');
+tooltip.id = 'mc-tooltip';
+tooltip.className = 'mc-text';
+tooltip.style.position = 'absolute';
+tooltip.style.backgroundColor = 'rgba(16, 0, 16, 0.95)';
+tooltip.style.border = '2px solid #37007C';
+tooltip.style.borderStyle = 'outset';
+tooltip.style.color = '#fff';
+tooltip.style.padding = '2px 4px';
+tooltip.style.fontSize = '10px';
+tooltip.style.textShadow = '1px 1px 0 #3f3f3f';
+tooltip.style.pointerEvents = 'none';
+tooltip.style.zIndex = '100000';
+tooltip.style.display = 'none';
+guiScaleWrapper.appendChild(tooltip);
+
 
 // ============================================================================
 // 6. UI FUNCTIONS
@@ -1114,8 +1145,19 @@ function createItemSlot(bName, i, sourceArray) {
     highlight.style.zIndex = '5';
     slotWrap.appendChild(highlight);
 
-    slotWrap.addEventListener('mouseenter', () => highlight.style.display = 'block');
-    slotWrap.addEventListener('mouseleave', () => highlight.style.display = 'none');
+    slotWrap.addEventListener('mouseenter', () => {
+        highlight.style.display = 'block';
+        let currentItem = sourceArray ? sourceArray[i].type : bName;
+        if (currentItem) {
+            tooltip.innerText = formatName(currentItem);
+            tooltip.style.display = 'block';
+        }
+    });
+    
+    slotWrap.addEventListener('mouseleave', () => {
+        highlight.style.display = 'none';
+        tooltip.style.display = 'none';
+    });
 
     slotWrap.addEventListener('mousedown', (e) => {
         e.stopPropagation();
@@ -1145,6 +1187,14 @@ function createItemSlot(bName, i, sourceArray) {
                 }
             }
             updateInventoryUI();
+            
+            let currentItemAfter = sourceArray ? sourceArray[i].type : bName;
+            if (currentItemAfter) {
+                tooltip.innerText = formatName(currentItemAfter);
+                tooltip.style.display = 'block';
+            } else {
+                tooltip.style.display = 'none';
+            }
         }
     });
     
@@ -1280,7 +1330,16 @@ scrollThumb.addEventListener('mousedown', (e) => {
     isDraggingScroll = true;
     e.stopPropagation();
 });
+
 document.addEventListener('mousemove', (e) => {
+    if (creativeScaleCenter.style.display === 'flex') {
+        heldItemWrapper.style.left = e.clientX + 'px';
+        heldItemWrapper.style.top = e.clientY + 'px';
+    }
+    if (tooltip.style.display === 'block') {
+        tooltip.style.left = (e.clientX / currentGuiScale + 12) + 'px';
+        tooltip.style.top = (e.clientY / currentGuiScale - 12) + 'px';
+    }
     if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
         const trackRect = scrollTrack.getBoundingClientRect();
         let trueHeight = 97 * currentGuiScale; 
@@ -1290,6 +1349,7 @@ document.addEventListener('mousemove', (e) => {
         creativeGridContainer.scrollTop = scrollPct * (creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight);
     }
 });
+
 document.addEventListener('mouseup', () => { isDraggingScroll = false; });
 creativeGridContainer.addEventListener('scroll', () => {
     if (isDraggingScroll) return;
@@ -1302,13 +1362,6 @@ creativeGridContainer.addEventListener('scroll', () => {
     updateScrollThumbVisuals(false);
     const scrollPct = creativeGridContainer.scrollTop / maxScroll;
     scrollThumb.style.top = (scrollPct * 97) + 'px';
-});
-
-document.addEventListener('mousemove', (e) => {
-    if (creativeScaleCenter.style.display === 'flex') {
-        heldItemWrapper.style.left = e.clientX + 'px';
-        heldItemWrapper.style.top = e.clientY + 'px';
-    }
 });
 
 calculateGuiScale();
