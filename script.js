@@ -1015,7 +1015,7 @@ function updateTabsUI() {
 
         setFallbackBg(tabObj.elem, [spritePrefix, legacyPath], (idx) => {
             if (idx === 0) { 
-                tabObj.elem.style.backgroundSize = '28px 32px';
+                tabObj.elem.style.backgroundSize = isSelected ? '28px 32px' : '28px 28px';
                 tabObj.elem.style.backgroundPosition = '0 0';
             } else { 
                 tabObj.elem.style.backgroundSize = '256px 256px';
@@ -2843,24 +2843,5 @@ function animate() {
     stats.update();
 }
 
-// ============================================================================
-// 10. INITIALIZATION EXECUTION (SAFE FROM TDZ)
-// ============================================================================
-setFallbackBg(hotbarContainer, [`${SPRITE_HUD_DIR}hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`], 
-    (idx) => { hotbarContainer.style.backgroundSize = idx === 0 ? '182px 22px' : '256px 256px'; });
-setFallbackBg(hotbarSelector, [`${SPRITE_HUD_DIR}hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`], 
-    (idx) => { hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px'; hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px'; });
-
-updateScrollThumbVisuals(false);
-topKeys.forEach((k, i) => createTab(k, true, false, i));
-createTab('search', true, true, 6); 
-
-const bottomKeys = ['tools', 'combat', 'food', 'materials', 'spawns', 'operator', 'inventory'];
-bottomKeys.forEach((k, i) => createTab(k, false, false, i));
-
-calculateGuiScale();
-window.addEventListener('resize', calculateGuiScale);
-updateTabsUI();
-populateCreativeGrid();
-updateInventoryUI();
+// Start the game loop
 animate();
