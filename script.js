@@ -458,28 +458,76 @@ async function loadCustomModel(bName) {
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
-        const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-        headGeo.translate(0, -0.25, 0); 
+        let headGeo;
+        let texSize = 64;
+        
+        if (bName === 'dragon_head') {
+            headGeo = new THREE.BoxGeometry(0.75, 0.5, 0.75);
+            headGeo.translate(0, -0.25, 0); 
+            texSize = 256; 
+        } else {
+            headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            headGeo.translate(0, -0.25, 0); 
+        }
         
         const uvs = headGeo.attributes.uv.array;
         const setUV = (faceIdx, px, py, pw, ph) => {
-            const u1 = px / 64;
-            const u2 = (px + pw) / 64;
-            const v1 = 1 - (py + ph) / 64;
-            const v2 = 1 - py / 64;
+            const u1 = px / texSize;
+            const u2 = (px + pw) / texSize;
+            const v1 = 1 - (py + ph) / texSize;
+            const v2 = 1 - py / texSize;
             const i = faceIdx * 8;
             uvs[i+0] = u1; uvs[i+1] = v2;
             uvs[i+2] = u2; uvs[i+3] = v2;
             uvs[i+4] = u1; uvs[i+5] = v1;
             uvs[i+6] = u2; uvs[i+7] = v1;
         };
-        // BoxGeo Faces: Right(0), Left(1), Top(2), Bottom(3), Front(4), Back(5)
-        setUV(0, 0, 8, 8, 8);   // Right
-        setUV(1, 16, 8, 8, 8);  // Left
-        setUV(2, 8, 0, 8, 8);   // Top
-        setUV(3, 16, 0, 8, 8);  // Bottom
-        setUV(4, 8, 8, 8, 8);   // Front
-        setUV(5, 24, 8, 8, 8);  // Back
+        
+        if (bName === 'dragon_head') {
+            // Target the dragon head correctly on the 256x256 skin sheet
+            setUV(0, 0, 112, 16, 16);    // Right
+            setUV(1, 32, 112, 16, 16);   // Left
+            setUV(2, 16, 96, 16, 16);    // Top
+            setUV(3, 32, 96, 16, 16);    // Bottom
+            setUV(4, 16, 112, 16, 16);   // Front
+            setUV(5, 48, 112, 16, 16);   // Back
+        } else {
+            setUV(0, 0, 8, 8, 8);   // Right
+            setUV(1, 16, 8, 8, 8);  // Left
+            setUV(2, 8, 0, 8, 8);   // Top
+            setUV(3, 16, 0, 8, 8);  // Bottom
+            setUV(4, 8, 8, 8, 8);   // Front
+            setUV(5, 24, 8, 8, 8);  // Back
+        }
+
+        // Parse parent item models to get proper display properties (like scaling/rotation for the dragon head)
+        let display = {};
+        try {
+            let currentModel = await JSONReader.fetchJSON(`${BLOCK_TEX_DIR.replace('textures/block/', 'models/item/')}${bName}.json`);
+            let depth = 0;
+            while (currentModel && depth < 10) {
+                if (currentModel.display) {
+                    for (let k in currentModel.display) {
+                        // Inherit child properties safely, preventing parents from overwriting them
+                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
+                    }
+                }
+                if (currentModel.parent) {
+                    let parentPath = currentModel.parent.replace('minecraft:', '');
+                    currentModel = await JSONReader.fetchJSON(`${BLOCK_TEX_DIR.replace('textures/block/', 'models/')}${parentPath}.json`);
+                } else {
+                    currentModel = null;
+                }
+                depth++;
+            }
+        } catch(e) {}
+
+        // Fallback default GUI transform if no JSON overrides were found
+        if (!display.gui) {
+            display.gui = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+        }
+
+        headGeo.userData = { display: display };
 
         materials[bName] = mat;
         customGeometries[bName] = headGeo;
