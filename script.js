@@ -681,16 +681,23 @@ async function loadCustomModel(bName) {
 
         const resolveTexture = (texStr) => {
             if (!texStr) return null;
-            if (texStr.startsWith('#')) {
-                let key = texStr.substring(1);
+            
+            // Normalize key by removing '#' if it exists, to support strict and loose formats
+            let key = texStr.startsWith('#') ? texStr.substring(1) : texStr;
+            
+            if (textures[key]) {
                 let safe = 10;
                 while (textures[key] && textures[key].startsWith('#') && safe > 0) {
                     key = textures[key].substring(1);
                     safe--;
                 }
                 if (textures[key]) return textures[key];
+            }
+            
+            if (texStr.startsWith('#')) {
                 return resolveFallbackTexture(baseName); // Use the base block name as ultimate fallback!
             }
+            
             return texStr;
         };
 
