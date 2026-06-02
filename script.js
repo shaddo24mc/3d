@@ -12,7 +12,7 @@ scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
-renderer.setPixelRatio(1); 
+renderer.setPixelRatio(window.devicePixelRatio || 1); // Ensures world looks crisp on high-res monitors
 renderer.shadowMap.enabled = false; 
 document.body.appendChild(renderer.domElement);
 
@@ -22,9 +22,9 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Render at perfect 32x32 to match MC's GUI scale constraints and avoid browser downscaling blur!
+// Lock 3D Icon Renderer to a high enough resolution to downscale perfectly with CSS pixelated
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-iconRenderer.setSize(32, 32);
+iconRenderer.setSize(128, 128); 
 iconRenderer.setPixelRatio(1);
 const iconScene = new THREE.Scene();
 const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
@@ -164,7 +164,7 @@ const CROSS_BLOCKS = new Set([
     'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
     'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
     'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berries', 'cobweb', 
-    'tall_grass', 'large_fern', 'grass'
+    'tall_grass', 'large_fern', 'grass', 'short_grass'
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
 
@@ -254,27 +254,60 @@ const animatedTextures = [];
 const allTabsUI = [];
 
 // ============================================================================
-// 4. TEXTURE LOADERS & 3D ICON ENGINE
+// 4. TEXTURE LOADERS & PATH RESOLVERS
 // ============================================================================
 const imageLoader = new THREE.ImageLoader();
 imageLoader.setCrossOrigin('anonymous');
 
-const loadTex = (filename, isItem = false) => {
+function resolveTexturePath(name) {
+    let folder = BLOCK_TEX_DIR;
+    let filename = name;
+    let is2D = false;
+
+    // Explicit 2D filtering to capture strict-items, vegetation, and flat-blocks correctly
+    if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || 
+        ['torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass'].includes(name) || 
+        name.includes('sign') || name.includes('pane') ||
+        (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'flower', 'orchid', 'tulip', 'daisy', 'allium', 'bluet', 'rose'].some(kw => name.includes(kw)) && !name.includes('mangrove_roots')) ||
+        (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(name))) {
+        is2D = true;
+    }
+
+    if (is2D) {
+        // Items that default to ITEM_TEX_DIR
+        if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || name === 'kelp' || name.includes('sign') || name === 'sweet_berries' || name === 'sunflower' || name === 'lilac' || name === 'peony') {
+            folder = ITEM_TEX_DIR;
+        }
+    }
+
+    // Specific Overrides for common 404s
+    if (name === 'compass') filename = 'compass_00';
+    else if (name === 'compass_tab') filename = 'compass_01';
+    else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
+    else if (name === 'sweet_berries') { folder = ITEM_TEX_DIR; filename = 'sweet_berries'; }
+    else if (name === 'rose_bush') { folder = BLOCK_TEX_DIR; filename = 'rose_bush_top'; }
+    else if (name === 'large_fern') { folder = BLOCK_TEX_DIR; filename = 'large_fern_top'; }
+    else if (name === 'tall_grass') { folder = BLOCK_TEX_DIR; filename = 'tall_grass_top'; }
+    else if (name === 'grass' || name === 'short_grass') { folder = BLOCK_TEX_DIR; filename = 'short_grass'; }
+    else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
+    else if (name.includes('pane')) { folder = BLOCK_TEX_DIR; filename = name.replace('_pane', ''); } // Flatten glass panes
+    else if (name === 'flowering_azalea') { folder = BLOCK_TEX_DIR; filename = 'flowering_azalea_side'; }
+    else if (name === 'sunflower') { folder = ITEM_TEX_DIR; filename = 'sunflower'; }
+
+    return { folder, filename, is2D };
+}
+
+const loadTex = (filename, explicitFolder = null) => {
     if (!filename) filename = 'missingno';
-    let dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
     
-    if (filename === 'compass') filename = 'compass_00';
-    if (filename === 'compass_tab') { filename = 'compass_01'; dir = ITEM_TEX_DIR; }
-    if (filename === 'redstone') { filename = 'redstone'; dir = ITEM_TEX_DIR; }
-    if (filename === 'sweet_berries') filename = 'sweet_berry_bush_stage3';
-    if (filename === 'grass') filename = 'short_grass'; 
-    if (filename === 'rose_bush') filename = 'rose_bush_top';
-    if (filename === 'large_fern') filename = 'large_fern_top';
-    if (filename === 'tall_grass') filename = 'tall_grass_top';
-    
+    // Resolve robust path
+    let { folder, filename: parsedFilename } = resolveTexturePath(filename);
+    if (explicitFolder) folder = explicitFolder;
+
     const cvs = document.createElement('canvas');
     cvs.width = 16; cvs.height = 16;
     const ctx = cvs.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false; // PREVENTS CSS BLUR!
     
     const t = new THREE.CanvasTexture(cvs);
     t.magFilter = THREE.NearestFilter;
@@ -285,16 +318,17 @@ const loadTex = (filename, isItem = false) => {
 
     t.loadPromise = new Promise((resolve) => {
         imageLoader.load(
-            `${dir}${filename}.png`,
+            `${folder}${parsedFilename}.png`,
             (image) => {
                 const fw = image.width;
                 const fh = image.height;
-                if (fw === 0 || fh === 0) return resolve(t); // WebGL safety catch
+                if (fw === 0 || fh === 0) return resolve(t); 
                 const totalFrames = Math.max(1, Math.floor(fh / fw));
-                const isStandardSkin = ['creeper', 'zombie', 'skeleton', 'steve'].some(kw => filename.includes(kw));
+                const isStandardSkin = ['creeper', 'zombie', 'skeleton', 'steve'].some(kw => parsedFilename.includes(kw));
 
                 if (totalFrames > 1 && fh % fw === 0 && !isStandardSkin) {
                     cvs.width = fw; cvs.height = fw;
+                    ctx.imageSmoothingEnabled = false;
                     t.needsUpdate = true;
 
                     let animData = {
@@ -307,7 +341,7 @@ const loadTex = (filename, isItem = false) => {
                     
                     ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
 
-                    fetch(`${dir}${filename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
+                    fetch(`${folder}${parsedFilename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
                     .then(mcmeta => {
                         if (mcmeta && mcmeta.animation) {
                             if (mcmeta.animation.frames) animData.frames = mcmeta.animation.frames;
@@ -319,6 +353,7 @@ const loadTex = (filename, isItem = false) => {
                 } else {
                     cvs.width = isStandardSkin ? 64 : fw;
                     cvs.height = isStandardSkin ? 64 : fh;
+                    ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(image, 0, 0);
                     t.needsUpdate = true;
                     resolve(t);
@@ -337,7 +372,6 @@ const loadTex = (filename, isItem = false) => {
     return t;
 };
 
-// Fallback logic for missing 3D JSON definitions
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
     if (name === 'grass_block' || name === 'snowy_grass_block') return 'grass_block_side';
@@ -347,7 +381,6 @@ function resolveFallbackTexture(name) {
     if (name.includes('shulker_box')) return 'shulker_box';
     if (name.includes('anvil')) return 'anvil_base';
     if (name === 'packed_mud') return 'mud';
-    if (name.includes('stained_glass_pane')) return name.replace('_pane', '');
     
     // Correctly map mob heads and custom model overrides to their raw layout locations
     if (name === 'creeper_head') return '../entity/creeper/creeper';
@@ -358,14 +391,7 @@ function resolveFallbackTexture(name) {
     if (name === 'player_head') return '../entity/player/wide/steve';
     if (name === 'decorated_pot') return '../entity/decorated_pot/decorated_pot_side';
     
-    // Plant visual fallbacks
-    if (name === 'sweet_berries') return 'sweet_berry_bush_stage3';
-    if (name === 'rose_bush') return 'rose_bush_top';
-    if (name === 'large_fern') return 'large_fern_top';
-    if (name === 'tall_grass') return 'tall_grass_top';
-    if (name === 'grass') return 'short_grass';
-    
-    return name;
+    return resolveTexturePath(name).filename;
 }
 
 function setFallbackBg(element, urls, configOnSuccess) {
@@ -513,19 +539,11 @@ async function loadCustomModel(bName) {
             headGeo = buildMCModel(parts, 256);
             headGeo.scale(0.75, 0.75, 0.75); 
             headGeo.translate(0, -0.15, 0); 
-            headGeo.rotateY(Math.PI); // Force face player upon placement
         } else {
             const parts = [ { w: 8, h: 8, d: 8, mcX: -4, mcY: 0, mcZ: -4, uX: 0, uY: 0 } ];
             headGeo = buildMCModel(parts, 64);
             headGeo.translate(0, -0.25, 0); 
-            headGeo.rotateY(Math.PI); // Force face player upon placement
         }
-
-        headGeo.userData = { 
-            display: { 
-                gui: { rotation: [30, 225, 0], translation: [-2, 2, 0], scale: [0.625, 0.625, 0.625] } 
-            } 
-        };
 
         materials[bName] = mat;
         customGeometries[bName] = headGeo;
@@ -549,7 +567,6 @@ async function loadCustomModel(bName) {
         setUV(2, 7, 6, 9, 8); // Top
         setUV(3, 7, 14, 9, 16); // Bottom
 
-        geo.userData = { display: { gui: { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [1.2, 1.2, 1.2] } } };
         materials[bName] = mat;
         customGeometries[bName] = geo;
         return;
@@ -626,7 +643,6 @@ async function loadCustomModel(bName) {
         let currentModel = await JSONReader.getModel(modelPath);
         let elements = currentModel ? currentModel.elements : null;
         let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
-        let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
 
         let depth = 0;
         while (currentModel && currentModel.parent && depth < 10) {
@@ -642,11 +658,6 @@ async function loadCustomModel(bName) {
                 if (currentModel.textures) {
                     for (let k in currentModel.textures) {
                         if (!textures[k]) textures[k] = currentModel.textures[k];
-                    }
-                }
-                if (currentModel.display) {
-                    for (let k in currentModel.display) {
-                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
                     }
                 }
             }
@@ -796,8 +807,6 @@ async function loadCustomModel(bName) {
                 customGeometries[bName] = mergeBufferGeometries(elementGeometries);
             }
             
-            customGeometries[bName].userData = { display: display };
-            
         } else {
             throw new Error("No elements found");
         }
@@ -823,11 +832,7 @@ async function loadCustomModel(bName) {
             customGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
             customGeo.translate(0, -0.25, 0);
         }
-        
         customGeometries[bName] = customGeo; 
-        customGeometries[bName].userData = {
-            display: { gui: { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] } }
-        };
     }
     
     const promises = [];
@@ -843,54 +848,26 @@ async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    // Explicit 2D filtering to capture strict-items, vegetation, and flat-blocks correctly
-    const isItemTex = flatItems.has(type) || type === 'compass_tab' ||
-                      (type.includes('door') && !type.includes('trapdoor')) || 
-                      ['torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass'].includes(type) || 
-                      type.includes('sign') || type.includes('pane') ||
-                      (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'flower', 'orchid', 'tulip', 'daisy', 'allium', 'bluet', 'rose'].some(kw => type.includes(kw)) && !type.includes('mangrove_roots')) ||
-                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
+    let pathInfo = resolveTexturePath(type);
     
-    if (isItemTex) {
-        let filename = type;
-        if (type === 'redstone') filename = 'redstone';
-        if (type === 'compass_tab') filename = 'compass_01';
-        if (type === 'sweet_berries') filename = 'sweet_berries';
-        if (type === 'rose_bush') filename = 'rose_bush_top';
-        if (type === 'large_fern') filename = 'large_fern_top';
-        if (type === 'tall_grass') filename = 'tall_grass_top';
-        if (type === 'grass') filename = 'short_grass';
-        if (type === 'clock') filename = 'clock_00';
-        if (type.includes('pane')) filename = type.replace('_pane', '');
-        
-        let folder = ITEM_TEX_DIR;
-        const useBlockDir = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'kelp'];
-        
-        if (useBlockDir.includes(type) || type.includes('sapling') || type.includes('mushroom') || type.includes('fern') || type.includes('bush') || type.includes('roots') || type.includes('flower') || type.includes('pane') || type.includes('tulip') || type.includes('rose') || type.includes('orchid')) {
-            folder = BLOCK_TEX_DIR;
-        }
-        if (type === 'rose_bush') filename = 'rose_bush_top'; // Secondary safety catch
-        
-        let tex = loadTex(filename, folder === ITEM_TEX_DIR);
+    // Explicit 2D items (draws pure internal texture buffer out to DataURL for flawless crispness & mcmeta animation support!)
+    if (pathInfo.is2D) {
+        let tex = loadTex(pathInfo.filename, pathInfo.folder);
         await tex.loadPromise;
         
-        // Render all 2D items as 3D Planes inside the inventory renderer. 
-        // This solves two things: 1. Uses loadTex's internal `.mcmeta` parsing (preventing tall squished animations!) 
-        // 2. Uses NearestFilter at strict 32x32 limits to eliminate CSS image resizing blur.
-        let flatGeo = new THREE.PlaneGeometry(1, 1);
-        let flatMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
-        let mesh = new THREE.Mesh(flatGeo, flatMat);
-        
-        iconScene.add(mesh);
-        mesh.position.set(0, 0, 0);
-        mesh.rotation.set(0, 0, 0);
-        mesh.scale.set(1.4, 1.4, 1.4); 
-        
-        iconRenderer.render(iconScene, iconCamera);
-        const dataUrl = iconRenderer.domElement.toDataURL('image/png');
-        iconScene.remove(mesh);
-        
-        const url = `url(${dataUrl})`;
+        // Safely extract the raw crisp frame data from the texture's internal canvas
+        let url;
+        if (tex.image instanceof HTMLCanvasElement) {
+             url = `url(${tex.image.toDataURL('image/png')})`;
+        } else {
+             // Fallback generator for Image elements
+             const cvs = document.createElement('canvas');
+             cvs.width = 16; cvs.height = 16;
+             const ctx = cvs.getContext('2d');
+             ctx.imageSmoothingEnabled = false;
+             ctx.drawImage(tex.image, 0, 0, 16, 16);
+             url = `url(${cvs.toDataURL('image/png')})`;
+        }
         iconCache[type] = url;
         return url;
     }
@@ -904,32 +881,12 @@ async function getBlockIcon(type) {
     iconScene.add(mesh);
     
     mesh.position.set(0, 0, 0);
-    mesh.rotation.set(0, 0, 0);
-    mesh.scale.set(1, 1, 1);
-
-    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
-    if (geo.userData && geo.userData.display && geo.userData.display.gui) {
-        guiConfig = geo.userData.display.gui;
-    }
-
-    if (guiConfig.rotation) {
-        mesh.rotation.set(
-            THREE.MathUtils.degToRad(guiConfig.rotation[0]),
-            THREE.MathUtils.degToRad(guiConfig.rotation[1] - 180),
-            THREE.MathUtils.degToRad(guiConfig.rotation[2]),
-            'XYZ'
-        );
-    }
-    if (guiConfig.scale) {
-        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
-    }
-    if (guiConfig.translation) {
-        mesh.position.set(
-            guiConfig.translation[0] / 16,
-            guiConfig.translation[1] / 16,
-            guiConfig.translation[2] / 16
-        );
-    }
+    
+    // STRICT PERFECT ISOMETRIC ROTATION FOR ALL 3D INVENTORY BLOCKS (Overrides wacky JSON defaults)
+    mesh.rotation.set(Math.PI / 6, -Math.PI / 4, 0, 'YXZ');
+    
+    // Sclae generic blocks up slightly to look good in the 16x16 frame
+    mesh.scale.set(0.625, 0.625, 0.625);
     
     iconRenderer.render(iconScene, iconCamera);
     const dataUrl = iconRenderer.domElement.toDataURL('image/png');
@@ -1030,11 +987,8 @@ for (let i = 0; i < 9; i++) {
     countLabel.className = 'mc-text';
     countLabel.style.position = 'absolute';
     countLabel.style.bottom = '-4px';
-    countLabel.style.right = '-2px';
+    countLabel.style.right = '-1px';
     countLabel.style.color = 'white';
-    countLabel.style.textShadow = '1px 1px 0 #3f3f3f';
-    countLabel.style.fontSize = '10px';
-    countLabel.style.fontFamily = 'monospace';
     slotWrap.appendChild(countLabel);
 
     slotWrap.addEventListener('mouseenter', () => {
@@ -1213,7 +1167,7 @@ const heldLabel = document.createElement('span');
 heldLabel.className = 'mc-text';
 heldLabel.style.position = 'absolute';
 heldLabel.style.bottom = '-4px';
-heldLabel.style.right = '-2px';
+heldLabel.style.right = '-1px';
 heldItemUI.appendChild(heldLabel);
 
 const tooltip = document.createElement('div');
@@ -1226,7 +1180,6 @@ tooltip.style.borderStyle = 'outset';
 tooltip.style.color = '#fff';
 tooltip.style.padding = '2px 4px';
 tooltip.style.fontSize = '10px';
-tooltip.style.textShadow = '1px 1px 0 #3f3f3f';
 tooltip.style.pointerEvents = 'none';
 tooltip.style.zIndex = '100000';
 tooltip.style.display = 'none';
@@ -1527,7 +1480,7 @@ for (let i = 0; i < 9; i++) {
     countLabel.className = 'mc-text';
     countLabel.style.position = 'absolute';
     countLabel.style.bottom = '-4px';
-    countLabel.style.right = '-2px';
+    countLabel.style.right = '-1px';
     countLabel.style.zIndex = '6';
     slotWrap.appendChild(countLabel);
 
@@ -2923,10 +2876,8 @@ document.addEventListener('mousedown', (e) => {
             
             const selectedItem = inventory[selectedSlot];
             
-            // Prevent placing raw flat items (like swords, apples, signs) that have no real 3D block equivalent geometry mapping
-            if (STRICT_ITEMS.has(selectedItem.type) && selectedItem.type !== 'command_block' && selectedItem.type !== 'sweet_berries') {
-                return; 
-            }
+            // STRICT PREVENT OF RAW FLAT ITEMS BEING PLACED ON THE GROUND
+            if (flatItems.has(selectedItem.type)) return;
             
             if (selectedItem.type && getGlobalBlock(placeX, placeY, placeZ) === 0) {
                 let rotation = [0, 0, 0];
