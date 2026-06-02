@@ -12,7 +12,7 @@ scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
-renderer.setPixelRatio(window.devicePixelRatio || 1); // Ensures world looks crisp on high-res monitors
+renderer.setPixelRatio(window.devicePixelRatio || 1);
 renderer.shadowMap.enabled = false; 
 document.body.appendChild(renderer.domElement);
 
@@ -22,30 +22,29 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Lock 3D Icon Renderer to a high enough resolution to downscale perfectly with CSS pixelated
+// Lock 3D Icon Renderer to 64x64 for clean crisp downscaling to 16x16 UI slots
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-iconRenderer.setSize(128, 128); 
+iconRenderer.setSize(64, 64); 
 iconRenderer.setPixelRatio(1);
 const iconScene = new THREE.Scene();
-const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
+const iconCamera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-iconScene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-dirLight.position.set(1, 1, 2);
+// Accurate Minecraft GUI Orthographic Lighting
+iconScene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+dirLight.position.set(-1, 2, 1); 
 iconScene.add(dirLight);
 const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
-dirLight2.position.set(-1, -1, 2);
+dirLight2.position.set(1, 0.5, 1); 
 iconScene.add(dirLight2);
 
 // Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
-
 const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
 scene.add(sunLight);
-
 const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2);
 scene.add(moonLight);
 
@@ -56,7 +55,7 @@ scene.add(sunMesh);
 
 const moonGeo = new THREE.PlaneGeometry(20, 20);
 const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff, side: THREE.DoubleSide, fog: false });
-const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+const moonMesh = new Mesh(moonGeo, moonMat);
 scene.add(moonMesh);
 
 const starsGeo = new THREE.BufferGeometry();
@@ -265,22 +264,26 @@ function resolveTexturePath(name) {
     let is2D = false;
 
     // Explicit 2D filtering to capture strict-items, vegetation, and flat-blocks correctly
-    if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || 
+    const isExplicit2D = flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || 
         ['torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass'].includes(name) || 
         name.includes('sign') || name.includes('pane') ||
-        (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'flower', 'orchid', 'tulip', 'daisy', 'allium', 'bluet', 'rose'].some(kw => name.includes(kw)) && !name.includes('mangrove_roots')) ||
-        (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(name))) {
-        is2D = true;
-    }
+        (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'flower', 'orchid', 'tulip', 'daisy', 'allium', 'bluet', 'rose', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus'].some(kw => name.includes(kw)) && !name.includes('mangrove_roots')) ||
+        (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(name));
 
-    if (is2D) {
-        // Items that default to ITEM_TEX_DIR
+    if (isExplicit2D) {
+        is2D = true;
         if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || name === 'kelp' || name.includes('sign') || name === 'sweet_berries' || name === 'sunflower' || name === 'lilac' || name === 'peony') {
             folder = ITEM_TEX_DIR;
         }
     }
 
-    // Specific Overrides for common 404s
+    // Force strictly block directories to fix 404s
+    const forceBlockDir = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose'];
+    if (forceBlockDir.some(kw => name.includes(kw)) && !name.includes('mangrove_roots')) {
+        folder = BLOCK_TEX_DIR;
+    }
+
+    // Specific Overrides for exact vanilla names
     if (name === 'compass') filename = 'compass_00';
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
@@ -290,9 +293,11 @@ function resolveTexturePath(name) {
     else if (name === 'tall_grass') { folder = BLOCK_TEX_DIR; filename = 'tall_grass_top'; }
     else if (name === 'grass' || name === 'short_grass') { folder = BLOCK_TEX_DIR; filename = 'short_grass'; }
     else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
-    else if (name.includes('pane')) { folder = BLOCK_TEX_DIR; filename = name.replace('_pane', ''); } // Flatten glass panes
+    else if (name.includes('pane')) { folder = BLOCK_TEX_DIR; filename = name.replace('_pane', ''); } 
     else if (name === 'flowering_azalea') { folder = BLOCK_TEX_DIR; filename = 'flowering_azalea_side'; }
-    else if (name === 'sunflower') { folder = ITEM_TEX_DIR; filename = 'sunflower'; }
+    else if (name === 'sunflower') { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; } 
+    else if (name === 'peony') { folder = BLOCK_TEX_DIR; filename = 'peony_top'; }
+    else if (name === 'lilac') { folder = BLOCK_TEX_DIR; filename = 'lilac_top'; }
 
     return { folder, filename, is2D };
 }
@@ -307,7 +312,7 @@ const loadTex = (filename, explicitFolder = null) => {
     const cvs = document.createElement('canvas');
     cvs.width = 16; cvs.height = 16;
     const ctx = cvs.getContext('2d', { willReadFrequently: true });
-    ctx.imageSmoothingEnabled = false; // PREVENTS CSS BLUR!
+    ctx.imageSmoothingEnabled = false; // Strictly Disable CSS Blur Inside Canvas
     
     const t = new THREE.CanvasTexture(cvs);
     t.magFilter = THREE.NearestFilter;
@@ -487,7 +492,6 @@ async function loadCustomModel(bName) {
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
-        // Exact Minecraft Entity Model translation using authentic MC Box parameters
         const buildMCModel = (parts, tS) => {
             const geos = [];
             const px = 1/16;
@@ -497,7 +501,6 @@ async function loadCustomModel(bName) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                // Match MC mapping to ThreeJS faces (+Z facing towards camera = Front)
                 const setF = (faceIdx, u, v, fw, fh) => {
                     const u1 = u / tS, u2 = (u + fw) / tS;
                     const v1 = 1 - (v + fh) / tS, v2 = 1 - v / tS;
@@ -505,14 +508,13 @@ async function loadCustomModel(bName) {
                     uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2; uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
                 };
 
-                setF(1, uX, uY + d, d, h);                 // MC Right -> ThreeJS -X (Left viewing side)
-                setF(4, uX + d, uY + d, w, h);             // MC Front -> ThreeJS +Z (Front viewing side)
-                setF(0, uX + d + w, uY + d, d, h);         // MC Left  -> ThreeJS +X (Right viewing side)
-                setF(5, uX + d + w + d, uY + d, w, h);     // MC Back  -> ThreeJS -Z (Back viewing side)
-                setF(2, uX + d, uY, w, d);                 // MC Top   -> ThreeJS +Y (Top)
-                setF(3, uX + d + w, uY, w, d);             // MC Bottom-> ThreeJS -Y (Bottom)
+                setF(1, uX, uY + d, d, h);                 // Left viewing side
+                setF(4, uX + d, uY + d, w, h);             // Front viewing side
+                setF(0, uX + d + w, uY + d, d, h);         // Right viewing side
+                setF(5, uX + d + w + d, uY + d, w, h);     // Back viewing side
+                setF(2, uX + d, uY, w, d);                 // Top
+                setF(3, uX + d + w, uY, w, d);             // Bottom
 
-                // Compute exact offset
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
                 if (pivot && rotX) {
@@ -538,7 +540,7 @@ async function loadCustomModel(bName) {
             ];
             headGeo = buildMCModel(parts, 256);
             headGeo.scale(0.75, 0.75, 0.75); 
-            headGeo.translate(0, -0.15, 0); 
+            headGeo.translate(0, -0.15, 0.25); // Push slightly forward so it sits perfectly in UI
         } else {
             const parts = [ { w: 8, h: 8, d: 8, mcX: -4, mcY: 0, mcZ: -4, uX: 0, uY: 0 } ];
             headGeo = buildMCModel(parts, 64);
@@ -603,10 +605,6 @@ async function loadCustomModel(bName) {
         if (isOuter) baseName = bName.replace('_outer', '');
         if (isTop) baseName = bName.replace('_top', '');
 
-        // Redirects to prevent model 404s
-        if (baseName === 'stone_wall') baseName = 'cobblestone_wall';
-        if (baseName === 'snowy_grass_block') baseName = 'grass_block';
-
         let modelPath = baseName;
         const state = await JSONReader.getBlockstate(baseName);
         
@@ -643,6 +641,7 @@ async function loadCustomModel(bName) {
         let currentModel = await JSONReader.getModel(modelPath);
         let elements = currentModel ? currentModel.elements : null;
         let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
+        let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
 
         let depth = 0;
         while (currentModel && currentModel.parent && depth < 10) {
@@ -658,6 +657,11 @@ async function loadCustomModel(bName) {
                 if (currentModel.textures) {
                     for (let k in currentModel.textures) {
                         if (!textures[k]) textures[k] = currentModel.textures[k];
+                    }
+                }
+                if (currentModel.display) {
+                    for (let k in currentModel.display) {
+                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
                     }
                 }
             }
@@ -807,6 +811,8 @@ async function loadCustomModel(bName) {
                 customGeometries[bName] = mergeBufferGeometries(elementGeometries);
             }
             
+            customGeometries[bName].userData = { display: display };
+            
         } else {
             throw new Error("No elements found");
         }
@@ -850,24 +856,19 @@ async function getBlockIcon(type) {
     
     let pathInfo = resolveTexturePath(type);
     
-    // Explicit 2D items (draws pure internal texture buffer out to DataURL for flawless crispness & mcmeta animation support!)
+    // Explicit 2D items (Uses a pure HTMLCanvas element rendering for flawless 1:1 crisp pixels)
     if (pathInfo.is2D) {
         let tex = loadTex(pathInfo.filename, pathInfo.folder);
         await tex.loadPromise;
         
-        // Safely extract the raw crisp frame data from the texture's internal canvas
-        let url;
-        if (tex.image instanceof HTMLCanvasElement) {
-             url = `url(${tex.image.toDataURL('image/png')})`;
-        } else {
-             // Fallback generator for Image elements
-             const cvs = document.createElement('canvas');
-             cvs.width = 16; cvs.height = 16;
-             const ctx = cvs.getContext('2d');
-             ctx.imageSmoothingEnabled = false;
-             ctx.drawImage(tex.image, 0, 0, 16, 16);
-             url = `url(${cvs.toDataURL('image/png')})`;
+        const cvs = document.createElement('canvas');
+        cvs.width = 16; cvs.height = 16;
+        const ctx = cvs.getContext('2d');
+        ctx.imageSmoothingEnabled = false; // Strictly Disable Canvas Blur
+        if (tex.image) {
+            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
         }
+        const url = `url(${cvs.toDataURL('image/png')})`;
         iconCache[type] = url;
         return url;
     }
@@ -882,11 +883,43 @@ async function getBlockIcon(type) {
     
     mesh.position.set(0, 0, 0);
     
-    // STRICT PERFECT ISOMETRIC ROTATION FOR ALL 3D INVENTORY BLOCKS (Overrides wacky JSON defaults)
-    mesh.rotation.set(Math.PI / 6, -Math.PI / 4, 0, 'YXZ');
+    // Apply Authentic Minecraft GUI JSON Transformations
+    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    if (geo.userData && geo.userData.display && geo.userData.display.gui) {
+        guiConfig = geo.userData.display.gui;
+    }
+
+    if (guiConfig.rotation) {
+        // Precise MC JSON to ThreeJS Isometric view matrix translation
+        let rx = guiConfig.rotation[0];
+        let ry = guiConfig.rotation[1];
+        let rz = guiConfig.rotation[2];
+        
+        // 225 deg in Minecraft creates a front/right view. 
+        // 45 degrees in Three.js achieves this identical look in our camera setup.
+        let threeRy = ry;
+        if (ry === 225) threeRy = 45; 
+        
+        mesh.rotation.set(
+            THREE.MathUtils.degToRad(rx),
+            THREE.MathUtils.degToRad(threeRy),
+            THREE.MathUtils.degToRad(rz),
+            'XYZ'
+        );
+    }
     
-    // Sclae generic blocks up slightly to look good in the 16x16 frame
-    mesh.scale.set(0.625, 0.625, 0.625);
+    if (guiConfig.scale) {
+        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
+    }
+    
+    if (guiConfig.translation) {
+        // Adjust scale translation visually relative to the GUI camera bounds
+        mesh.position.set(
+            (guiConfig.translation[0] / 16) * 0.5,
+            (guiConfig.translation[1] / 16) * 0.5,
+            (guiConfig.translation[2] / 16) * 0.5
+        );
+    }
     
     iconRenderer.render(iconScene, iconCamera);
     const dataUrl = iconRenderer.domElement.toDataURL('image/png');
@@ -901,7 +934,6 @@ function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
     if (!type) { element.style.backgroundImage = 'none'; return; }
     
-    // Animate loop handles live compass hooks directly
     if (type === 'compass') return;
     
     getBlockIcon(type).then(url => {
@@ -2877,21 +2909,22 @@ document.addEventListener('mousedown', (e) => {
             const selectedItem = inventory[selectedSlot];
             
             // STRICT PREVENT OF RAW FLAT ITEMS BEING PLACED ON THE GROUND
-            if (flatItems.has(selectedItem.type)) return;
+            let placementType = selectedItem.type;
+            if (placementType === 'sweet_berries') placementType = 'sweet_berry_bush';
+            if (flatItems.has(placementType)) return; 
             
-            if (selectedItem.type && getGlobalBlock(placeX, placeY, placeZ) === 0) {
+            if (placementType && getGlobalBlock(placeX, placeY, placeZ) === 0) {
                 let rotation = [0, 0, 0];
-                let t = selectedItem.type;
                 let stairData = null;
                 let extraBlock = null; 
                 
-                if (t.includes('log') || t.includes('pillar') || t === 'basalt' || t === 'polished_basalt' || t === 'bone_block' || t === 'purpur_pillar' || t === 'quartz_pillar' || t === 'hay_block') {
+                if (placementType.includes('log') || placementType.includes('pillar') || placementType === 'basalt' || placementType === 'polished_basalt' || placementType === 'bone_block' || placementType === 'purpur_pillar' || placementType === 'quartz_pillar' || placementType === 'hay_block') {
                     let axis = 'y';
                     if (Math.abs(hit.face.normal.x) > 0.5) axis = 'x';
                     if (Math.abs(hit.face.normal.z) > 0.5) axis = 'z';
                     rotation = JSONReader.getRotationForAxis(axis);
                 } 
-                else if (t.includes('stairs')) {
+                else if (placementType.includes('stairs')) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
@@ -2902,10 +2935,9 @@ document.addEventListener('mousedown', (e) => {
                     else facing = 0; 
 
                     let isTop = (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5));
-                    
                     stairData = { isStair: true, facing: facing, half: isTop ? 'top' : 'bottom' };
                 }
-                else if (t.includes('door') && !t.includes('trapdoor')) {
+                else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
@@ -2916,9 +2948,9 @@ document.addEventListener('mousedown', (e) => {
                     else rotY = Math.PI/2; 
 
                     rotation = [0, rotY, 0];
-                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[t + '_top'], rotation: [0, rotY, 0] };
+                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0] };
                 }
-                else if (t.includes('furnace') || t === 'chest' || t === 'carved_pumpkin' || t === 'jack_o_lantern' || t === 'loom' || t === 'observer' || t === 'dispenser' || t === 'dropper') {
+                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper') {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
@@ -2931,11 +2963,11 @@ document.addEventListener('mousedown', (e) => {
                     rotation = [0, rotY, 0];
                 }
                 
-                let placedData = { type: TYPE[selectedItem.type], rotation: rotation };
+                let placedData = { type: TYPE[placementType], rotation: rotation };
                 if (stairData) placedData = { ...placedData, ...stairData };
                 
                 if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
-                    // Do nothing - not enough room to place the door
+                    // Not enough room to place the double block
                 } else {
                     setGlobalBlock(placeX, placeY, placeZ, placedData);
                     
