@@ -1,3 +1,20 @@
+const globalStyles = document.createElement('style');
+globalStyles.innerHTML = `
+    /* Global override to ensure absolutely NO browser blurring on scaled elements */
+    * {
+        image-rendering: -moz-crisp-edges !important;
+        image-rendering: -o-crisp-edges !important;
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        image-rendering: pixelated !important; 
+    }
+    body { margin: 0; overflow: hidden; background-color: #87ceeb; font-family: sans-serif; }
+    canvas { display: block; }
+    .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
+    .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
+`;
+document.head.appendChild(globalStyles);
+
 const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
 const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
 const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
@@ -55,7 +72,7 @@ scene.add(sunMesh);
 
 const moonGeo = new THREE.PlaneGeometry(20, 20);
 const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff, side: THREE.DoubleSide, fog: false });
-const moonMesh = new Mesh(moonGeo, moonMat);
+const moonMesh = new THREE.Mesh(moonGeo, moonMat);
 scene.add(moonMesh);
 
 const starsGeo = new THREE.BufferGeometry();
