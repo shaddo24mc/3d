@@ -22,9 +22,10 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Drastically increased resolution for sharp, pixelated inventory icons!
+// Render at perfect 32x32 to match MC's GUI scale constraints and avoid browser downscaling blur!
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-iconRenderer.setSize(256, 256);
+iconRenderer.setSize(32, 32);
+iconRenderer.setPixelRatio(1);
 const iconScene = new THREE.Scene();
 const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
@@ -899,10 +900,13 @@ async function getBlockIcon(type) {
     if (iconCache[type]) return iconCache[type];
     
     // Check if the item should be rendered as a 2D sprite instead of 3D geometry
+    // This catches explicitly 2D blocks (like ladders and kelp), generic item files, doors, standard vegetation, etc.
     const isItemTex = flatItems.has(type) || type === 'compass_tab' ||
                       (type.includes('door') && !type.includes('trapdoor')) || 
-                      ['torch', 'soul_torch', 'kelp', 'sweet_berries'].includes(type) || type.includes('sign') ||
-                      (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) && !type.includes('mangrove_roots'));
+                      ['torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass'].includes(type) || 
+                      type.includes('sign') ||
+                      (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) && !type.includes('mangrove_roots')) ||
+                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
     
     if (isItemTex) {
         let filename = type;
@@ -915,10 +919,10 @@ async function getBlockIcon(type) {
         if (type === 'grass') filename = 'short_grass';
         if (type === 'clock') filename = 'clock_00';
         
-        let folder = BLOCK_TEX_DIR;
+        let folder = BLOCK_TEX_DIR; // Safely default to pulling from the block directory for things like ladders
         
-        // Torches pull from block folder, but standard items pull from item folder
-        if (flatItems.has(type) || type === 'compass_tab' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign')) {
+        // Torches pull from block folder, but standard pure-items pull from item folder
+        if (flatItems.has(type) || type === 'compass_tab' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || type === 'sweet_berries') {
             folder = ITEM_TEX_DIR;
         }
         
