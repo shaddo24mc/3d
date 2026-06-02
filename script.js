@@ -1,3 +1,20 @@
+const globalStyles = document.createElement('style');
+globalStyles.innerHTML = `
+    /* Global override to ensure absolutely NO browser blurring on scaled elements */
+    * {
+        image-rendering: -moz-crisp-edges !important;
+        image-rendering: -o-crisp-edges !important;
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        image-rendering: pixelated !important; 
+    }
+    body { margin: 0; overflow: hidden; background-color: #87ceeb; font-family: sans-serif; }
+    canvas { display: block; }
+    .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
+    .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
+`;
+document.head.appendChild(globalStyles);
+
 const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
 const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
 const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
@@ -2950,7 +2967,20 @@ document.addEventListener('mousedown', (e) => {
             // STRICT PREVENT OF RAW FLAT ITEMS BEING PLACED ON THE GROUND
             let placementType = selectedItem.type;
             if (placementType === 'sweet_berries') placementType = 'sweet_berry_bush';
-            if (flatItems.has(placementType)) return; 
+            
+            const explicit2DItems = new Set([
+                'torch', 'soul_torch', 'kelp', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
+                'candle', 'sea_pickle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
+                'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
+                'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
+                'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
+                'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
+                'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
+                'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling'
+            ]);
+            
+            // Allow specific crops and blocks that were flagged 2D for inventory specifically to be placed 
+            if (flatItems.has(placementType) && !explicit2DItems.has(placementType) && !placementType.includes('sign') && !placementType.includes('door')) return; 
             
             if (placementType && getGlobalBlock(placeX, placeY, placeZ) === 0) {
                 let rotation = [0, 0, 0];
@@ -3244,6 +3274,15 @@ function animate() {
     renderer.render(scene, camera);
     stats.update();
 }
+
+// Preload all blocks and items to expose any missing textures in the developer console immediately!
+setTimeout(async () => {
+    console.log("Starting full texture preload check...");
+    for (let type of ALL_BLOCKS) {
+        await getBlockIcon(type);
+    }
+    console.log("Finished texture preload check.");
+}, 1000);
 
 // Start the game loop
 animate();
