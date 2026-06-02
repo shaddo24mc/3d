@@ -22,12 +22,13 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Lock 3D Icon Renderer to 64x64 for clean crisp downscaling to 16x16 UI slots
+// Render at perfect 64x64 to match MC's GUI scale constraints and avoid browser downscaling blur!
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-iconRenderer.setSize(64, 64); 
+iconRenderer.setSize(64, 64);
 iconRenderer.setPixelRatio(1);
 const iconScene = new THREE.Scene();
-const iconCamera = new THREE.OrthographicCamera(-0.8, 0.8, 0.8, -0.8, 0.1, 10);
+// Adjusted the camera boundaries from 0.8 down to 0.55 so blocks appear larger in the inventory!
+const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
@@ -264,27 +265,36 @@ function resolveTexturePath(name) {
     let filename = name;
     let is2D = false;
 
-    // Explicit 2D filtering to capture strict-items, vegetation, and flat-blocks correctly
-    const isExplicit2D = flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || 
-        ['torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass'].includes(name) || 
-        name.includes('sign') || name.includes('pane') ||
-        (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'flower', 'orchid', 'tulip', 'daisy', 'allium', 'bluet', 'rose', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus'].some(kw => name.includes(kw)) && !name.includes('mangrove_roots')) ||
-        (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(name));
+    // Explicitly 2D filtering for items, plants, foods, etc.
+    const explicit2D = new Set([
+        'torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
+        'candle', 'sea_pickle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
+        'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
+        'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
+        'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
+        'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
+        'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
+        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling'
+    ]);
 
-    if (isExplicit2D) {
+    if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
         is2D = true;
-        if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || name === 'kelp' || name.includes('sign') || name === 'sweet_berries' || name === 'sunflower' || name === 'lilac' || name === 'peony') {
+    }
+
+    if (is2D) {
+        const itemFolderOverrides = ['kelp', 'sweet_berries', 'campfire', 'soul_campfire', 'bamboo', 'turtle_egg', 'weeping_vines', 'twisting_vines', 'pink_petals'];
+        if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || itemFolderOverrides.includes(name) || name.includes('sign')) {
             folder = ITEM_TEX_DIR;
         }
     }
 
-    // Force strictly block directories to fix 404s
-    const forceBlockDir = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose'];
-    if (forceBlockDir.some(kw => name.includes(kw)) && !name.includes('mangrove_roots')) {
+    // Force strictly block directories for certain 2D items to fix 404s
+    const blockFolderOverrides = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose', 'sea_pickle', 'amethyst_cluster', 'pointed_dripstone', 'candle', 'propagule'];
+    if (blockFolderOverrides.some(kw => name.includes(kw)) && !['weeping_vines', 'twisting_vines', 'pink_petals'].includes(name) && !name.includes('mangrove_roots')) {
         folder = BLOCK_TEX_DIR;
     }
 
-    // Specific Overrides for exact vanilla names
+    // Exact filename Overrides
     if (name === 'compass') filename = 'compass_00';
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
@@ -299,6 +309,7 @@ function resolveTexturePath(name) {
     else if (name === 'sunflower') { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; } 
     else if (name === 'peony') { folder = BLOCK_TEX_DIR; filename = 'peony_top'; }
     else if (name === 'lilac') { folder = BLOCK_TEX_DIR; filename = 'lilac_top'; }
+    else if (name.includes('candle') && !name.includes('cake')) { filename = name; } 
 
     return { folder, filename, is2D };
 }
@@ -891,13 +902,11 @@ async function getBlockIcon(type) {
     }
 
     if (guiConfig.rotation) {
-        // Precise MC JSON to ThreeJS Isometric view matrix translation
         let rx = guiConfig.rotation[0];
         let ry = guiConfig.rotation[1];
         let rz = guiConfig.rotation[2];
         
         // Fix for Minecraft's bizarre internal GUI JSON angles mapping to clean ThreeJS Euler angles.
-        // MC uses 225 for standard isometric blocks.
         let threeRy = 0;
         if (ry === 225) threeRy = Math.PI / 4; 
         else threeRy = THREE.MathUtils.degToRad(ry);
@@ -911,14 +920,15 @@ async function getBlockIcon(type) {
     }
     
     if (guiConfig.scale) {
-        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
+        // Boost generic JSON scaling since it tends to be too small on isolated canvases
+        mesh.scale.set(guiConfig.scale[0] * 1.3, guiConfig.scale[1] * 1.3, guiConfig.scale[2] * 1.3);
     }
     
     if (guiConfig.translation) {
         mesh.position.set(
-            (guiConfig.translation[0] / 16) * 0.5,
-            (guiConfig.translation[1] / 16) * 0.5,
-            (guiConfig.translation[2] / 16) * 0.5
+            (guiConfig.translation[0] / 16) * 0.65,
+            (guiConfig.translation[1] / 16) * 0.65,
+            (guiConfig.translation[2] / 16) * 0.65
         );
     }
     
