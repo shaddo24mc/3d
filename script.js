@@ -459,45 +459,84 @@ async function loadCustomModel(bName) {
         let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
         let headGeo;
-        let texSize = 64;
         
         if (bName === 'dragon_head') {
-            headGeo = new THREE.BoxGeometry(0.75, 0.5, 0.75);
-            headGeo.translate(0, -0.25, 0); 
-            texSize = 256; 
+            const geos = [];
+            const px = 1/16;
+            const tS = 256;
+            
+            const addPart = (w, h, d, ox, oy, oz, uX, uY, rotX = 0) => {
+                const geo = new THREE.BoxGeometry(w * px, h * px, d * px);
+                geo.clearGroups();
+                const uvs = geo.attributes.uv.array;
+                
+                // Map UVs based on Minecraft's standard entity box layout
+                const setFUV = (faceIdx, px, py, pw, ph) => {
+                    const u1 = px / tS, u2 = (px + pw) / tS;
+                    const v1 = 1 - (py + ph) / tS, v2 = 1 - py / tS;
+                    const i = faceIdx * 8;
+                    uvs[i+0] = u1; uvs[i+1] = v2;
+                    uvs[i+2] = u2; uvs[i+3] = v2;
+                    uvs[i+4] = u1; uvs[i+5] = v1;
+                    uvs[i+6] = u2; uvs[i+7] = v1;
+                };
+
+                // Three.js order -> MC Entity order mappings
+                setFUV(0, uX + d + w, uY + d, d, h);     // Right (ThreeJS)  = Left (MC)
+                setFUV(1, uX, uY + d, d, h);             // Left (ThreeJS)   = Right (MC)
+                setFUV(2, uX + d, uY, w, d);             // Top (ThreeJS)    = Top (MC)
+                setFUV(3, uX + d + w, uY, w, d);         // Bottom (ThreeJS) = Bottom (MC)
+                setFUV(4, uX + d + w + d, uY + d, w, h); // Front (ThreeJS)  = Back (MC)
+                setFUV(5, uX + d, uY + d, w, h);         // Back (ThreeJS)   = Front (MC)
+
+                // Optional rotation (like for opening the jaw)
+                if (rotX !== 0) {
+                    geo.translate(0, 0, (d/2)*px);
+                    geo.rotateX(rotX);
+                    geo.translate(0, 0, -(d/2)*px);
+                }
+                geo.translate(ox * px, oy * px, oz * px);
+                geos.push(geo);
+            };
+
+            // Assemble the Dragon Head parts explicitly
+            addPart(16, 16, 16,   0, 0, 0,       112, 0);       // Main Head/Skull
+            addPart(10, 6, 16,    0, -5, -16,    112, 24);      // Upper Snout
+            addPart(12, 4, 16,    0, -4.5, -16,  176, 65, 0.2); // Jaw (tilted down slightly)
+            addPart(2, 4, 6,     -4, 10, -1,     0, 0);         // Right Horn
+            addPart(2, 4, 6,      4, 10, -1,     0, 0);         // Left Horn
+            addPart(2, 2, 4,     -2, -2, -22,    112, 0);       // Right Nostril 
+            addPart(2, 2, 4,      2, -2, -22,    112, 0);       // Left Nostril
+
+            headGeo = mergeBufferGeometries(geos);
+            headGeo.scale(0.75, 0.75, 0.75);   // Scale it down to match block grid sizing
+            headGeo.translate(0, -0.15, 0.15); // Center block vertically/horizontally
+            headGeo.rotateY(Math.PI);          // Make it face the correct way by default
+            
         } else {
+            // Standard Mob Heads (Zombies, Creepers, etc)
             headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
             headGeo.translate(0, -0.25, 0); 
-        }
-        
-        const uvs = headGeo.attributes.uv.array;
-        const setUV = (faceIdx, px, py, pw, ph) => {
-            const u1 = px / texSize;
-            const u2 = (px + pw) / texSize;
-            const v1 = 1 - (py + ph) / texSize;
-            const v2 = 1 - py / texSize;
-            const i = faceIdx * 8;
-            uvs[i+0] = u1; uvs[i+1] = v2;
-            uvs[i+2] = u2; uvs[i+3] = v2;
-            uvs[i+4] = u1; uvs[i+5] = v1;
-            uvs[i+6] = u2; uvs[i+7] = v1;
-        };
-        
-        if (bName === 'dragon_head') {
-            // Target the dragon head correctly on the 256x256 skin sheet
-            setUV(0, 0, 112, 16, 16);    // Right
-            setUV(1, 32, 112, 16, 16);   // Left
-            setUV(2, 16, 96, 16, 16);    // Top
-            setUV(3, 32, 96, 16, 16);    // Bottom
-            setUV(4, 16, 112, 16, 16);   // Front
-            setUV(5, 48, 112, 16, 16);   // Back
-        } else {
-            setUV(0, 0, 8, 8, 8);   // Right
-            setUV(1, 16, 8, 8, 8);  // Left
-            setUV(2, 8, 0, 8, 8);   // Top
-            setUV(3, 16, 0, 8, 8);  // Bottom
-            setUV(4, 8, 8, 8, 8);   // Front
-            setUV(5, 24, 8, 8, 8);  // Back
+            headGeo.clearGroups();
+            const texSize = 64;
+            const uvs = headGeo.attributes.uv.array;
+            const setUV = (faceIdx, px, py, pw, ph) => {
+                const u1 = px / texSize, u2 = (px + pw) / texSize;
+                const v1 = 1 - (py + ph) / texSize, v2 = 1 - py / texSize;
+                const i = faceIdx * 8;
+                uvs[i+0] = u1; uvs[i+1] = v2;
+                uvs[i+2] = u2; uvs[i+3] = v2;
+                uvs[i+4] = u1; uvs[i+5] = v1;
+                uvs[i+6] = u2; uvs[i+7] = v1;
+            };
+            
+            // Map the 64x64 standard skull texture layout
+            setUV(0, 16, 8, 8, 8); // Right
+            setUV(1, 0, 8, 8, 8);  // Left
+            setUV(2, 8, 0, 8, 8);  // Top
+            setUV(3, 16, 0, 8, 8); // Bottom
+            setUV(4, 24, 8, 8, 8); // Front
+            setUV(5, 8, 8, 8, 8);  // Back
         }
 
         // Parse parent item models to get proper display properties (like scaling/rotation for the dragon head)
@@ -514,6 +553,12 @@ async function loadCustomModel(bName) {
                 }
                 if (currentModel.parent) {
                     let parentPath = currentModel.parent.replace('minecraft:', '');
+                    
+                    // Handle "builtin" geometry cleanly by ignoring it and not throwing 404s
+                    if (parentPath.startsWith('builtin/')) {
+                        break; 
+                    }
+                    
                     currentModel = await JSONReader.fetchJSON(`${BLOCK_TEX_DIR.replace('textures/block/', 'models/')}${parentPath}.json`);
                 } else {
                     currentModel = null;
@@ -521,6 +566,15 @@ async function loadCustomModel(bName) {
                 depth++;
             }
         } catch(e) {}
+
+        // Inject the default template_skull display rules if the network JSON fetch failed/was empty
+        if (Object.keys(display).length === 0) {
+            display = {
+                gui: { translation: [-2, 2, 0], rotation: [30, 45, 0], scale: [0.6, 0.6, 0.6] },
+                thirdperson_righthand: { rotation: [0, 180, 0], translation: [0, -1, 2], scale: [0.5, 0.5, 0.5] },
+                on_shelf: { rotation: [0, 0, 0], translation: [0, 2, 0], scale: [1.25, 1.25, 1.25] }
+            };
+        }
 
         // Fallback default GUI transform if no JSON overrides were found
         if (!display.gui) {
@@ -602,6 +656,11 @@ async function loadCustomModel(bName) {
             let parentPath = currentModel.parent;
             if (parentPath.includes(':')) parentPath = parentPath.split(':')[1]; 
             parentPath = parentPath.replace('block/', '');
+            
+            // Handle "builtin" parents for standard blocks (like chests/beds)
+            if (parentPath.startsWith('builtin/')) {
+                break;
+            }
             
             currentModel = await JSONReader.getModel(parentPath);
             if (currentModel) {
