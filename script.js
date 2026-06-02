@@ -1,20 +1,3 @@
-const globalStyles = document.createElement('style');
-globalStyles.innerHTML = `
-    /* Global override to ensure absolutely NO browser blurring on scaled elements */
-    * {
-        image-rendering: -moz-crisp-edges !important;
-        image-rendering: -o-crisp-edges !important;
-        image-rendering: -webkit-optimize-contrast !important;
-        image-rendering: crisp-edges !important;
-        image-rendering: pixelated !important; 
-    }
-    body { margin: 0; overflow: hidden; background-color: #87ceeb; font-family: sans-serif; }
-    canvas { display: block; }
-    .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
-    .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
-`;
-document.head.appendChild(globalStyles);
-
 const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
 const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
 const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
@@ -241,6 +224,7 @@ let currentCategory = 'building';
 let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 let currentGuiScale = 2;
+let currentCreativeRow = 0; // State variable tracking discrete row scrolling
 
 const INVENTORY_SIZE = 9; 
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
@@ -912,14 +896,15 @@ async function getBlockIcon(type) {
         let ry = guiConfig.rotation[1];
         let rz = guiConfig.rotation[2];
         
-        // 225 deg in Minecraft creates a front/right view. 
-        // 45 degrees in Three.js achieves this identical look in our camera setup.
-        let threeRy = ry;
-        if (ry === 225) threeRy = 45; 
+        // Fix for Minecraft's bizarre internal GUI JSON angles mapping to clean ThreeJS Euler angles.
+        // MC uses 225 for standard isometric blocks.
+        let threeRy = 0;
+        if (ry === 225) threeRy = Math.PI / 4; 
+        else threeRy = THREE.MathUtils.degToRad(ry);
         
         mesh.rotation.set(
             THREE.MathUtils.degToRad(rx),
-            THREE.MathUtils.degToRad(threeRy),
+            threeRy,
             THREE.MathUtils.degToRad(rz),
             'XYZ'
         );
@@ -930,7 +915,6 @@ async function getBlockIcon(type) {
     }
     
     if (guiConfig.translation) {
-        // Adjust scale translation visually relative to the GUI camera bounds
         mesh.position.set(
             (guiConfig.translation[0] / 16) * 0.5,
             (guiConfig.translation[1] / 16) * 0.5,
@@ -1149,7 +1133,7 @@ creativeGridContainer.style.left = '9px';
 creativeGridContainer.style.top = '18px';
 creativeGridContainer.style.width = '162px'; 
 creativeGridContainer.style.height = '90px'; 
-creativeGridContainer.style.overflowY = 'scroll';
+creativeGridContainer.style.overflowY = 'hidden'; 
 creativeGridContainer.style.backgroundColor = 'transparent';
 creativeGridContainer.style.display = 'grid';
 creativeGridContainer.style.gridTemplateColumns = 'repeat(9, 18px)';
@@ -1248,6 +1232,24 @@ function updateScrollThumbVisuals(disabled) {
             scrollThumb.style.backgroundPosition = idx === 0 ? '0 0' : `${legacyX}px 0`;
         }
     );
+}
+
+function updateCreativeScrollView() {
+    let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
+    let maxRow = Math.max(0, totalRows - 5);
+
+    currentCreativeRow = Math.max(0, Math.min(currentCreativeRow, maxRow));
+
+    creativeGridContainer.scrollTop = currentCreativeRow * 18;
+
+    if (maxRow <= 0) {
+        updateScrollThumbVisuals(true);
+        scrollThumb.style.top = '0px';
+    } else {
+        updateScrollThumbVisuals(false);
+        const scrollPct = currentCreativeRow / maxRow;
+        scrollThumb.style.top = (scrollPct * 97) + 'px';
+    }
 }
 
 function createTab(catKey, isTop, isRightAlign = false, colIndex = 0) {
@@ -1428,7 +1430,7 @@ function createItemSlot(bName, i, sourceArray) {
 
 function populateCreativeGrid() {
     creativeGridContainer.innerHTML = '';
-    creativeGridContainer.scrollTop = 0; 
+    currentCreativeRow = 0; 
     
     let blocksToShow = CATEGORIES[currentCategory].blocks;
     
@@ -1443,7 +1445,7 @@ function populateCreativeGrid() {
         creativeGridContainer.appendChild(createItemSlot(bName, null, null));
     });
     
-    creativeGridContainer.dispatchEvent(new Event('scroll'));
+    updateCreativeScrollView();
 }
 
 function updateInventoryUI() {
@@ -1565,29 +1567,39 @@ document.addEventListener('mousemove', (e) => {
         tooltip.style.left = (e.clientX / currentGuiScale + 12) + 'px';
         tooltip.style.top = (e.clientY / currentGuiScale - 12) + 'px';
     }
+    
+    // Smooth scroll thumb drag logic that snaps the grid mathematically to rows
     if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
-        const trackRect = scrollTrack.getBoundingClientRect();
-        let trueHeight = 97 * currentGuiScale; 
-        let y = e.clientY - trackRect.top - (7.5 * currentGuiScale); 
-        y = Math.max(0, Math.min(y, trueHeight)); 
-        const scrollPct = y / trueHeight;
-        creativeGridContainer.scrollTop = scrollPct * (creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight);
+        let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
+        let maxRow = Math.max(0, totalRows - 5);
+        if (maxRow > 0) {
+            const trackRect = scrollTrack.getBoundingClientRect();
+            let trueHeight = 97 * currentGuiScale; 
+            let y = e.clientY - trackRect.top - (7.5 * currentGuiScale); 
+            y = Math.max(0, Math.min(y, trueHeight)); 
+            const scrollPct = y / trueHeight;
+            
+            currentCreativeRow = Math.round(scrollPct * maxRow);
+            creativeGridContainer.scrollTop = currentCreativeRow * 18;
+            scrollThumb.style.top = (y / currentGuiScale) + 'px';
+        }
     }
 });
 
 document.addEventListener('mouseup', () => { isDraggingScroll = false; });
-creativeGridContainer.addEventListener('scroll', () => {
-    if (isDraggingScroll) return;
-    const maxScroll = creativeGridContainer.scrollHeight - creativeGridContainer.clientHeight;
-    if (maxScroll <= 0) {
-        updateScrollThumbVisuals(true);
-        scrollThumb.style.top = '0px';
-        return;
-    }
-    updateScrollThumbVisuals(false);
-    const scrollPct = creativeGridContainer.scrollTop / maxScroll;
-    scrollThumb.style.top = (scrollPct * 97) + 'px';
-});
+
+// Row by Row Discrete Menu Wheel Scrolling
+invBody.addEventListener('wheel', (e) => {
+    if (currentCategory === 'inventory') return;
+    let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
+    let maxRow = Math.max(0, totalRows - 5);
+    if (maxRow <= 0) return;
+
+    e.preventDefault(); 
+    let dir = Math.sign(e.deltaY);
+    currentCreativeRow = Math.max(0, Math.min(currentCreativeRow + dir, maxRow));
+    updateCreativeScrollView();
+}, { passive: false });
 
 calculateGuiScale();
 window.addEventListener('resize', calculateGuiScale);
