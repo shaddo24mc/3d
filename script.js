@@ -454,13 +454,14 @@ crossGeo.computeVertexNormals();
 async function loadCustomModel(bName) {
     if (customGeometries[bName]) return; 
 
-    // Handle Skull Model generation overriding
-    if (bName.includes('head') || bName.includes('skull')) {
+    // Handle Skull Model generation overriding directly (avoid 404 fetching)
+    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head']);
+    if (hardcodedModels.has(bName)) {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
-        // Advanced Custom Geometry Builder for Exact Minecraft 3D Entity Models
+        // Exact Minecraft Entity Model translation using authentic MC Box parameters
         const buildMCModel = (parts, tS) => {
             const geos = [];
             const px = 1/16;
@@ -470,36 +471,28 @@ async function loadCustomModel(bName) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                // Accurately map standard Minecraft box layout
+                // Match MC mapping to ThreeJS faces (+Z facing towards camera = Front)
                 const setF = (faceIdx, u, v, fw, fh) => {
                     const u1 = u / tS, u2 = (u + fw) / tS;
                     const v1 = 1 - (v + fh) / tS, v2 = 1 - v / tS;
                     const i = faceIdx * 8;
-                    uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2;
-                    uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
+                    uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2; uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
                 };
 
-                setF(0, uX + d + w, uY + d, d, h);         // MC Left
-                setF(1, uX, uY + d, d, h);                 // MC Right
-                setF(2, uX + d, uY, w, d);                 // MC Top
-                setF(3, uX + d + w, uY, w, d);             // MC Bottom
-                setF(4, uX + d, uY + d, w, h);             // MC Front
-                setF(5, uX + d + w + d, uY + d, w, h);     // MC Back
+                setF(1, uX, uY + d, d, h);                 // MC Right -> ThreeJS -X (Left viewing side)
+                setF(4, uX + d, uY + d, w, h);             // MC Front -> ThreeJS +Z (Front viewing side)
+                setF(0, uX + d + w, uY + d, d, h);         // MC Left  -> ThreeJS +X (Right viewing side)
+                setF(5, uX + d + w + d, uY + d, w, h);     // MC Back  -> ThreeJS -Z (Back viewing side)
+                setF(2, uX + d, uY, w, d);                 // MC Top   -> ThreeJS +Y (Top)
+                setF(3, uX + d + w, uY, w, d);             // MC Bottom-> ThreeJS -Y (Bottom)
 
-                // Compute physical center for offset
-                const cx = (mcX + w/2) * px;
-                const cy = -(mcY + h/2) * px;
-                const cz = (mcZ + d/2) * px;
-                geo.translate(cx, cy, cz);
+                // Compute exact offset
+                geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
-                // Replicate complex entity bone pivoting
                 if (pivot && rotX) {
-                    const pxiv = pivot[0] * px;
-                    const pyiv = -(pivot[1]) * px;
-                    const pziv = pivot[2] * px;
-                    geo.translate(-pxiv, -pyiv, -pziv);
+                    geo.translate(-pivot[0]*px, -pivot[1]*px, -pivot[2]*px);
                     geo.rotateX(rotX);
-                    geo.translate(pxiv, pyiv, pziv);
+                    geo.translate(pivot[0]*px, pivot[1]*px, pivot[2]*px);
                 }
                 geos.push(geo);
             }
@@ -508,71 +501,31 @@ async function loadCustomModel(bName) {
 
         let headGeo;
         if (bName === 'dragon_head') {
-            // Precise mathematical model dimensions translated from DragonHeadModel.java
             const parts = [
-                { w: 16, h: 16, d: 16, mcX: -8, mcY: -8, mcZ: -8, uX: 112, uY: 0 },
-                { w: 12, h: 5,  d: 16, mcX: -6, mcY: -1, mcZ: -24, uX: 112, uY: 24 },
-                { w: 12, h: 4,  d: 16, mcX: -6, mcY: 4,  mcZ: -24, uX: 176, uY: 65, pivot: [0, 4, -8], rotX: 0.15 }, // RotX opens Jaw!
-                { w: 2,  h: 4,  d: 6,  mcX: -5, mcY: -12,mcZ: -4,  uX: 0,   uY: 0 },
-                { w: 2,  h: 4,  d: 6,  mcX: 3,  mcY: -12,mcZ: -4,  uX: 0,   uY: 0 },
-                { w: 2,  h: 2,  d: 4,  mcX: -5, mcY: -3, mcZ: -26, uX: 112, uY: 0 },
-                { w: 2,  h: 2,  d: 4,  mcX: 3,  mcY: -3, mcZ: -26, uX: 112, uY: 0 }
+                { w: 16, h: 16, d: 16, mcX: -8, mcY: 0, mcZ: -8, uX: 112, uY: 0 },
+                { w: 12, h: 5,  d: 16, mcX: -6, mcY: 3, mcZ: -24, uX: 112, uY: 24 }, // Upper snout
+                { w: 12, h: 4,  d: 16, mcX: -6, mcY: -1, mcZ: -24, uX: 176, uY: 65, pivot: [0, -1, -8], rotX: 0.15 }, // Jaw opened!
+                { w: 2,  h: 4,  d: 6,  mcX: -5, mcY: 16, mcZ: -4, uX: 0, uY: 0 }, // Right Horn
+                { w: 2,  h: 4,  d: 6,  mcX: 3,  mcY: 16, mcZ: -4, uX: 0, uY: 0 }, // Left Horn
+                { w: 2,  h: 2,  d: 4,  mcX: -5, mcY: 5, mcZ: -26, uX: 112, uY: 0 }, // Right Nostril
+                { w: 2,  h: 2,  d: 4,  mcX: 3,  mcY: 5, mcZ: -26, uX: 112, uY: 0 }  // Left Nostril
             ];
             headGeo = buildMCModel(parts, 256);
-            headGeo.scale(0.75, 0.75, 0.75); // Scale down to match grid logic
+            headGeo.scale(0.75, 0.75, 0.75); 
             headGeo.translate(0, -0.15, 0); 
+            headGeo.rotateY(Math.PI); // Force face player upon placement
         } else {
-            // Standard Mob Heads correctly modeled via explicit geometry constructor to prevent skew
-            const parts = [
-                { w: 8, h: 8, d: 8, mcX: -4, mcY: -8, mcZ: -4, uX: 0, uY: 0 }
-            ];
+            const parts = [ { w: 8, h: 8, d: 8, mcX: -4, mcY: 0, mcZ: -4, uX: 0, uY: 0 } ];
             headGeo = buildMCModel(parts, 64);
-            headGeo.translate(0, -0.25, 0); // Drop 4 pixels down to rest correctly
+            headGeo.translate(0, -0.25, 0); 
+            headGeo.rotateY(Math.PI); // Force face player upon placement
         }
 
-        // Parse parent item models to get proper display properties (like scaling/rotation for the dragon head)
-        let display = {};
-        try {
-            let currentModel = await JSONReader.fetchJSON(`${BLOCK_TEX_DIR.replace('textures/block/', 'models/item/')}${bName}.json`);
-            let depth = 0;
-            while (currentModel && depth < 10) {
-                if (currentModel.display) {
-                    for (let k in currentModel.display) {
-                        // Inherit child properties safely, preventing parents from overwriting them
-                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
-                    }
-                }
-                if (currentModel.parent) {
-                    let parentPath = currentModel.parent.replace('minecraft:', '');
-                    
-                    // Handle "builtin" geometry cleanly by ignoring it and not throwing 404s
-                    if (parentPath.startsWith('builtin/')) {
-                        break; 
-                    }
-                    
-                    currentModel = await JSONReader.fetchJSON(`${BLOCK_TEX_DIR.replace('textures/block/', 'models/')}${parentPath}.json`);
-                } else {
-                    currentModel = null;
-                }
-                depth++;
-            }
-        } catch(e) {}
-
-        // Inject the default template_skull display rules if the network JSON fetch failed/was empty
-        if (Object.keys(display).length === 0) {
-            display = {
-                gui: { translation: [-2, 2, 0], rotation: [30, 45, 0], scale: [0.6, 0.6, 0.6] },
-                thirdperson_righthand: { rotation: [0, 180, 0], translation: [0, -1, 2], scale: [0.5, 0.5, 0.5] },
-                on_shelf: { rotation: [0, 0, 0], translation: [0, 2, 0], scale: [1.25, 1.25, 1.25] }
-            };
-        }
-
-        // Fallback default GUI transform if no JSON overrides were found
-        if (!display.gui) {
-            display.gui = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
-        }
-
-        headGeo.userData = { display: display };
+        headGeo.userData = { 
+            display: { 
+                gui: { rotation: [30, 225, 0], translation: [-2, 2, 0], scale: [0.625, 0.625, 0.625] } 
+            } 
+        };
 
         materials[bName] = mat;
         customGeometries[bName] = headGeo;
@@ -681,10 +634,7 @@ async function loadCustomModel(bName) {
             if (parentPath.includes(':')) parentPath = parentPath.split(':')[1]; 
             parentPath = parentPath.replace('block/', '');
             
-            // Handle "builtin" parents for standard blocks (like chests/beds)
-            if (parentPath.startsWith('builtin/')) {
-                break;
-            }
+            if (parentPath.startsWith('builtin/')) break;
             
             currentModel = await JSONReader.getModel(parentPath);
             if (currentModel) {
@@ -705,8 +655,6 @@ async function loadCustomModel(bName) {
 
         const resolveTexture = (texStr) => {
             if (!texStr) return null;
-            
-            // Normalize key by removing '#' if it exists, to support strict and loose formats
             let key = texStr.startsWith('#') ? texStr.substring(1) : texStr;
             
             if (textures[key]) {
@@ -718,10 +666,7 @@ async function loadCustomModel(bName) {
                 if (textures[key]) return textures[key];
             }
             
-            if (texStr.startsWith('#')) {
-                return resolveFallbackTexture(baseName); // Use the base block name as ultimate fallback!
-            }
-            
+            if (texStr.startsWith('#')) return resolveFallbackTexture(baseName);
             return texStr;
         };
 
@@ -745,7 +690,6 @@ async function loadCustomModel(bName) {
             if (isTranslucent || isOverlay) {
                 mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
             } else if (isCutout) {
-                // Strict alpha clipping to fix black borders on things like ladders, doors, etc
                 mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
             } else {
                 mat = new THREE.MeshStandardMaterial({ map: tex });
@@ -877,7 +821,7 @@ async function loadCustomModel(bName) {
         let customGeo = geometry.clone(); 
         if (bName === 'heavy_core') {
             customGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            customGeo.translate(0, -0.25, 0); // Position it at the bottom center
+            customGeo.translate(0, -0.25, 0);
         }
         
         customGeometries[bName] = customGeo; 
@@ -899,13 +843,12 @@ async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    // Check if the item should be rendered as a 2D sprite instead of 3D geometry
-    // This catches explicitly 2D blocks (like ladders and kelp), generic item files, doors, standard vegetation, etc.
+    // Explicit 2D filtering to capture strict-items, vegetation, and flat-blocks correctly
     const isItemTex = flatItems.has(type) || type === 'compass_tab' ||
                       (type.includes('door') && !type.includes('trapdoor')) || 
                       ['torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass'].includes(type) || 
-                      type.includes('sign') ||
-                      (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) && !type.includes('mangrove_roots')) ||
+                      type.includes('sign') || type.includes('pane') ||
+                      (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars', 'flower', 'orchid', 'tulip', 'daisy', 'allium', 'bluet', 'rose'].some(kw => type.includes(kw)) && !type.includes('mangrove_roots')) ||
                       (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
     
     if (isItemTex) {
@@ -918,15 +861,36 @@ async function getBlockIcon(type) {
         if (type === 'tall_grass') filename = 'tall_grass_top';
         if (type === 'grass') filename = 'short_grass';
         if (type === 'clock') filename = 'clock_00';
+        if (type.includes('pane')) filename = type.replace('_pane', '');
         
-        let folder = BLOCK_TEX_DIR; // Safely default to pulling from the block directory for things like ladders
+        let folder = ITEM_TEX_DIR;
+        const useBlockDir = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'kelp'];
         
-        // Torches pull from block folder, but standard pure-items pull from item folder
-        if (flatItems.has(type) || type === 'compass_tab' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || type === 'sweet_berries') {
-            folder = ITEM_TEX_DIR;
+        if (useBlockDir.includes(type) || type.includes('sapling') || type.includes('mushroom') || type.includes('fern') || type.includes('bush') || type.includes('roots') || type.includes('flower') || type.includes('pane') || type.includes('tulip') || type.includes('rose') || type.includes('orchid')) {
+            folder = BLOCK_TEX_DIR;
         }
+        if (type === 'rose_bush') filename = 'rose_bush_top'; // Secondary safety catch
         
-        const url = `url(${folder}${filename}.png)`;
+        let tex = loadTex(filename, folder === ITEM_TEX_DIR);
+        await tex.loadPromise;
+        
+        // Render all 2D items as 3D Planes inside the inventory renderer. 
+        // This solves two things: 1. Uses loadTex's internal `.mcmeta` parsing (preventing tall squished animations!) 
+        // 2. Uses NearestFilter at strict 32x32 limits to eliminate CSS image resizing blur.
+        let flatGeo = new THREE.PlaneGeometry(1, 1);
+        let flatMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+        let mesh = new THREE.Mesh(flatGeo, flatMat);
+        
+        iconScene.add(mesh);
+        mesh.position.set(0, 0, 0);
+        mesh.rotation.set(0, 0, 0);
+        mesh.scale.set(1.4, 1.4, 1.4); 
+        
+        iconRenderer.render(iconScene, iconCamera);
+        const dataUrl = iconRenderer.domElement.toDataURL('image/png');
+        iconScene.remove(mesh);
+        
+        const url = `url(${dataUrl})`;
         iconCache[type] = url;
         return url;
     }
@@ -2958,6 +2922,11 @@ document.addEventListener('mousedown', (e) => {
             const placeZ = Math.round(p.z + hit.face.normal.z);
             
             const selectedItem = inventory[selectedSlot];
+            
+            // Prevent placing raw flat items (like swords, apples, signs) that have no real 3D block equivalent geometry mapping
+            if (STRICT_ITEMS.has(selectedItem.type) && selectedItem.type !== 'command_block' && selectedItem.type !== 'sweet_berries') {
+                return; 
+            }
             
             if (selectedItem.type && getGlobalBlock(placeX, placeY, placeZ) === 0) {
                 let rotation = [0, 0, 0];
