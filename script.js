@@ -22,8 +22,9 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
+// Drastically increased resolution for sharp, pixelated inventory icons!
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-iconRenderer.setSize(64, 64);
+iconRenderer.setSize(256, 256);
 const iconScene = new THREE.Scene();
 const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
@@ -69,7 +70,7 @@ scene.add(starsMesh);
 // 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
 // ============================================================================
 const ITEMS = [
-    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign',
+    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign', 'sweet_berries',
     'angler_pottery_sherd', 'archer_pottery_sherd', 'arms_up_pottery_sherd', 'blade_pottery_sherd', 'brewer_pottery_sherd', 'burn_pottery_sherd', 'danger_pottery_sherd', 'explorer_pottery_sherd', 'friend_pottery_sherd', 'heart_pottery_sherd', 'heartbreak_pottery_sherd', 'howl_pottery_sherd', 'miner_pottery_sherd', 'mourner_pottery_sherd', 'plenty_pottery_sherd', 'prize_pottery_sherd', 'sheaf_pottery_sherd', 'shelter_pottery_sherd', 'skull_pottery_sherd', 'snort_pottery_sherd'
 ];
 const STRICT_ITEMS = new Set(ITEMS);
@@ -99,7 +100,7 @@ const baseBlocks = [
     'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_brain_coral_block', 'dead_bubble_coral_block',
     'dead_fire_coral_block', 'dead_horn_coral_block', 'dead_tube_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
     'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
-    'sweet_berry_bush', 'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
+    'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
     'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
     'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
     'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
@@ -161,7 +162,7 @@ ALL_BLOCKS.forEach((b, i) => { let id = i + 1; TYPE[b] = id; REVERSE_TYPE.push(b
 const CROSS_BLOCKS = new Set([
     'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
     'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
-    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berry_bush', 'cobweb', 
+    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berries', 'cobweb', 
     'tall_grass', 'large_fern', 'grass'
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
@@ -264,7 +265,7 @@ const loadTex = (filename, isItem = false) => {
     if (filename === 'compass') filename = 'compass_00';
     if (filename === 'compass_tab') { filename = 'compass_01'; dir = ITEM_TEX_DIR; }
     if (filename === 'redstone') { filename = 'redstone'; dir = ITEM_TEX_DIR; }
-    if (filename === 'sweet_berry_bush') filename = 'sweet_berry_bush_stage_3';
+    if (filename === 'sweet_berries') filename = 'sweet_berry_bush_stage3';
     if (filename === 'grass') filename = 'short_grass'; 
     if (filename === 'rose_bush') filename = 'rose_bush_top';
     if (filename === 'large_fern') filename = 'large_fern_top';
@@ -357,7 +358,7 @@ function resolveFallbackTexture(name) {
     if (name === 'decorated_pot') return '../entity/decorated_pot/decorated_pot_side';
     
     // Plant visual fallbacks
-    if (name === 'sweet_berry_bush') return 'sweet_berry_bush_stage_3';
+    if (name === 'sweet_berries') return 'sweet_berry_bush_stage3';
     if (name === 'rose_bush') return 'rose_bush_top';
     if (name === 'large_fern') return 'large_fern_top';
     if (name === 'tall_grass') return 'tall_grass_top';
@@ -458,85 +459,74 @@ async function loadCustomModel(bName) {
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
-        let headGeo;
-        
-        if (bName === 'dragon_head') {
+        // Advanced Custom Geometry Builder for Exact Minecraft 3D Entity Models
+        const buildMCModel = (parts, tS) => {
             const geos = [];
             const px = 1/16;
-            const tS = 256;
-            
-            const addPart = (w, h, d, ox, oy, oz, uX, uY, rotX = 0) => {
+            for (let p of parts) {
+                const { w, h, d, mcX, mcY, mcZ, uX, uY, pivot, rotX } = p;
                 const geo = new THREE.BoxGeometry(w * px, h * px, d * px);
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
-                
-                // Map UVs based on Minecraft's standard entity box layout
-                const setFUV = (faceIdx, px, py, pw, ph) => {
-                    const u1 = px / tS, u2 = (px + pw) / tS;
-                    const v1 = 1 - (py + ph) / tS, v2 = 1 - py / tS;
+
+                // Accurately map standard Minecraft box layout
+                const setF = (faceIdx, u, v, fw, fh) => {
+                    const u1 = u / tS, u2 = (u + fw) / tS;
+                    const v1 = 1 - (v + fh) / tS, v2 = 1 - v / tS;
                     const i = faceIdx * 8;
-                    uvs[i+0] = u1; uvs[i+1] = v2;
-                    uvs[i+2] = u2; uvs[i+3] = v2;
-                    uvs[i+4] = u1; uvs[i+5] = v1;
-                    uvs[i+6] = u2; uvs[i+7] = v1;
+                    uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2;
+                    uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
                 };
 
-                // Three.js order -> MC Entity order mappings
-                setFUV(0, uX + d + w, uY + d, d, h);     // Right (ThreeJS)  = Left (MC)
-                setFUV(1, uX, uY + d, d, h);             // Left (ThreeJS)   = Right (MC)
-                setFUV(2, uX + d, uY, w, d);             // Top (ThreeJS)    = Top (MC)
-                setFUV(3, uX + d + w, uY, w, d);         // Bottom (ThreeJS) = Bottom (MC)
-                setFUV(4, uX + d + w + d, uY + d, w, h); // Front (ThreeJS)  = Back (MC)
-                setFUV(5, uX + d, uY + d, w, h);         // Back (ThreeJS)   = Front (MC)
+                setF(0, uX + d + w, uY + d, d, h);         // MC Left
+                setF(1, uX, uY + d, d, h);                 // MC Right
+                setF(2, uX + d, uY, w, d);                 // MC Top
+                setF(3, uX + d + w, uY, w, d);             // MC Bottom
+                setF(4, uX + d, uY + d, w, h);             // MC Front
+                setF(5, uX + d + w + d, uY + d, w, h);     // MC Back
 
-                // Optional rotation (like for opening the jaw)
-                if (rotX !== 0) {
-                    geo.translate(0, 0, (d/2)*px);
+                // Compute physical center for offset
+                const cx = (mcX + w/2) * px;
+                const cy = -(mcY + h/2) * px;
+                const cz = (mcZ + d/2) * px;
+                geo.translate(cx, cy, cz);
+
+                // Replicate complex entity bone pivoting
+                if (pivot && rotX) {
+                    const pxiv = pivot[0] * px;
+                    const pyiv = -(pivot[1]) * px;
+                    const pziv = pivot[2] * px;
+                    geo.translate(-pxiv, -pyiv, -pziv);
                     geo.rotateX(rotX);
-                    geo.translate(0, 0, -(d/2)*px);
+                    geo.translate(pxiv, pyiv, pziv);
                 }
-                geo.translate(ox * px, oy * px, oz * px);
                 geos.push(geo);
-            };
+            }
+            return mergeBufferGeometries(geos);
+        };
 
-            // Assemble the Dragon Head parts explicitly
-            addPart(16, 16, 16,   0, 0, 0,       112, 0);       // Main Head/Skull
-            addPart(10, 6, 16,    0, -5, -16,    112, 24);      // Upper Snout
-            addPart(12, 4, 16,    0, -4.5, -16,  176, 65, 0.2); // Jaw (tilted down slightly)
-            addPart(2, 4, 6,     -4, 10, -1,     0, 0);         // Right Horn
-            addPart(2, 4, 6,      4, 10, -1,     0, 0);         // Left Horn
-            addPart(2, 2, 4,     -2, -2, -22,    112, 0);       // Right Nostril 
-            addPart(2, 2, 4,      2, -2, -22,    112, 0);       // Left Nostril
-
-            headGeo = mergeBufferGeometries(geos);
-            headGeo.scale(0.75, 0.75, 0.75);   // Scale it down to match block grid sizing
-            headGeo.translate(0, -0.15, 0.15); // Center block vertically/horizontally
-            headGeo.rotateY(Math.PI);          // Make it face the correct way by default
-            
+        let headGeo;
+        if (bName === 'dragon_head') {
+            // Precise mathematical model dimensions translated from DragonHeadModel.java
+            const parts = [
+                { w: 16, h: 16, d: 16, mcX: -8, mcY: -8, mcZ: -8, uX: 112, uY: 0 },
+                { w: 12, h: 5,  d: 16, mcX: -6, mcY: -1, mcZ: -24, uX: 112, uY: 24 },
+                { w: 12, h: 4,  d: 16, mcX: -6, mcY: 4,  mcZ: -24, uX: 176, uY: 65, pivot: [0, 4, -8], rotX: 0.15 }, // RotX opens Jaw!
+                { w: 2,  h: 4,  d: 6,  mcX: -5, mcY: -12,mcZ: -4,  uX: 0,   uY: 0 },
+                { w: 2,  h: 4,  d: 6,  mcX: 3,  mcY: -12,mcZ: -4,  uX: 0,   uY: 0 },
+                { w: 2,  h: 2,  d: 4,  mcX: -5, mcY: -3, mcZ: -26, uX: 112, uY: 0 },
+                { w: 2,  h: 2,  d: 4,  mcX: 3,  mcY: -3, mcZ: -26, uX: 112, uY: 0 }
+            ];
+            headGeo = buildMCModel(parts, 256);
+            headGeo.scale(0.75, 0.75, 0.75); // Scale down to match grid logic
+            headGeo.translate(0, -0.15, 0); 
         } else {
-            // Standard Mob Heads (Zombies, Creepers, etc)
-            headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            headGeo.translate(0, -0.25, 0); 
-            headGeo.clearGroups();
-            const texSize = 64;
-            const uvs = headGeo.attributes.uv.array;
-            const setUV = (faceIdx, px, py, pw, ph) => {
-                const u1 = px / texSize, u2 = (px + pw) / texSize;
-                const v1 = 1 - (py + ph) / texSize, v2 = 1 - py / texSize;
-                const i = faceIdx * 8;
-                uvs[i+0] = u1; uvs[i+1] = v2;
-                uvs[i+2] = u2; uvs[i+3] = v2;
-                uvs[i+4] = u1; uvs[i+5] = v1;
-                uvs[i+6] = u2; uvs[i+7] = v1;
-            };
-            
-            // Map the 64x64 standard skull texture layout
-            setUV(0, 16, 8, 8, 8); // Right
-            setUV(1, 0, 8, 8, 8);  // Left
-            setUV(2, 8, 0, 8, 8);  // Top
-            setUV(3, 16, 0, 8, 8); // Bottom
-            setUV(4, 24, 8, 8, 8); // Front
-            setUV(5, 8, 8, 8, 8);  // Back
+            // Standard Mob Heads correctly modeled via explicit geometry constructor to prevent skew
+            const parts = [
+                { w: 8, h: 8, d: 8, mcX: -4, mcY: -8, mcZ: -4, uX: 0, uY: 0 }
+            ];
+            headGeo = buildMCModel(parts, 64);
+            headGeo.translate(0, -0.25, 0); // Drop 4 pixels down to rest correctly
         }
 
         // Parse parent item models to get proper display properties (like scaling/rotation for the dragon head)
@@ -585,6 +575,39 @@ async function loadCustomModel(bName) {
 
         materials[bName] = mat;
         customGeometries[bName] = headGeo;
+        return;
+    }
+
+    // Custom geometry interception for Torches & Campfires
+    if (bName === 'torch' || bName === 'soul_torch') {
+        const tex = loadTex(bName);
+        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+        let geo = new THREE.BoxGeometry(2/16, 10/16, 2/16);
+        geo.translate(0, -3/16, 0);
+        
+        const uvs = geo.attributes.uv.array;
+        const setUV = (faceIdx, u1, v1, u2, v2) => {
+            const i = faceIdx * 8;
+            uvs[i]=u1/16; uvs[i+1]=1-v2/16; uvs[i+2]=u2/16; uvs[i+3]=1-v2/16;
+            uvs[i+4]=u1/16; uvs[i+5]=1-v1/16; uvs[i+6]=u2/16; uvs[i+7]=1-v1/16;
+        };
+        for(let i=0; i<6; i++) setUV(i, 7, 6, 9, 16); 
+        setUV(2, 7, 6, 9, 8); // Top
+        setUV(3, 7, 14, 9, 16); // Bottom
+
+        geo.userData = { display: { gui: { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [1.2, 1.2, 1.2] } } };
+        materials[bName] = mat;
+        customGeometries[bName] = geo;
+        return;
+    }
+
+    if (bName === 'campfire' || bName === 'soul_campfire') {
+        const texLog = loadTex(bName === 'campfire' ? 'campfire_log_lit' : 'soul_campfire_log_lit');
+        let mat = new THREE.MeshStandardMaterial({ map: texLog });
+        let geo = new THREE.BoxGeometry(1, 7/16, 1);
+        geo.translate(0, -4.5/16, 0);
+        materials[bName] = mat;
+        customGeometries[bName] = geo;
         return;
     }
 
@@ -875,17 +898,17 @@ async function getBlockIcon(type) {
     if (!type) return 'none';
     if (iconCache[type]) return iconCache[type];
     
+    // Check if the item should be rendered as a 2D sprite instead of 3D geometry
     const isItemTex = flatItems.has(type) || type === 'compass_tab' ||
                       (type.includes('door') && !type.includes('trapdoor')) || 
-                      ['torch', 'soul_torch', 'lantern', 'soul_lantern', 'campfire', 'soul_campfire', 'candle', 'kelp'].includes(type) || type.includes('sign') ||
-                      ['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) ||
-                      (typeof CROSS_BLOCKS !== 'undefined' && CROSS_BLOCKS.has(type));
+                      ['torch', 'soul_torch', 'kelp', 'sweet_berries'].includes(type) || type.includes('sign') ||
+                      (['lily_pad', 'cobweb', 'mushroom', 'sapling', 'fern', 'bush', 'roots', 'vines', 'sprouts', 'chain', 'iron_bars'].some(kw => type.includes(kw)) && !type.includes('mangrove_roots'));
     
     if (isItemTex) {
         let filename = type;
         if (type === 'redstone') filename = 'redstone';
         if (type === 'compass_tab') filename = 'compass_01';
-        if (type === 'sweet_berry_bush') filename = 'sweet_berry_bush_stage_3';
+        if (type === 'sweet_berries') filename = 'sweet_berries';
         if (type === 'rose_bush') filename = 'rose_bush_top';
         if (type === 'large_fern') filename = 'large_fern_top';
         if (type === 'tall_grass') filename = 'tall_grass_top';
@@ -893,10 +916,10 @@ async function getBlockIcon(type) {
         if (type === 'clock') filename = 'clock_00';
         
         let folder = BLOCK_TEX_DIR;
-        if (flatItems.has(type) || type === 'compass_tab' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign') || ['candle', 'campfire', 'torch', 'soul_torch', 'lantern', 'soul_lantern'].includes(type)) {
+        
+        // Torches pull from block folder, but standard items pull from item folder
+        if (flatItems.has(type) || type === 'compass_tab' || (type.includes('door') && !type.includes('trapdoor')) || type === 'kelp' || type.includes('sign')) {
             folder = ITEM_TEX_DIR;
-            if (type === 'campfire') filename = 'campfire_log';
-            if (type === 'soul_campfire') filename = 'soul_campfire_log';
         }
         
         const url = `url(${folder}${filename}.png)`;
