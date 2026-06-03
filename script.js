@@ -1,4 +1,3 @@
-<script>
 const globalStyles = document.createElement('style');
 globalStyles.innerHTML = `
     /* Global override to ensure absolutely NO browser blurring on scaled elements */
@@ -3296,4 +3295,3 @@ setTimeout(async () => {
 
 // Start the game loop
 animate();
-</script>
