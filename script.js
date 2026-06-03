@@ -31,6 +31,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(window.devicePixelRatio || 1);
 renderer.shadowMap.enabled = false; 
+if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = 3001;
 document.body.appendChild(renderer.domElement);
 
 const clock = new THREE.Clock();
@@ -43,6 +44,7 @@ document.body.appendChild(stats.dom);
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
 iconRenderer.setSize(64, 64);
 iconRenderer.setPixelRatio(1);
+if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
 const iconScene = new THREE.Scene();
 // Adjusted the camera boundaries from 0.8 down to 0.55 so blocks appear larger in the inventory!
 const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
@@ -50,13 +52,14 @@ iconCamera.position.set(0, 0, 5);
 iconCamera.lookAt(0, 0, 0);
 
 // Accurate Minecraft GUI Orthographic Lighting
-iconScene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-dirLight.position.set(-1, 2, 1); 
-iconScene.add(dirLight);
-const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
-dirLight2.position.set(1, 0.5, 1); 
-iconScene.add(dirLight2);
+// Toned down ambient to allow shadows, and positioned lights to hit faces differently
+iconScene.add(new THREE.AmbientLight(0xffffff, 0.50));
+const dirLightTop = new THREE.DirectionalLight(0xffffff, 0.50);
+dirLightTop.position.set(0, 2, 0); // Hits top face brightest
+iconScene.add(dirLightTop);
+const dirLightFront = new THREE.DirectionalLight(0xffffff, 0.25);
+dirLightFront.position.set(-2, 0, 2); // Hits front-left face
+iconScene.add(dirLightFront);
 
 // Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -349,6 +352,8 @@ const loadTex = (filename, explicitFolder = null) => {
     t.generateMipmaps = false;
     t.wrapS = THREE.ClampToEdgeWrapping;
     t.wrapT = THREE.ClampToEdgeWrapping;
+    
+    if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; else t.encoding = 3001;
 
     t.loadPromise = new Promise((resolve) => {
         imageLoader.load(
@@ -519,7 +524,7 @@ async function loadCustomModel(bName) {
     if (hardcodedModels.has(bName)) {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
-        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
         const buildMCModel = (parts, tS) => {
             const geos = [];
@@ -584,7 +589,7 @@ async function loadCustomModel(bName) {
     // Custom geometry interception for Torches & Campfires
     if (bName === 'torch' || bName === 'soul_torch') {
         const tex = loadTex(bName);
-        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
         let geo = new THREE.BoxGeometry(2/16, 10/16, 2/16);
         geo.translate(0, -3/16, 0);
         
@@ -605,7 +610,7 @@ async function loadCustomModel(bName) {
 
     if (bName === 'campfire' || bName === 'soul_campfire') {
         const texLog = loadTex(bName === 'campfire' ? 'campfire_log_lit' : 'soul_campfire_log_lit');
-        let mat = new THREE.MeshStandardMaterial({ map: texLog });
+        let mat = new THREE.MeshLambertMaterial({ map: texLog });
         let geo = new THREE.BoxGeometry(1, 7/16, 1);
         geo.translate(0, -4.5/16, 0);
         materials[bName] = mat;
@@ -616,7 +621,7 @@ async function loadCustomModel(bName) {
     if (CROSS_BLOCKS.has(bName)) {
         const fallbackTex = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackTex);
-        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true });
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true });
         if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
             mat.color.setHex(0x71b054);
         }
@@ -732,11 +737,11 @@ async function loadCustomModel(bName) {
             const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
             if (isTranslucent || isOverlay) {
-                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
+                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
             } else if (isCutout) {
-                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
             } else {
-                mat = new THREE.MeshStandardMaterial({ map: tex });
+                mat = new THREE.MeshLambertMaterial({ map: tex });
             }
             
             if (texPath === 'grass_block_top' || texPath === 'vine' || texPath === 'grass_block_side_overlay') {
@@ -854,11 +859,11 @@ async function loadCustomModel(bName) {
         const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
         if (isTranslucent) {
-            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
+            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
         } else if (isCutout) {
-            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
         } else {
-            mat = new THREE.MeshStandardMaterial({ map: tex });
+            mat = new THREE.MeshLambertMaterial({ map: tex });
         }
         materials[bName] = mat;
         
