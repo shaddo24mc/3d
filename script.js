@@ -1,3 +1,4 @@
+<script>
 const globalStyles = document.createElement('style');
 globalStyles.innerHTML = `
     /* Global override to ensure absolutely NO browser blurring on scaled elements */
@@ -40,26 +41,30 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Render at perfect 64x64 to match MC's GUI scale constraints and avoid browser downscaling blur!
-const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-iconRenderer.setSize(64, 64);
+// Render at 128x128 with Anti-aliasing enabled to eliminate jagged 3D geometric edges on blocks!
+const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+iconRenderer.setSize(128, 128);
 iconRenderer.setPixelRatio(1);
 if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
 const iconScene = new THREE.Scene();
-// Adjusted the camera boundaries from 0.8 down to 0.55 so blocks appear larger in the inventory!
-const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
+
+// Camera boundaries set to 0.85 to shrink the blocks back to standard Minecraft proportions
+const iconCamera = new THREE.OrthographicCamera(-0.85, 0.85, 0.85, -0.85, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
 // Accurate Minecraft GUI Orthographic Lighting
-// Toned down ambient to allow shadows, and positioned lights to hit faces differently
-iconScene.add(new THREE.AmbientLight(0xffffff, 0.50));
-const dirLightTop = new THREE.DirectionalLight(0xffffff, 0.50);
-dirLightTop.position.set(0, 2, 0); // Hits top face brightest
+// Mimics the exact 1.0 (Top) / 0.8 (Left) / 0.6 (Right) brightness ratio of native Minecraft GUI!
+iconScene.add(new THREE.AmbientLight(0xffffff, 0.40)); // Base shadow darkness
+const dirLightTop = new THREE.DirectionalLight(0xffffff, 0.60);
+dirLightTop.position.set(0, 1, 0); // Hits top face brightest
 iconScene.add(dirLightTop);
-const dirLightFront = new THREE.DirectionalLight(0xffffff, 0.25);
-dirLightFront.position.set(-2, 0, 2); // Hits front-left face
-iconScene.add(dirLightFront);
+const dirLightLeft = new THREE.DirectionalLight(0xffffff, 0.40);
+dirLightLeft.position.set(-1, 0, 1); // Hits left face medium
+iconScene.add(dirLightLeft);
+const dirLightRight = new THREE.DirectionalLight(0xffffff, 0.20);
+dirLightRight.position.set(1, 0, 1); // Hits right face darkest
+iconScene.add(dirLightRight);
 
 // Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -942,8 +947,8 @@ async function getBlockIcon(type) {
     }
     
     if (guiConfig.scale) {
-        // Boost generic JSON scaling since it tends to be too small on isolated canvases
-        mesh.scale.set(guiConfig.scale[0] * 1.3, guiConfig.scale[1] * 1.3, guiConfig.scale[2] * 1.3);
+        // Reverted the artificial 1.3 scale boost to keep perfectly faithful standard Minecraft sizing
+        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
     }
     
     if (guiConfig.translation) {
@@ -3291,3 +3296,4 @@ setTimeout(async () => {
 
 // Start the game loop
 animate();
+</script>
