@@ -54,16 +54,10 @@ iconCamera.lookAt(0, 0, 0);
 
 // Accurate Minecraft GUI Orthographic Lighting
 // Mimics the exact 1.0 (Top) / 0.8 (Left) / 0.6 (Right) brightness ratio of native Minecraft GUI!
-iconScene.add(new THREE.AmbientLight(0xffffff, 0.40)); // Base shadow darkness
-const dirLightTop = new THREE.DirectionalLight(0xffffff, 0.60);
-dirLightTop.position.set(0, 1, 0); // Hits top face brightest
-iconScene.add(dirLightTop);
-const dirLightLeft = new THREE.DirectionalLight(0xffffff, 0.40);
-dirLightLeft.position.set(-1, 0, 1); // Hits left face medium
-iconScene.add(dirLightLeft);
-const dirLightRight = new THREE.DirectionalLight(0xffffff, 0.20);
-dirLightRight.position.set(1, 0, 1); // Hits right face darkest
-iconScene.add(dirLightRight);
+iconScene.add(new THREE.AmbientLight(0xffffff, 0.55)); // Base shadow darkness
+const mainLight = new THREE.DirectionalLight(0xffffff, 0.65);
+mainLight.position.set(0.5, 1.0, 1.5); // Mathematically positioned to hit Top (100%), Left (80%), and Right (60% ambient)
+iconScene.add(mainLight);
 
 // Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -627,7 +621,7 @@ async function loadCustomModel(bName) {
         const tex = loadTex(fallbackTex);
         let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true });
         if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
-            mat.color.setHex(0x71b054);
+            mat.color.setHex(0x91bd59);
         }
         materials[bName] = mat;
         customGeometries[bName] = crossGeo;
@@ -749,9 +743,9 @@ async function loadCustomModel(bName) {
             }
             
             if (texPath === 'grass_block_top' || texPath === 'vine' || texPath === 'grass_block_side_overlay') {
-                mat.color.setHex(0x71b054); 
+                mat.color.setHex(0x91bd59); 
             } else if (texPath.includes('leaves')) {
-                mat.color.setHex(0x71b054);
+                mat.color.setHex(0x91bd59);
                 if (texPath.includes('spruce')) mat.color.setHex(0x619961);
                 if (texPath.includes('birch')) mat.color.setHex(0x80a755);
             }
@@ -869,6 +863,15 @@ async function loadCustomModel(bName) {
         } else {
             mat = new THREE.MeshLambertMaterial({ map: tex });
         }
+        
+        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'grass' || bName === 'tall_grass' || bName === 'fern') {
+            mat.color.setHex(0x91bd59);
+        } else if (fallbackName.includes('leaves')) {
+            mat.color.setHex(0x91bd59);
+            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961);
+            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755);
+        }
+        
         materials[bName] = mat;
         
         let customGeo = geometry.clone(); 
