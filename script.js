@@ -52,16 +52,15 @@ const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 1
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-// Accurate Minecraft GUI Orthographic Lighting (Bright and Vibrant!)
-// Adjusted for sRGB Linear to preserve extreme 1.0 / 0.8 / 0.6 strict Minecraft shading
+// Accurate Minecraft GUI Orthographic Lighting (True 1.0 / 0.8 / 0.6 Shading)
 // Multiplied by Math.PI to cancel out Three.js MeshLambertMaterial light scattering division
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.33 * Math.PI); // Right Face (Linear ~0.33 -> sRGB 0.60)
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.6 * Math.PI); // Right Face (Base brightness = 0.6)
 iconScene.add(iconAmbient);
 
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.67 * Math.PI); // Top Face (0.33 + 0.67 = 1.0 -> sRGB 1.0)
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.4 * Math.PI); // Top Face (0.6 + 0.4 = 1.0)
 iconScene.add(iconTopLight);
 
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.28 * Math.PI); // Left Face (0.33 + 0.28 = 0.61 -> sRGB 0.80)
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.2 * Math.PI); // Left Face (0.6 + 0.2 = 0.8)
 iconScene.add(iconLeftLight);
 
 // Environment Lighting & Celestial Bodies
