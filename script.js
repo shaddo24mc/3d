@@ -52,18 +52,18 @@ const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 1
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-// Beautifully balanced Minecraft GUI Lighting matching Eaglercraft/PC perfectly
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.25); // Soft fill to keep colors vibrant and clear
+// Accurate Minecraft GUI Orthographic Lighting (Inverse Gamma Corrected for sRGB)
+// We use a mathematical trick: an AmbientLight for the darkest face (Right),
+// and two DirectionalLights perfectly aligned to the Top and Left face normals.
+// *Adjusted for sRGB Linear to preserve extreme 1.0 / 0.8 / 0.6 strict Minecraft shading!*
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.33); // Linear ~0.33 -> sRGB 0.60 (Right Face)
 iconScene.add(iconAmbient);
 
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.75); // Top Face (Brightest - 1.00 total)
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.67); // 0.33 + 0.67 = 1.0 -> sRGB 1.0 (Top Face)
 iconScene.add(iconTopLight);
 
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.55); // Left Face (Middle - 0.80 total)
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.28); // 0.33 + 0.28 = 0.61 -> sRGB 0.80 (Left Face)
 iconScene.add(iconLeftLight);
-
-const iconRightLight = new THREE.DirectionalLight(0xffffff, 0.35); // Right Face (Darkest - 0.60 total)
-iconScene.add(iconRightLight);
 
 // Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -950,10 +950,8 @@ async function getBlockIcon(type) {
     // Position each light perfectly along the local normal vectors of the rotated mesh.
     // Top face is local +Y (0, 1, 0)
     // Left face (viewer's left) is local -X (-1, 0, 0)
-    // Right face (viewer's right) is local +Z (0, 0, 1)
     iconTopLight.position.copy(new THREE.Vector3(0, 1, 0).applyEuler(mesh.rotation));
     iconLeftLight.position.copy(new THREE.Vector3(-1, 0, 0).applyEuler(mesh.rotation));
-    iconRightLight.position.copy(new THREE.Vector3(0, 0, 1).applyEuler(mesh.rotation));
     
     if (guiConfig.scale) {
         mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
