@@ -52,15 +52,18 @@ const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 1
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-// Accurate Minecraft GUI Orthographic Lighting (Brightened)
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.55); // Right Face (Darkest, but brighter than before)
+// Beautifully balanced Minecraft GUI Lighting matching Eaglercraft/PC perfectly
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.25); // Soft fill to keep colors vibrant and clear
 iconScene.add(iconAmbient);
 
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.85); // Top Face (Brightest)
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.75); // Top Face (Brightest - 1.00 total)
 iconScene.add(iconTopLight);
 
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.35); // Left Face (Middle)
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.55); // Left Face (Middle - 0.80 total)
 iconScene.add(iconLeftLight);
+
+const iconRightLight = new THREE.DirectionalLight(0xffffff, 0.35); // Right Face (Darkest - 0.60 total)
+iconScene.add(iconRightLight);
 
 // Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -384,8 +387,8 @@ const loadTex = (filename, explicitFolder = null) => {
                     fetch(`${folder}${parsedFilename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
                     .then(mcmeta => {
                         if (mcmeta && mcmeta.animation) {
-                            if (mcmeta.animation.frames) animData.frames = mcmeta.animation.frames;
-                            if (mcmeta.animation.frametime) animData.defaultTickRate = mcmeta.animation.frametime;
+                            if (mcmeta.animation.frames = mcmeta.animation.frames);
+                            if (mcmeta.animation.frametime = mcmeta.animation.frametime);
                             if (mcmeta.animation.interpolate !== undefined) animData.interpolate = mcmeta.animation.interpolate;
                         }
                         resolve(t);
@@ -944,15 +947,15 @@ async function getBlockIcon(type) {
         mesh.rotation.set(THREE.MathUtils.degToRad(rx), threeRy, THREE.MathUtils.degToRad(rz), 'XYZ');
     }
     
-    // Dynamically align the directional lights to perfectly strike the Top and Left local face normals!
-    // Because a cube's faces are exactly 90 degrees apart, a light perfectly hitting the Top face 
-    // mathematically contributes 0.0 brightness to the Left and Right faces. 
-    // This perfectly isolates the 1.0 (Top), 0.8 (Left), and 0.6 (Right ambient) Minecraft shading ratio!
+    // Position each light perfectly along the local normal vectors of the rotated mesh.
+    // Top face is local +Y (0, 1, 0)
+    // Left face (viewer's left) is local -X (-1, 0, 0)
+    // Right face (viewer's right) is local +Z (0, 0, 1)
     iconTopLight.position.copy(new THREE.Vector3(0, 1, 0).applyEuler(mesh.rotation));
     iconLeftLight.position.copy(new THREE.Vector3(-1, 0, 0).applyEuler(mesh.rotation));
+    iconRightLight.position.copy(new THREE.Vector3(0, 0, 1).applyEuler(mesh.rotation));
     
     if (guiConfig.scale) {
-        // Reverted the artificial 1.3 scale boost to keep perfectly faithful standard Minecraft sizing
         mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
     }
     
