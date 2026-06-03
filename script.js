@@ -53,14 +53,15 @@ iconCamera.position.set(0, 0, 5);
 iconCamera.lookAt(0, 0, 0);
 
 // Accurate Minecraft GUI Orthographic Lighting (True 1.0 / 0.8 / 0.6 Shading)
-// Directional lights multiplied by Math.PI to cancel out Three.js light scattering division
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.6); // Right Face (Ambient doesn't scatter, no PI needed!)
+// All light intensities are multiplied by Math.PI to cancel out Three.js Lambertian BRDF 1/PI division,
+// and adjusted to target linear values (~0.33, ~0.61, ~1.0) to output exact sRGB brightness values (0.6, 0.8, 1.0).
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.33 * Math.PI); // Right Face (Linear ~0.33 -> sRGB 0.60)
 iconScene.add(iconAmbient);
 
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.4 * Math.PI); // Top Face (0.6 + 0.4 = 1.0)
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.67 * Math.PI); // Top Face (Linear 0.33 + 0.67 = 1.0 -> sRGB 1.0)
 iconScene.add(iconTopLight);
 
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.2 * Math.PI); // Left Face (0.6 + 0.2 = 0.8)
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.28 * Math.PI); // Left Face (Linear 0.33 + 0.28 = 0.61 -> sRGB 0.80)
 iconScene.add(iconLeftLight);
 
 // Environment Lighting & Celestial Bodies
@@ -2417,7 +2418,7 @@ async function generateChunk(chunkX, chunkZ) {
                 else if (currentRadius === 2) currentRadius = 1; 
             }
         } else {
-            for (let ly = localY + trunkH - 3; ly <= localY + trunkH + 1; ly++) {
+            for (let ly = localY + trunkH - 2; ly <= localY + trunkH + 1; ly++) {
                 let radius = (ly > localY + trunkH - 1) ? 1 : 2; 
                 for (let lx = -radius; lx <= radius; lx++) {
                     for (let lz = -radius; lz <= radius; lz++) {
@@ -2664,8 +2665,8 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
-                                isOpen(x, y-1, z) || isOpen(x, y+1, z) ||
-                                isOpen(x, y, z-1) || isOpen(x, y, z+1);
+                                isOpen(x, y-1, z) || isOpen(x, y, z-1) ||
+                                isOpen(x, y, z+1);
 
                 if (isVisible) {
                     let bName = REVERSE_TYPE[typeId];
