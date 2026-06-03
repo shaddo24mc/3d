@@ -47,8 +47,8 @@ iconRenderer.setPixelRatio(1);
 if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
 const iconScene = new THREE.Scene();
 
-// Camera boundaries set to 0.85 to shrink the blocks back to standard Minecraft proportions
-const iconCamera = new THREE.OrthographicCamera(-0.85, 0.85, 0.85, -0.85, 0.1, 10);
+// Camera boundaries set to 0.72 to perfectly match native Minecraft 14x14px block GUI proportions
+const iconCamera = new THREE.OrthographicCamera(-0.72, 0.72, 0.72, -0.72, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
@@ -952,9 +952,9 @@ async function getBlockIcon(type) {
     
     if (guiConfig.translation) {
         mesh.position.set(
-            (guiConfig.translation[0] / 16) * 0.65,
-            (guiConfig.translation[1] / 16) * 0.65,
-            (guiConfig.translation[2] / 16) * 0.65
+            (guiConfig.translation[0] / 16),
+            (guiConfig.translation[1] / 16),
+            (guiConfig.translation[2] / 16)
         );
     }
     
