@@ -53,8 +53,8 @@ iconCamera.position.set(0, 0, 5);
 iconCamera.lookAt(0, 0, 0);
 
 // Accurate Minecraft GUI Orthographic Lighting (True 1.0 / 0.8 / 0.6 Shading)
-// Multiplied by Math.PI to cancel out Three.js MeshLambertMaterial light scattering division
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.6 * Math.PI); // Right Face (Base brightness = 0.6)
+// Directional lights multiplied by Math.PI to cancel out Three.js light scattering division
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.6); // Right Face (Ambient doesn't scatter, no PI needed!)
 iconScene.add(iconAmbient);
 
 const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.4 * Math.PI); // Top Face (0.6 + 0.4 = 1.0)
