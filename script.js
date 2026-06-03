@@ -53,11 +53,16 @@ iconCamera.position.set(0, 0, 5);
 iconCamera.lookAt(0, 0, 0);
 
 // Accurate Minecraft GUI Orthographic Lighting
-// Mimics the exact 1.0 (Top) / 0.8 (Left) / 0.6 (Right) brightness ratio of native Minecraft GUI!
-iconScene.add(new THREE.AmbientLight(0xffffff, 0.55)); // Base shadow darkness
-const mainLight = new THREE.DirectionalLight(0xffffff, 0.65);
-mainLight.position.set(0.5, 1.0, 1.5); // Mathematically positioned to hit Top (100%), Left (80%), and Right (60% ambient)
-iconScene.add(mainLight);
+// We use a mathematical trick: an AmbientLight of 0.6 for the darkest face (Right),
+// and two DirectionalLights perfectly aligned to the Top and Left face normals.
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.60);
+iconScene.add(iconAmbient);
+
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.40); // 0.6 + 0.4 = 1.0 (Top)
+iconScene.add(iconTopLight);
+
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20); // 0.6 + 0.2 = 0.8 (Left)
+iconScene.add(iconLeftLight);
 
 // Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -936,17 +941,17 @@ async function getBlockIcon(type) {
         let rz = guiConfig.rotation[2];
         
         // Fix for Minecraft's bizarre internal GUI JSON angles mapping to clean ThreeJS Euler angles.
-        let threeRy = 0;
-        if (ry === 225) threeRy = Math.PI / 4; 
-        else threeRy = THREE.MathUtils.degToRad(ry);
+        let threeRy = (ry === 225) ? Math.PI / 4 : THREE.MathUtils.degToRad(ry);
         
-        mesh.rotation.set(
-            THREE.MathUtils.degToRad(rx),
-            threeRy,
-            THREE.MathUtils.degToRad(rz),
-            'XYZ'
-        );
+        mesh.rotation.set(THREE.MathUtils.degToRad(rx), threeRy, THREE.MathUtils.degToRad(rz), 'XYZ');
     }
+    
+    // Dynamically align the directional lights to perfectly strike the Top and Left local face normals!
+    // Because a cube's faces are exactly 90 degrees apart, a light perfectly hitting the Top face 
+    // mathematically contributes 0.0 brightness to the Left and Right faces. 
+    // This perfectly isolates the 1.0 (Top), 0.8 (Left), and 0.6 (Right ambient) Minecraft shading ratio!
+    iconTopLight.position.copy(new THREE.Vector3(0, 1, 0).applyEuler(mesh.rotation));
+    iconLeftLight.position.copy(new THREE.Vector3(-1, 0, 0).applyEuler(mesh.rotation));
     
     if (guiConfig.scale) {
         // Reverted the artificial 1.3 scale boost to keep perfectly faithful standard Minecraft sizing
