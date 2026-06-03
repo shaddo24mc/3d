@@ -53,15 +53,16 @@ iconCamera.position.set(0, 0, 5);
 iconCamera.lookAt(0, 0, 0);
 
 // Accurate Minecraft GUI Orthographic Lighting
-// We use a mathematical trick: an AmbientLight of 0.6 for the darkest face (Right),
+// We use a mathematical trick: an AmbientLight for the darkest face (Right),
 // and two DirectionalLights perfectly aligned to the Top and Left face normals.
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.60);
+// *Adjusted for sRGB Linear to preserve extreme 1.0 / 0.8 / 0.6 strict Minecraft shading!*
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.33); // Linear ~0.33 -> sRGB 0.60 (Right Face)
 iconScene.add(iconAmbient);
 
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.40); // 0.6 + 0.4 = 1.0 (Top)
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.67); // 0.33 + 0.67 = 1.0 -> sRGB 1.0 (Top Face)
 iconScene.add(iconTopLight);
 
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20); // 0.6 + 0.2 = 0.8 (Left)
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.28); // 0.33 + 0.28 = 0.61 -> sRGB 0.80 (Left Face)
 iconScene.add(iconLeftLight);
 
 // Environment Lighting & Celestial Bodies
