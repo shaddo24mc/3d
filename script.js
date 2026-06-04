@@ -940,17 +940,48 @@ async function getBlockIcon(type) {
         let ry = guiConfig.rotation[1];
         let rz = guiConfig.rotation[2];
         
+        let threeRy = THREE.MathUtils.degToRad(ry);
+        
         // Fix for Minecraft's bizarre internal GUI JSON angles mapping to clean ThreeJS Euler angles.
-        let threeRy = (ry === 225) ? Math.PI / 4 : THREE.MathUtils.degToRad(ry);
+        if (ry === 225) {
+            if (type.includes('stairs')) {
+                threeRy = Math.PI / 4; // Keep the old 45 degree hack for stairs only
+            } else {
+                threeRy = THREE.MathUtils.degToRad(225); // Rotate 180 degrees to show the true front!
+            }
+        }
         
         mesh.rotation.set(THREE.MathUtils.degToRad(rx), threeRy, THREE.MathUtils.degToRad(rz), 'XYZ');
     }
     
     // Position each light perfectly along the local normal vectors of the rotated mesh.
-    // Top face is local +Y (0, 1, 0)
-    // Left face (viewer's left) is local -X (-1, 0, 0)
-    iconTopLight.position.copy(new THREE.Vector3(0, 1, 0).applyEuler(mesh.rotation));
-    iconLeftLight.position.copy(new THREE.Vector3(-1, 0, 0).applyEuler(mesh.rotation));
+    // Dynamically find which local normal points most up (Top) and most left (Viewer Left)
+    const normals = [
+        new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
+        new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
+        new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
+    ];
+
+    let bestTop = new THREE.Vector3(0, 1, 0);
+    let bestLeft = new THREE.Vector3(-1, 0, 0);
+    let maxY = -Infinity;
+    let minX = Infinity;
+
+    for (let n of normals) {
+        let globalN = n.clone().applyEuler(mesh.rotation);
+        if (globalN.y > maxY) {
+            maxY = globalN.y;
+            bestTop.copy(n);
+        }
+        // Face must be somewhat visible to the camera (global Z > 0) to be the true Viewer Left face
+        if (globalN.z > 0.01 && globalN.x < minX) {
+            minX = globalN.x;
+            bestLeft.copy(n);
+        }
+    }
+
+    iconTopLight.position.copy(bestTop.applyEuler(mesh.rotation));
+    iconLeftLight.position.copy(bestLeft.applyEuler(mesh.rotation));
     
     if (guiConfig.scale) {
         mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
