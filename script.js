@@ -2665,8 +2665,8 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                 };
 
                 let isVisible = isOpen(x-1, y, z) || isOpen(x+1, y, z) ||
-                                isOpen(x, y-1, z) || isOpen(x, y, z-1) ||
-                                isOpen(x, y, z+1);
+                                isOpen(x, y-1, z) || isOpen(x, y+1, z) ||
+                                isOpen(x, y, z-1) || isOpen(x, y, z+1);
 
                 if (isVisible) {
                     let bName = REVERSE_TYPE[typeId];
