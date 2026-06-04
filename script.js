@@ -1,6 +1,5 @@
 const globalStyles = document.createElement('style');
 globalStyles.innerHTML = `
-    /* Global override to ensure absolutely NO browser blurring on scaled elements */
     * {
         image-rendering: -moz-crisp-edges !important;
         image-rendering: -o-crisp-edges !important;
@@ -26,11 +25,9 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
 scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 
-// OPTIMIZATION: High performance preference explicitly requested
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
-// OPTIMIZATION: Lock pixel ratio to 1! Retina screens force WebGL to render 4x the pixels, destroying FPS.
 renderer.setPixelRatio(1);
 renderer.shadowMap.enabled = false; 
 if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = 3001;
@@ -42,31 +39,24 @@ const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Render at 128x128 with Anti-aliasing enabled to eliminate jagged 3D geometric edges on blocks!
 const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
 iconRenderer.setSize(128, 128);
 iconRenderer.setPixelRatio(1);
 if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
 const iconScene = new THREE.Scene();
 
-// Camera boundaries set to 0.51 to perfectly match native Minecraft 14x14px block GUI proportions
-const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
+// Refined orthographic projection matrix to keep blocks mathematically centered!
+const iconCamera = new THREE.OrthographicCamera(-0.85, 0.85, 0.85, -0.85, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-// Accurate Minecraft GUI Orthographic Lighting (Deep Shadows)
-// All light intensities are multiplied by Math.PI to cancel out Three.js Lambertian BRDF 1/PI division.
-// Lowered the ambient and left light to create darker sides, boosted top to keep it at 1.0!
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.20 * Math.PI); // Right Face (Much darker now)
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.20 * Math.PI); 
 iconScene.add(iconAmbient);
-
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.80 * Math.PI); // Top Face (0.20 + 0.80 = 1.0)
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.80 * Math.PI); 
 iconScene.add(iconTopLight);
-
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20 * Math.PI); // Left Face (0.20 + 0.20 = 0.40 total)
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20 * Math.PI); 
 iconScene.add(iconLeftLight);
 
-// Environment Lighting & Celestial Bodies
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
@@ -185,6 +175,7 @@ const TYPE = {};
 const REVERSE_TYPE = [null];
 ALL_BLOCKS.forEach((b, i) => { let id = i + 1; TYPE[b] = id; REVERSE_TYPE.push(b); });
 
+// Spore blossom intentionally omitted so it reads the true JSON block model instead of drawing a cross.
 const CROSS_BLOCKS = new Set([
     'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
     'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
@@ -198,7 +189,7 @@ const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone'].some(kw => b.includes(kw))) {
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone', 'spore_blossom'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -250,7 +241,7 @@ let currentCategory = 'building';
 let selectedSlot = 0;
 let heldItem = { type: null, count: 0 };
 let currentGuiScale = 2;
-let currentCreativeRow = 0; // State variable tracking discrete row scrolling
+let currentCreativeRow = 0; 
 
 const INVENTORY_SIZE = 9; 
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
@@ -285,26 +276,33 @@ const allTabsUI = [];
 const imageLoader = new THREE.ImageLoader();
 imageLoader.setCrossOrigin('anonymous');
 
-function resolveTexturePath(name) {
+function resolveTexturePath(name, isIconContext = false) {
     let folder = BLOCK_TEX_DIR;
     let filename = name;
     let is2D = false;
 
     if (name === 'air') return { folder, filename, is2D: false };
 
-    // Explicitly 2D filtering for items, plants, foods, etc.
+    // Explicitly 2D ONLY when building the UI Icon for these items
+    const iconOnly2D = new Set(['sea_pickle', 'sunflower', 'lily_pad']);
+
+    // Explicitly 2D filtering for items, plants, foods, etc. everywhere
     const explicit2D = new Set([
         'torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
-        'candle', 'sea_pickle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
+        'candle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
         'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
         'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
         'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
         'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
         'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
-        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots', 'sunflower', 'lily_pad'
+        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
     ]);
 
     if (flatItems.has(name) || name === 'compass_tab' || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
+        is2D = true;
+    }
+    
+    if (isIconContext && iconOnly2D.has(name)) {
         is2D = true;
     }
 
@@ -324,7 +322,6 @@ function resolveTexturePath(name) {
         }
     }
 
-    // Force strictly block directories for certain 2D items to fix 404s
     const blockFolderOverrides = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose', 'sea_pickle', 'amethyst_cluster', 'pointed_dripstone', 'candle', 'propagule'];
     if (blockFolderOverrides.some(kw => name.includes(kw)) && !['weeping_vines', 'twisting_vines', 'pink_petals'].includes(name) && !name.includes('mangrove_roots')) {
         if (!folder.includes('item')) folder = BLOCK_TEX_DIR;
@@ -348,25 +345,24 @@ function resolveTexturePath(name) {
     else if (name === 'twisting_vines') { folder = BLOCK_TEX_DIR; filename = 'twisting_vines_plant'; is2D = true; }
     else if (name === 'weeping_vines') { folder = BLOCK_TEX_DIR; filename = 'weeping_vines_plant'; is2D = true; }
     else if (name === 'hanging_roots') { folder = BLOCK_TEX_DIR; filename = 'hanging_roots'; is2D = true; }
-    else if (name === 'sea_pickle') { folder = ITEM_TEX_DIR; filename = 'sea_pickle'; is2D = true; }
-    else if (name === 'sunflower') { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; is2D = true; }
-    else if (name === 'lily_pad') { folder = BLOCK_TEX_DIR; filename = 'lily_pad'; is2D = true; }
+    else if (name === 'sea_pickle' && isIconContext) { folder = ITEM_TEX_DIR; filename = 'sea_pickle'; }
+    else if (name === 'sunflower' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; }
+    else if (name === 'lily_pad' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'lily_pad'; }
     else if (name.includes('candle') && !name.includes('cake')) { folder = ITEM_TEX_DIR; filename = name; is2D = true; }
 
     return { folder, filename, is2D };
 }
 
-const loadTex = (filename, explicitFolder = null) => {
+const loadTex = (filename, explicitFolder = null, isIconContext = false, originalTypeName = null) => {
     if (!filename) filename = 'missingno';
     
-    // Resolve robust path
-    let { folder, filename: parsedFilename } = resolveTexturePath(filename);
+    let { folder, filename: parsedFilename } = resolveTexturePath(filename, isIconContext);
     if (explicitFolder) folder = explicitFolder;
 
     const cvs = document.createElement('canvas');
     cvs.width = 16; cvs.height = 16;
     const ctx = cvs.getContext('2d', { willReadFrequently: true });
-    ctx.imageSmoothingEnabled = false; // Strictly Disable CSS Blur Inside Canvas
+    ctx.imageSmoothingEnabled = false; 
     
     const t = new THREE.CanvasTexture(cvs);
     t.magFilter = THREE.NearestFilter;
@@ -399,7 +395,6 @@ const loadTex = (filename, explicitFolder = null) => {
                         currentArrayIdx: 0, timer: 0, interpolate: true, frameWidth: fw
                     };
                     animatedTextures.push(animData);
-                    
                     ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
 
                     fetch(`${folder}${parsedFilename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
@@ -416,6 +411,22 @@ const loadTex = (filename, explicitFolder = null) => {
                     cvs.height = isStandardSkin ? 64 : fh;
                     ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(image, 0, 0);
+
+                    // Grayscale Foliage HTML Canvas Math Tinting Algorithm
+                    if (isIconContext && originalTypeName) {
+                        const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+                        if (tintables.includes(originalTypeName)) {
+                            ctx.globalCompositeOperation = 'source-atop';
+                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#208030' : '#79c05a';
+                            ctx.fillRect(0, 0, cvs.width, cvs.height);
+                            ctx.globalCompositeOperation = 'multiply';
+                            ctx.drawImage(image, 0, 0);
+                            ctx.globalCompositeOperation = 'destination-in';
+                            ctx.drawImage(image, 0, 0); 
+                            ctx.globalCompositeOperation = 'source-over';
+                        }
+                    }
+
                     t.needsUpdate = true;
                     resolve(t);
                 }
@@ -604,7 +615,6 @@ async function loadCustomModel(bName) {
             headGeo.translate(0, -0.25, 0); 
         }
 
-        // OPTIMIZATION: Bypassing complex auto update and setting explicitly false later per instance.
         materials[bName] = mat;
         customGeometries[bName] = headGeo;
         return;
@@ -758,7 +768,7 @@ async function loadCustomModel(bName) {
             let isOverlay = texPath.includes('overlay');
 
             const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice');
-            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
             if (isTranslucent || isOverlay) {
                 mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
@@ -808,6 +818,28 @@ async function loadCustomModel(bName) {
                 
                 geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
                 geo.clearGroups();
+
+                // OPTIMIZATION: Native proper block rotation parsing logic implemented!
+                if (el.rotation && el.rotation.origin) {
+                    let rx = 0, ry = 0, rz = 0;
+                    let pX = el.rotation.origin[0]/16 - 0.5;
+                    let pY = el.rotation.origin[1]/16 - 0.5;
+                    let pZ = el.rotation.origin[2]/16 - 0.5;
+                    let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
+
+                    geo.translate(-pX, -pY, -pZ);
+                    if (el.rotation.axis === 'x') { rx = rad; geo.rotateX(rad); }
+                    if (el.rotation.axis === 'y') { ry = rad; geo.rotateY(rad); }
+                    if (el.rotation.axis === 'z') { rz = rad; geo.rotateZ(rad); }
+                    
+                    if (el.rotation.rescale) {
+                        let scaleAmount = 1.0 / Math.cos(Math.abs(rad));
+                        if (el.rotation.axis === 'x') geo.scale(1, scaleAmount, scaleAmount);
+                        if (el.rotation.axis === 'y') geo.scale(scaleAmount, 1, scaleAmount);
+                        if (el.rotation.axis === 'z') geo.scale(scaleAmount, scaleAmount, 1);
+                    }
+                    geo.translate(pX, pY, pZ);
+                }
 
                 if (el.faces) {
                     const uvs = geo.attributes.uv;
@@ -880,7 +912,7 @@ async function loadCustomModel(bName) {
         let mat;
         
         const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
-        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
+        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
         if (isTranslucent) {
             mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
@@ -921,17 +953,17 @@ async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    let pathInfo = resolveTexturePath(type);
+    let pathInfo = resolveTexturePath(type, true);
     
     // Explicit 2D items (Uses a pure HTMLCanvas element rendering for flawless 1:1 crisp pixels)
     if (pathInfo.is2D) {
-        let tex = loadTex(pathInfo.filename, pathInfo.folder);
+        let tex = loadTex(pathInfo.filename, pathInfo.folder, true, type);
         await tex.loadPromise;
         
         const cvs = document.createElement('canvas');
         cvs.width = 16; cvs.height = 16;
         const ctx = cvs.getContext('2d');
-        ctx.imageSmoothingEnabled = false; // Strictly Disable Canvas Blur
+        ctx.imageSmoothingEnabled = false; 
         if (tex.image) {
             ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
         }
@@ -950,7 +982,6 @@ async function getBlockIcon(type) {
     
     mesh.position.set(0, 0, 0);
     
-    // Apply Authentic Minecraft GUI JSON Transformations
     let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
     if (geo.userData && geo.userData.display && geo.userData.display.gui) {
         guiConfig = geo.userData.display.gui;
@@ -965,16 +996,15 @@ async function getBlockIcon(type) {
         let threeRy = THREE.MathUtils.degToRad(ry);
         let threeRz = THREE.MathUtils.degToRad(rz);
         
-        // Fix for Minecraft's bizarre internal GUI JSON angles mapping to clean ThreeJS Euler angles.
         if (ry === 225) {
             if (type.includes('stairs')) {
-                threeRy = Math.PI / 4; // Keep the old 45 degree hack for stairs only
+                threeRy = Math.PI / 4; 
             } else {
-                threeRy = THREE.MathUtils.degToRad(225); // Rotate 180 degrees to show the true front!
+                threeRy = THREE.MathUtils.degToRad(225); 
             }
         }
 
-        // Spore Blossom should hang pointing down, so flip it specifically for the icon rendering
+        // Fix the Spore Blossom rotation to hang perfectly
         if (type === 'spore_blossom') {
             threeRz += Math.PI; 
         }
@@ -982,8 +1012,6 @@ async function getBlockIcon(type) {
         mesh.rotation.set(threeRx, threeRy, threeRz, 'XYZ');
     }
     
-    // Position each light perfectly along the local normal vectors of the rotated mesh.
-    // Dynamically find which local normal points most up (Top) and most left (Viewer Left)
     const normals = [
         new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
         new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
@@ -1001,7 +1029,6 @@ async function getBlockIcon(type) {
             maxY = globalN.y;
             bestTop.copy(n);
         }
-        // Face must be somewhat visible to the camera (global Z > 0) to be the true Viewer Left face
         if (globalN.z > 0.01 && globalN.x < minX) {
             minX = globalN.x;
             bestLeft.copy(n);
@@ -1016,14 +1043,11 @@ async function getBlockIcon(type) {
     }
     
     if (guiConfig.translation) {
-        // -0.03 x and +0.03 y perfectly centers the geometry block in the absolute middle of the HTML slot
         mesh.position.set(
-            (guiConfig.translation[0] / 16) - 0.03,
-            (guiConfig.translation[1] / 16) + 0.03,
+            (guiConfig.translation[0] / 16),
+            (guiConfig.translation[1] / 16),
             (guiConfig.translation[2] / 16)
         );
-    } else {
-        mesh.position.set(-0.03, 0.03, 0);
     }
     
     iconRenderer.render(iconScene, iconCamera);
@@ -1113,12 +1137,9 @@ for (let i = 0; i < 9; i++) {
 
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
-    itemSprite.style.position = 'absolute';
-    itemSprite.style.left = '0px';
-    itemSprite.style.top = '0px';
-    itemSprite.style.width = '16px';
-    itemSprite.style.height = '16px';
-    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.width = '100%';
+    itemSprite.style.height = '100%';
+    itemSprite.style.backgroundSize = '16px 16px';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
     slotWrap.appendChild(itemSprite);
@@ -1168,9 +1189,9 @@ setFallbackBg(crosshair,
 const creativeScaleCenter = document.createElement('div');
 creativeScaleCenter.id = 'creative-scale-center';
 creativeScaleCenter.style.position = 'absolute';
-creativeScaleCenter.style.top = '50%'; // EXACTLY CENTERED on screen
+creativeScaleCenter.style.top = '50%'; 
 creativeScaleCenter.style.left = '50%';
-creativeScaleCenter.style.display = 'none'; // Hidden initially
+creativeScaleCenter.style.display = 'none'; 
 guiScaleWrapper.appendChild(creativeScaleCenter);
 
 const creativeInventoryScreen = document.createElement('div');
@@ -1249,7 +1270,7 @@ invBody.appendChild(creativeGridContainer);
 
 const scrollTrack = document.createElement('div');
 scrollTrack.style.position = 'absolute';
-scrollTrack.style.right = '8px';
+scrollTrack.style.right = '6px'; // Perfected right alignment groove
 scrollTrack.style.top = '18px';
 scrollTrack.style.width = '14px'; 
 scrollTrack.style.height = '112px'; 
@@ -1461,10 +1482,10 @@ function createItemSlot(bName, i, sourceArray) {
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
     itemSprite.style.position = 'absolute';
-    itemSprite.style.left = '0px';
-    itemSprite.style.top = '0px';
-    itemSprite.style.width = '100%';
-    itemSprite.style.height = '100%';
+    itemSprite.style.left = '1px';
+    itemSprite.style.top = '1px';
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
     itemSprite.style.backgroundSize = '16px 16px';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
@@ -1855,7 +1876,6 @@ function calculateMiningTime(blockName, heldItemType) {
 // 9. CHUNK GENERATION & GAME LOOP
 // ============================================================================
 
-// Minimal Perlin Noise Fallback implementation
 const noise = {
     p: new Uint8Array(512),
     seed: function(s) {
@@ -2030,7 +2050,6 @@ function getGlobalBlock(gx, gy, gz) {
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     
-    // OPTIMIZATION: Removed redundant multiplication operations here by directly parsing flat index
     let idx = lx + (lz * 16) + (ly * 256);
     return chunk.blocks[idx];
 }
@@ -2924,8 +2943,8 @@ camera.add(playerHand); scene.add(camera);
 let yaw = 0, pitch = 0, keys = {};
 let isLeftMouseDown = false; 
 
-const raycaster = new THREE.Raycaster(); raycaster.far = 6;
-let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
+// OPTIMIZATION: Removed slow Three.js Raycaster, replacing it with ultra-fast Digital Differential Analyzer loop!
+let mining = { active: false, startTime: 0, blockPosition: null, blockName: null, requiredTime: 500 };
 
 const droppedItems = [];
 const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
@@ -2941,32 +2960,57 @@ function spawnDroppedItem(x, y, z, blockName) {
     droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
 }
 
+// OPTIMIZATION: Custom Fast Voxel Raycaster (Massive FPS fix!)
 function getTarget() {
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const pX = Math.floor(camera.position.x / chunkSize);
-    const pZ = Math.floor(camera.position.z / chunkSize);
+    let start = camera.position.clone();
+    let dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    let maxDist = 6;
+    let step = 0.05;
+    let current = start.clone();
     
-    const nearbyMeshes = interactableMeshes.filter(m => {
-        if (!m.chunkId) return false;
-        const [cx, cz] = m.chunkId.split(',').map(Number);
-        return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
-    });
+    for (let d = 0; d < maxDist; d += step) {
+        current.add(dir.clone().multiplyScalar(step));
+        let bx = Math.round(current.x);
+        let by = Math.round(current.y);
+        let bz = Math.round(current.z);
+        let b = getGlobalBlock(bx, by, bz);
+        
+        if (b !== null && b !== 0 && b !== TYPE.water) {
+            let prev = current.clone().sub(dir.clone().multiplyScalar(step));
+            let pbx = Math.round(prev.x);
+            let pby = Math.round(prev.y);
+            let pbz = Math.round(prev.z);
+            let normal = new THREE.Vector3(pbx - bx, pby - by, pbz - bz);
+            
+            if (Math.abs(normal.x) > Math.abs(normal.y) && Math.abs(normal.x) > Math.abs(normal.z)) {
+                normal.set(Math.sign(normal.x), 0, 0);
+            } else if (Math.abs(normal.y) > Math.abs(normal.z)) {
+                normal.set(0, Math.sign(normal.y), 0);
+            } else {
+                normal.set(0, 0, Math.sign(normal.z));
+            }
 
-    const hit = raycaster.intersectObjects(nearbyMeshes);
-    return hit.length > 0 ? hit[0] : null;
+            let blockName = REVERSE_TYPE[b];
+            return {
+                position: new THREE.Vector3(bx, by, bz),
+                normal: normal,
+                blockName: blockName
+            };
+        }
+    }
+    return null;
 }
 
 function startMining(hit) {
-    const blockName = hit.object.name;
+    const blockName = hit.blockName;
     const heldItemType = inventory[selectedSlot].type;
     
     const requiredTime = calculateMiningTime(blockName, heldItemType);
     if (requiredTime === Infinity) return; 
 
-    mining = { active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId, requiredTime: requiredTime };
+    mining = { active: true, startTime: Date.now(), blockPosition: hit.position, blockName: blockName, requiredTime: requiredTime };
     destroyMat.map = destroyTextures[0]; destroyMat.needsUpdate = true;
-    const mat = new THREE.Matrix4(); hit.object.getMatrixAt(hit.instanceId, mat);
-    destroyMesh.position.setFromMatrixPosition(mat);
+    destroyMesh.position.copy(hit.position);
     destroyMesh.visible = true; 
 }
 
@@ -2978,7 +3022,7 @@ function updateMining() {
     
     const hit = getTarget();
     
-    if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
+    if (!hit || !hit.position.equals(mining.blockPosition)) {
         mining.active = false; 
         destroyMesh.visible = false;
         return;
@@ -2992,10 +3036,8 @@ function updateMining() {
     }
 
     if (elapsed >= mining.requiredTime) {
-        const mat = new THREE.Matrix4(); 
-        mining.targetMesh.getMatrixAt(mining.targetId, mat);
-        const p = new THREE.Vector3().setFromMatrixPosition(mat);
-        const blockName = mining.targetMesh.name; 
+        const p = mining.blockPosition;
+        const blockName = mining.blockName; 
         
         let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
         setGlobalBlock(pX, pY, pZ, 0);
@@ -3014,10 +3056,6 @@ function updateMining() {
                     spawnDroppedItem(p.x, p.y, p.z, item);
                 }
             }
-        }
-        
-        if (mining.targetMesh && mining.targetMesh.chunkId) {
-            chunksToRebuild.add(mining.targetMesh.chunkId);
         }
         
         updateStairConnections(pX+1, pY, pZ);
@@ -3044,32 +3082,27 @@ document.addEventListener('mousedown', (e) => {
             const hit = getTarget(); 
             if (!hit) return;
             
-            const mat = new THREE.Matrix4(); 
-            hit.object.getMatrixAt(hit.instanceId, mat);
-            const p = new THREE.Vector3().setFromMatrixPosition(mat);
-            
-            const placeX = Math.round(p.x + hit.face.normal.x);
-            const placeY = Math.round(p.y + hit.face.normal.y);
-            const placeZ = Math.round(p.z + hit.face.normal.z);
+            const p = hit.position;
+            const placeX = Math.round(p.x + hit.normal.x);
+            const placeY = Math.round(p.y + hit.normal.y);
+            const placeZ = Math.round(p.z + hit.normal.z);
             
             const selectedItem = inventory[selectedSlot];
             
-            // STRICT PREVENT OF RAW FLAT ITEMS BEING PLACED ON THE GROUND
             let placementType = selectedItem.type;
             if (placementType === 'sweet_berries') placementType = 'sweet_berry_bush';
             
             const explicit2DItems = new Set([
                 'torch', 'soul_torch', 'kelp', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
-                'candle', 'sea_pickle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
+                'candle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
                 'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
                 'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
                 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
                 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
                 'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
-                'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling'
+                'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
             ]);
             
-            // Allow specific crops and blocks that were flagged 2D for inventory specifically to be placed 
             if (flatItems.has(placementType) && !explicit2DItems.has(placementType) && !placementType.includes('sign') && !placementType.includes('door')) return; 
             
             if (placementType && getGlobalBlock(placeX, placeY, placeZ) === 0) {
@@ -3079,8 +3112,8 @@ document.addEventListener('mousedown', (e) => {
                 
                 if (placementType.includes('log') || placementType.includes('pillar') || placementType === 'basalt' || placementType === 'polished_basalt' || placementType === 'bone_block' || placementType === 'purpur_pillar' || placementType === 'quartz_pillar' || placementType === 'hay_block') {
                     let axis = 'y';
-                    if (Math.abs(hit.face.normal.x) > 0.5) axis = 'x';
-                    if (Math.abs(hit.face.normal.z) > 0.5) axis = 'z';
+                    if (Math.abs(hit.normal.x) > 0.5) axis = 'x';
+                    if (Math.abs(hit.normal.z) > 0.5) axis = 'z';
                     rotation = JSONReader.getRotationForAxis(axis);
                 } 
                 else if (placementType.includes('stairs')) {
@@ -3093,7 +3126,7 @@ document.addEventListener('mousedown', (e) => {
                     else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facing = 3; 
                     else facing = 0; 
 
-                    let isTop = (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5));
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
                     stairData = { isStair: true, facing: facing, half: isTop ? 'top' : 'bottom' };
                 }
                 else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
@@ -3262,7 +3295,6 @@ function animate() {
         }
     }
 
-    // Dynamic compass animation hook
     const dx = -camera.position.x;
     const dz = -camera.position.z;
     const targetAngle = Math.atan2(dx, dz);
@@ -3365,7 +3397,6 @@ function animate() {
     stats.update();
 }
 
-// Preload all blocks and items to expose any missing textures in the developer console immediately!
 setTimeout(async () => {
     console.log("Starting full texture preload check...");
     for (let type of ALL_BLOCKS) {
@@ -3374,5 +3405,4 @@ setTimeout(async () => {
     console.log("Finished texture preload check.");
 }, 1000);
 
-// Start the game loop
 animate();
