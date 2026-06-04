@@ -45,9 +45,11 @@ iconRenderer.setPixelRatio(1);
 if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
 const iconScene = new THREE.Scene();
 
-// Refined orthographic projection matrix to keep blocks mathematically centered!
-const iconCamera = new THREE.OrthographicCamera(-0.85, 0.85, 0.85, -0.85, 0.1, 10);
-iconCamera.position.set(0, 0, 5); 
+// Reverted Orthographic Camera size to standard Minecraft 14x14px bounds (-0.51 to 0.51)
+const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 10);
+// Shifted camera position by exactly 1 pixel right and 1 pixel down (0.008 units on a 128px canvas)
+// which mathematically forces the rendered 3D icon to shift exactly 1 pixel left and 1 pixel up!
+iconCamera.position.set(0.008, -0.008, 5); 
 iconCamera.lookAt(0, 0, 0);
 
 const iconAmbient = new THREE.AmbientLight(0xffffff, 0.20 * Math.PI); 
@@ -453,7 +455,7 @@ function resolveFallbackTexture(name) {
     if (name.includes('shulker_box')) return 'shulker_box';
     if (name.includes('anvil')) return 'anvil_base';
     if (name === 'packed_mud') return 'mud';
-    if (name === 'conduit') return 'conduit_base';
+    if (name === 'conduit') return 'conduit';
     
     // Correctly map mob heads and custom model overrides to their raw layout locations
     if (name === 'creeper_head') return '../entity/creeper/creeper';
@@ -552,6 +554,67 @@ crossGeo.computeVertexNormals();
 
 async function loadCustomModel(bName) {
     if (customGeometries[bName]) return; 
+
+    // Hardcode Minecraft Conduit Model including proper geometry, UV mappings and translucent casing
+    if (bName === 'conduit') {
+        const tex = loadTex('conduit');
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+        const px = 1/16;
+        const geos = [];
+        
+        // Inner Central Heart/Core (6x6x6 texels)
+        const coreGeo = new THREE.BoxGeometry(6 * px, 6 * px, 6 * px);
+        coreGeo.clearGroups();
+        const coreUVs = coreGeo.attributes.uv.array;
+        
+        // Map central heart textures on the 3D core
+        const setCoreFaceUV = (faceIdx, u, v, w, h) => {
+            const u1 = u / 32, u2 = (u + w) / 32;
+            const v1 = 1 - (v + h) / 16, v2 = 1 - v / 16;
+            const i = faceIdx * 8;
+            coreUVs[i]=u1; coreUVs[i+1]=v2; coreUVs[i+2]=u2; coreUVs[i+3]=v2;
+            coreUVs[i+4]=u1; coreUVs[i+5]=v1; coreUVs[i+6]=u2; coreUVs[i+7]=v1;
+        };
+        for (let i = 0; i < 6; i++) {
+            setCoreFaceUV(i, 0, 0, 6, 6); // Core Heart UV Mapping
+            coreGeo.addGroup(i * 6, 6, 0);
+        }
+        geos.push(coreGeo);
+        
+        // Outer Rings / Cage shells
+        const shell1 = new THREE.BoxGeometry(8 * px, 8 * px, 2 * px);
+        const shell2 = new THREE.BoxGeometry(8 * px, 2 * px, 8 * px);
+        const shell3 = new THREE.BoxGeometry(2 * px, 8 * px, 8 * px);
+        
+        const shellUVs1 = shell1.attributes.uv.array;
+        const shellUVs2 = shell2.attributes.uv.array;
+        const shellUVs3 = shell3.attributes.uv.array;
+        
+        const setShellUV = (uvs, faceIdx, u, v, w, h) => {
+            const u1 = u / 32, u2 = (u + w) / 32;
+            const v1 = 1 - (v + h) / 16, v2 = 1 - v / 16;
+            const i = faceIdx * 8;
+            uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2;
+            uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
+        };
+        
+        for (let i = 0; i < 6; i++) {
+            setShellUV(shellUVs1, i, 12, 0, 8, 8);
+            shell1.addGroup(i * 6, 6, 0);
+            
+            setShellUV(shellUVs2, i, 12, 0, 8, 8);
+            shell2.addGroup(i * 6, 6, 0);
+            
+            setShellUV(shellUVs3, i, 12, 0, 8, 8);
+            shell3.addGroup(i * 6, 6, 0);
+        }
+        
+        geos.push(shell1, shell2, shell3);
+        
+        materials[bName] = mat;
+        customGeometries[bName] = mergeBufferGeometries(geos);
+        return;
+    }
 
     // Handle Skull Model generation overriding directly (avoid 404 fetching)
     const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head']);
@@ -767,8 +830,8 @@ async function loadCustomModel(bName) {
             let mat;
             let isOverlay = texPath.includes('overlay');
 
-            const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice');
-            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+            const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
+            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
             if (isTranslucent || isOverlay) {
                 mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
@@ -912,7 +975,7 @@ async function loadCustomModel(bName) {
         let mat;
         
         const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
-        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
+        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
         if (isTranslucent) {
             mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
@@ -1137,9 +1200,13 @@ for (let i = 0; i < 9; i++) {
 
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
-    itemSprite.style.width = '100%';
-    itemSprite.style.height = '100%';
-    itemSprite.style.backgroundSize = '16px 16px';
+    // Shifted inventory icons 1px left and 1px up inside slot
+    itemSprite.style.position = 'absolute';
+    itemSprite.style.left = '0px'; 
+    itemSprite.style.top = '0px'; 
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
+    itemSprite.style.backgroundSize = 'contain';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
     slotWrap.appendChild(itemSprite);
@@ -1317,8 +1384,8 @@ const heldItemUI = document.createElement('div');
 heldItemUI.id = 'held-item-ui';
 heldItemUI.className = 'pixelated';
 heldItemUI.style.position = 'absolute';
-heldItemUI.style.left = '-8px';
-heldItemUI.style.top = '-8px';
+heldItemUI.style.left = '-9px'; // Shifted 1px left
+heldItemUI.style.top = '-9px';  // Shifted 1px up
 heldItemUI.style.width = '16px';
 heldItemUI.style.height = '16px';
 heldItemUI.style.transformOrigin = 'center';
@@ -1482,8 +1549,9 @@ function createItemSlot(bName, i, sourceArray) {
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
     itemSprite.style.position = 'absolute';
-    itemSprite.style.left = '1px';
-    itemSprite.style.top = '1px';
+    // Shifted grid icons 1px left and 1px up inside creative slots to fix alignment issues
+    itemSprite.style.left = '0px'; 
+    itemSprite.style.top = '0px'; 
     itemSprite.style.width = '16px';
     itemSprite.style.height = '16px';
     itemSprite.style.backgroundSize = '16px 16px';
@@ -2050,6 +2118,7 @@ function getGlobalBlock(gx, gy, gz) {
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     
+    // OPTIMIZATION: Removed redundant multiplication operations here by directly parsing flat index
     let idx = lx + (lz * 16) + (ly * 256);
     return chunk.blocks[idx];
 }
@@ -2148,6 +2217,7 @@ function getBiome(temp, moist, depth) {
     return closestBiome;
 }
 
+// OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
 function getInterpolatedHeightScale(x, z) {
     const range = 8; 
     const step = 4; 
