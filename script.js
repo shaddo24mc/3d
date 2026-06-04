@@ -48,7 +48,7 @@ if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; 
 const iconScene = new THREE.Scene();
 
 // Camera boundaries set to 0.51 to perfectly match native Minecraft 14x14px block GUI proportions
-const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 10);
+const iconCamera = new THREE.OrthographicCamera(-0.55, 0.55, 0.55, -0.55, 0.1, 10);
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
@@ -134,7 +134,7 @@ const baseBlocks = [
     'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
     'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
     'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
-    'trial_spawner', 'vault', 'heavy_core', 'snowy_grass_block', 'cobbled_deepslate', ...ITEMS
+    'trial_spawner', 'vault', 'heavy_core', 'cobbled_deepslate', ...ITEMS
 ];
 
 const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
@@ -187,7 +187,7 @@ const CROSS_BLOCKS = new Set([
     'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
     'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
     'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berries', 'cobweb', 
-    'tall_grass', 'large_fern', 'grass', 'short_grass'
+    'tall_grass', 'large_fern', 'grass', 'short_grass', 'hanging_roots', 'spore_blossom'
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
 
@@ -288,6 +288,8 @@ function resolveTexturePath(name) {
     let filename = name;
     let is2D = false;
 
+    if (name === 'air') return { folder, filename, is2D: false };
+
     // Explicitly 2D filtering for items, plants, foods, etc.
     const explicit2D = new Set([
         'torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
@@ -297,16 +299,25 @@ function resolveTexturePath(name) {
         'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
         'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
         'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
-        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling'
+        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots', 'spore_blossom'
     ]);
 
-    if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
+    if (flatItems.has(name) || name === 'compass_tab' || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
         is2D = true;
     }
 
-    if (is2D) {
-        const itemFolderOverrides = ['kelp', 'sweet_berries', 'campfire', 'soul_campfire', 'bamboo', 'turtle_egg', 'weeping_vines', 'twisting_vines', 'pink_petals'];
-        if (flatItems.has(name) || name === 'compass_tab' || (name.includes('door') && !name.includes('trapdoor')) || itemFolderOverrides.includes(name) || name.includes('sign')) {
+    if (name.includes('door') && !name.includes('trapdoor')) {
+        if (name.includes('_top') || name.includes('_bottom')) {
+            is2D = false; 
+        } else {
+            is2D = true;
+            folder = ITEM_TEX_DIR;
+        }
+    }
+
+    if (is2D && !name.includes('door')) {
+        const itemFolderOverrides = ['kelp', 'sweet_berries', 'campfire', 'soul_campfire', 'bamboo', 'turtle_egg', 'pink_petals'];
+        if (flatItems.has(name) || name === 'compass_tab' || itemFolderOverrides.includes(name) || name.includes('sign')) {
             folder = ITEM_TEX_DIR;
         }
     }
@@ -314,7 +325,7 @@ function resolveTexturePath(name) {
     // Force strictly block directories for certain 2D items to fix 404s
     const blockFolderOverrides = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose', 'sea_pickle', 'amethyst_cluster', 'pointed_dripstone', 'candle', 'propagule'];
     if (blockFolderOverrides.some(kw => name.includes(kw)) && !['weeping_vines', 'twisting_vines', 'pink_petals'].includes(name) && !name.includes('mangrove_roots')) {
-        folder = BLOCK_TEX_DIR;
+        if (!folder.includes('item')) folder = BLOCK_TEX_DIR;
     }
 
     // Exact filename Overrides
@@ -322,7 +333,7 @@ function resolveTexturePath(name) {
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
     else if (name === 'sweet_berries') { folder = ITEM_TEX_DIR; filename = 'sweet_berries'; }
-    else if (name === 'rose_bush') { folder = BLOCK_TEX_DIR; filename = 'rose_bush_top'; }
+    else if (name === 'rose_bush') { folder = BLOCK_TEX_DIR; filename = 'rose_bush_top'; is2D = true; }
     else if (name === 'large_fern') { folder = BLOCK_TEX_DIR; filename = 'large_fern_top'; }
     else if (name === 'tall_grass') { folder = BLOCK_TEX_DIR; filename = 'tall_grass_top'; }
     else if (name === 'grass' || name === 'short_grass') { folder = BLOCK_TEX_DIR; filename = 'short_grass'; }
@@ -333,6 +344,10 @@ function resolveTexturePath(name) {
     else if (name === 'peony') { folder = BLOCK_TEX_DIR; filename = 'peony_top'; }
     else if (name === 'lilac') { folder = BLOCK_TEX_DIR; filename = 'lilac_top'; }
     else if (name.includes('candle') && !name.includes('cake')) { filename = name; } 
+    else if (name === 'pointed_dripstone') { folder = BLOCK_TEX_DIR; filename = 'pointed_dripstone_down_tip'; is2D = true; }
+    else if (name === 'twisting_vines') { folder = BLOCK_TEX_DIR; filename = 'twisting_vines_plant'; is2D = true; }
+    else if (name === 'weeping_vines') { folder = BLOCK_TEX_DIR; filename = 'weeping_vines_plant'; is2D = true; }
+    else if (name === 'hanging_roots') { folder = BLOCK_TEX_DIR; filename = 'hanging_roots'; is2D = true; }
 
     return { folder, filename, is2D };
 }
@@ -416,7 +431,7 @@ const loadTex = (filename, explicitFolder = null) => {
 
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
-    if (name === 'grass_block' || name === 'snowy_grass_block') return 'grass_block_side';
+    if (name === 'grass_block') return 'grass_block_side';
     if (name === 'chest') return 'oak_planks'; 
     if (name === 'crafting_table') return 'crafting_table_top';
     if (name === 'furnace') return 'furnace_front';
@@ -897,7 +912,7 @@ async function loadCustomModel(bName) {
 }
 
 async function getBlockIcon(type) {
-    if (!type) return 'none';
+    if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
     
     let pathInfo = resolveTexturePath(type);
@@ -1084,7 +1099,7 @@ for (let i = 0; i < 9; i++) {
     itemSprite.className = 'pixelated';
     itemSprite.style.width = '100%';
     itemSprite.style.height = '100%';
-    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.backgroundSize = '16px 16px';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
     slotWrap.appendChild(itemSprite);
@@ -1427,11 +1442,11 @@ function createItemSlot(bName, i, sourceArray) {
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
     itemSprite.style.position = 'absolute';
-    itemSprite.style.left = '1px';
-    itemSprite.style.top = '1px';
-    itemSprite.style.width = '16px';
-    itemSprite.style.height = '16px';
-    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.left = '0px';
+    itemSprite.style.top = '0px';
+    itemSprite.style.width = '100%';
+    itemSprite.style.height = '100%';
+    itemSprite.style.backgroundSize = '16px 16px';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
     applyIcon(itemSprite, bName);
@@ -1690,7 +1705,7 @@ const REAL_MINECRAFT_HARDNESS = {
     allium: 0.0, azure_bluet: 0.0, red_tulip: 0.0, orange_tulip: 0.0, white_tulip: 0.0, pink_tulip: 0.0,
     oxeye_daisy: 0.0, cornflower: 0.0, lily_of_the_valley: 0.0, wither_rose: 0.0,
     dirt: 0.5, coarse_dirt: 0.5, podzol: 0.5, rooted_dirt: 0.5, mud: 0.5, grass_block: 0.6,
-    snowy_grass_block: 0.6, sand: 0.5, red_sand: 0.5, gravel: 0.6, clay: 0.6, soul_sand: 0.5, soul_soil: 0.5,
+    sand: 0.5, red_sand: 0.5, gravel: 0.6, clay: 0.6, soul_sand: 0.5, soul_soil: 0.5,
     stone: 1.5, granite: 1.5, polished_granite: 1.5, diorite: 1.5, polished_diorite: 1.5,
     andesite: 1.5, polished_andesite: 1.5, cobblestone: 2.0, mossy_cobblestone: 2.0,
     deepslate: 3.0, cobbled_deepslate: 3.5, tuff: 1.8, calcite: 0.75, basalt: 1.25, polished_basalt: 1.25,
@@ -1720,7 +1735,7 @@ const BLOCK_TOOL_CLASSIFICATION = {
     deepslate_gold_ore: 'pickaxe', deepslate_redstone_ore: 'pickaxe', deepslate_emerald_ore: 'pickaxe',
     deepslate_lapis_ore: 'pickaxe', deepslate_diamond_ore: 'pickaxe',
     obsidian: 'pickaxe', crying_obsidian: 'pickaxe',
-    dirt: 'shovel', coarse_dirt: 'shovel', podzol: 'shovel', grass_block: 'shovel', snowy_grass_block: 'shovel',
+    dirt: 'shovel', coarse_dirt: 'shovel', podzol: 'shovel', grass_block: 'shovel',
     sand: 'shovel', red_sand: 'shovel', gravel: 'shovel', clay: 'shovel', snow: 'shovel', snow_block: 'shovel',
     soul_sand: 'shovel', soul_soil: 'shovel',
     oak_log: 'axe', spruce_log: 'axe', birch_log: 'axe', jungle_log: 'axe', acacia_log: 'axe', dark_oak_log: 'axe',
@@ -1729,7 +1744,6 @@ const BLOCK_TOOL_CLASSIFICATION = {
 
 const BLOCK_DROPS = {
     grass_block: { item: 'dirt', count: 1 },
-    snowy_grass_block: { item: 'dirt', count: 1 },
     dirt: { item: 'dirt', count: 1 },
     sand: { item: 'sand', count: 1 },
     sandstone: { item: 'sandstone', count: 1 },
@@ -2061,7 +2075,7 @@ function doRandomTicks() {
             let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
             let blockType = chunk.blocks[idx];
 
-            if (blockType === TYPE.grass_block || blockType === TYPE.snowy_grass_block) {
+            if (blockType === TYPE.grass_block) {
                 let gx = (cx * chunkSize) + lx;
                 let gy = ly + minworldY;
                 let gz = (cz * chunkSize) + lz;
@@ -2084,8 +2098,7 @@ function doRandomTicks() {
                     if (target === TYPE.dirt) {
                         let targetAbove = getGlobalBlock(tx, ty + 1, tz);
                         if (targetAbove === 0 || targetAbove === TYPE.oak_leaves || targetAbove === TYPE.spruce_leaves || targetAbove === TYPE.snow_block || targetAbove === TYPE.oak_sapling || targetAbove === TYPE.spruce_sapling) {
-                            const snowy = checkIsSnowy(tx, ty, tz);
-                            setGlobalBlock(tx, ty, tz, snowy ? TYPE.snowy_grass_block : TYPE.grass_block);
+                            setGlobalBlock(tx, ty, tz, TYPE.grass_block);
                         }
                     }
                 }
@@ -2155,7 +2168,7 @@ function fbm3(x, y, z, octaves = 2, scale = 40) {
 
 function getBlockCapacity(key) {
     if (key === 'stone' || key === 'deepslate') return 45000;
-    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'snowy_grass_block' || key === 'sand' || key === 'bedrock') return 15000;
+    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'sand' || key === 'bedrock') return 15000;
     if (key.includes('leaves') || key.includes('log')) return 8000;
     return 4000;
 }
@@ -2373,7 +2386,7 @@ async function generateChunk(chunkX, chunkZ) {
             for (let y = worldHeight - 1; y >= 0; y--) {
                 let b = blocks[getIdx(x, y, z)];
                 if (b !== 0) { 
-                    if ((b === TYPE.grass_block || b === TYPE.snowy_grass_block) && localBiome.treeChance > 0) {
+                    if ((b === TYPE.grass_block) && localBiome.treeChance > 0) {
                         let actualY = y + minworldY;
                         if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
                             treesToSpawn.push({ x, y, z, actualY, treeType: localBiome.treeType });
