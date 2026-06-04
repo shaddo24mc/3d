@@ -663,7 +663,7 @@ async function loadCustomModel(bName) {
             const parts = [
                 { w: 16, h: 16, d: 16, mcX: -8, mcY: 0, mcZ: -8, uX: 112, uY: 0 },
                 { w: 12, h: 5,  d: 16, mcX: -6, mcY: 3, mcZ: -24, uX: 112, uY: 24 }, // Upper snout
-                { w: 12, h: 4,  d: 16, mcX: -6, mcY: -1, mcZ: -24, uX: 176, uY: 65, pivot: [0, -11, -11], rotX: 15 }, // Jaw opened with authentic Minecraft pivot!
+                { w: 12, h: 4,  d: 16, mcX: -6, mcY: -1, mcZ: -24, uX: 176, uY: 65, pivot: [0, -6, -5], rotX: -0.15 }, // Jaw opened with authentic Minecraft pivot!
                 { w: 2,  h: 4,  d: 6,  mcX: -5, mcY: 16, mcZ: -4, uX: 0, uY: 0 }, // Right Horn
                 { w: 2,  h: 4,  d: 6,  mcX: 3,  mcY: 16, mcZ: -4, uX: 0, uY: 0 }, // Left Horn
                 { w: 2,  h: 2,  d: 4,  mcX: -5, mcY: 5, mcZ: -26, uX: 112, uY: 0 }, // Right Nostril
