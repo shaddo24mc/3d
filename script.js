@@ -52,16 +52,16 @@ const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 1
 iconCamera.position.set(0, 0, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-// Accurate Minecraft GUI Orthographic Lighting (True 1.0 / 0.8 / 0.6 Shading)
-// All light intensities are multiplied by Math.PI to cancel out Three.js Lambertian BRDF 1/PI division,
-// and adjusted to target linear values (~0.33, ~0.61, ~1.0) to output exact sRGB brightness values (0.6, 0.8, 1.0).
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.33 * Math.PI); // Right Face (Linear ~0.33 -> sRGB 0.60)
+// Accurate Minecraft GUI Orthographic Lighting (Deep Shadows)
+// All light intensities are multiplied by Math.PI to cancel out Three.js Lambertian BRDF 1/PI division.
+// Lowered the ambient and left light to create darker sides, boosted top to keep it at 1.0!
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.20 * Math.PI); // Right Face (Much darker now)
 iconScene.add(iconAmbient);
 
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.67 * Math.PI); // Top Face (Linear 0.33 + 0.67 = 1.0 -> sRGB 1.0)
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.80 * Math.PI); // Top Face (0.20 + 0.80 = 1.0)
 iconScene.add(iconTopLight);
 
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.28 * Math.PI); // Left Face (Linear 0.33 + 0.28 = 0.61 -> sRGB 0.80)
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20 * Math.PI); // Left Face (0.20 + 0.20 = 0.40 total)
 iconScene.add(iconLeftLight);
 
 // Environment Lighting & Celestial Bodies
