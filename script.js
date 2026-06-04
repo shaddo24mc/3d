@@ -187,7 +187,7 @@ const CROSS_BLOCKS = new Set([
     'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
     'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
     'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berries', 'cobweb', 
-    'tall_grass', 'large_fern', 'grass', 'short_grass', 'hanging_roots', 'spore_blossom'
+    'tall_grass', 'large_fern', 'grass', 'short_grass', 'hanging_roots', 'seagrass', 'kelp'
 ]);
 ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
 
@@ -196,7 +196,7 @@ const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony'].some(kw => b.includes(kw))) {
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -299,7 +299,7 @@ function resolveTexturePath(name) {
         'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
         'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
         'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
-        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots', 'spore_blossom'
+        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots', 'sunflower', 'lily_pad'
     ]);
 
     if (flatItems.has(name) || name === 'compass_tab' || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
@@ -340,14 +340,16 @@ function resolveTexturePath(name) {
     else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
     else if (name.includes('pane')) { folder = BLOCK_TEX_DIR; filename = name.replace('_pane', ''); } 
     else if (name === 'flowering_azalea') { folder = BLOCK_TEX_DIR; filename = 'flowering_azalea_side'; }
-    else if (name === 'sunflower') { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; } 
     else if (name === 'peony') { folder = BLOCK_TEX_DIR; filename = 'peony_top'; }
     else if (name === 'lilac') { folder = BLOCK_TEX_DIR; filename = 'lilac_top'; }
-    else if (name.includes('candle') && !name.includes('cake')) { filename = name; } 
     else if (name === 'pointed_dripstone') { folder = BLOCK_TEX_DIR; filename = 'pointed_dripstone_down_tip'; is2D = true; }
     else if (name === 'twisting_vines') { folder = BLOCK_TEX_DIR; filename = 'twisting_vines_plant'; is2D = true; }
     else if (name === 'weeping_vines') { folder = BLOCK_TEX_DIR; filename = 'weeping_vines_plant'; is2D = true; }
     else if (name === 'hanging_roots') { folder = BLOCK_TEX_DIR; filename = 'hanging_roots'; is2D = true; }
+    else if (name === 'sea_pickle') { folder = ITEM_TEX_DIR; filename = 'sea_pickle'; is2D = true; }
+    else if (name === 'sunflower') { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; is2D = true; }
+    else if (name === 'lily_pad') { folder = BLOCK_TEX_DIR; filename = 'lily_pad'; is2D = true; }
+    else if (name.includes('candle') && !name.includes('cake')) { folder = ITEM_TEX_DIR; filename = name; is2D = true; }
 
     return { folder, filename, is2D };
 }
@@ -438,6 +440,7 @@ function resolveFallbackTexture(name) {
     if (name.includes('shulker_box')) return 'shulker_box';
     if (name.includes('anvil')) return 'anvil_base';
     if (name === 'packed_mud') return 'mud';
+    if (name === 'conduit') return 'conduit_base';
     
     // Correctly map mob heads and custom model overrides to their raw layout locations
     if (name === 'creeper_head') return '../entity/creeper/creeper';
@@ -955,7 +958,9 @@ async function getBlockIcon(type) {
         let ry = guiConfig.rotation[1];
         let rz = guiConfig.rotation[2];
         
+        let threeRx = THREE.MathUtils.degToRad(rx);
         let threeRy = THREE.MathUtils.degToRad(ry);
+        let threeRz = THREE.MathUtils.degToRad(rz);
         
         // Fix for Minecraft's bizarre internal GUI JSON angles mapping to clean ThreeJS Euler angles.
         if (ry === 225) {
@@ -965,8 +970,13 @@ async function getBlockIcon(type) {
                 threeRy = THREE.MathUtils.degToRad(225); // Rotate 180 degrees to show the true front!
             }
         }
+
+        // Spore Blossom should hang pointing down, so flip it specifically for the icon rendering
+        if (type === 'spore_blossom') {
+            threeRz += Math.PI; 
+        }
         
-        mesh.rotation.set(THREE.MathUtils.degToRad(rx), threeRy, THREE.MathUtils.degToRad(rz), 'XYZ');
+        mesh.rotation.set(threeRx, threeRy, threeRz, 'XYZ');
     }
     
     // Position each light perfectly along the local normal vectors of the rotated mesh.
@@ -1003,11 +1013,14 @@ async function getBlockIcon(type) {
     }
     
     if (guiConfig.translation) {
+        // -0.03 x and +0.03 y perfectly centers the geometry block in the absolute middle of the HTML slot
         mesh.position.set(
-            (guiConfig.translation[0] / 16),
-            (guiConfig.translation[1] / 16),
+            (guiConfig.translation[0] / 16) - 0.03,
+            (guiConfig.translation[1] / 16) + 0.03,
             (guiConfig.translation[2] / 16)
         );
+    } else {
+        mesh.position.set(-0.03, 0.03, 0);
     }
     
     iconRenderer.render(iconScene, iconCamera);
@@ -1097,9 +1110,12 @@ for (let i = 0; i < 9; i++) {
 
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
-    itemSprite.style.width = '100%';
-    itemSprite.style.height = '100%';
-    itemSprite.style.backgroundSize = '16px 16px';
+    itemSprite.style.position = 'absolute';
+    itemSprite.style.left = '0px';
+    itemSprite.style.top = '0px';
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
+    itemSprite.style.backgroundSize = 'contain';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
     slotWrap.appendChild(itemSprite);
@@ -1442,11 +1458,11 @@ function createItemSlot(bName, i, sourceArray) {
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
     itemSprite.style.position = 'absolute';
-    itemSprite.style.left = '0px';
-    itemSprite.style.top = '0px';
-    itemSprite.style.width = '100%';
-    itemSprite.style.height = '100%';
-    itemSprite.style.backgroundSize = '16px 16px';
+    itemSprite.style.left = '1px';
+    itemSprite.style.top = '1px';
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
+    itemSprite.style.backgroundSize = 'contain';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
     applyIcon(itemSprite, bName);
@@ -2785,7 +2801,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
 // Day / Night & Core Update Loop
 // ----------------------------------------------------
 let timeOfDay = Math.PI / 2; 
-const dayCycleSpeed = Math.PI / 600; 
+const dayCycleSpeed = 0; 
 
 function updateDayNightCycle(delta) {
     timeOfDay += delta * dayCycleSpeed;
