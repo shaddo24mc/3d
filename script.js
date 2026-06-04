@@ -26,10 +26,12 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
 scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 
+// OPTIMIZATION: High performance preference explicitly requested
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
-renderer.setPixelRatio(window.devicePixelRatio || 1);
+// OPTIMIZATION: Lock pixel ratio to 1! Retina screens force WebGL to render 4x the pixels, destroying FPS.
+renderer.setPixelRatio(1);
 renderer.shadowMap.enabled = false; 
 if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = 3001;
 document.body.appendChild(renderer.domElement);
@@ -41,7 +43,7 @@ stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
 // Render at 128x128 with Anti-aliasing enabled to eliminate jagged 3D geometric edges on blocks!
-const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
 iconRenderer.setSize(128, 128);
 iconRenderer.setPixelRatio(1);
 if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
@@ -602,6 +604,7 @@ async function loadCustomModel(bName) {
             headGeo.translate(0, -0.25, 0); 
         }
 
+        // OPTIMIZATION: Bypassing complex auto update and setting explicitly false later per instance.
         materials[bName] = mat;
         customGeometries[bName] = headGeo;
         return;
@@ -1458,11 +1461,11 @@ function createItemSlot(bName, i, sourceArray) {
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
     itemSprite.style.position = 'absolute';
-    itemSprite.style.left = '1px';
-    itemSprite.style.top = '1px';
-    itemSprite.style.width = '16px';
-    itemSprite.style.height = '16px';
-    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.left = '0px';
+    itemSprite.style.top = '0px';
+    itemSprite.style.width = '100%';
+    itemSprite.style.height = '100%';
+    itemSprite.style.backgroundSize = '16px 16px';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
     applyIcon(itemSprite, bName);
@@ -2027,7 +2030,8 @@ function getGlobalBlock(gx, gy, gz) {
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     
-    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+    // OPTIMIZATION: Removed redundant multiplication operations here by directly parsing flat index
+    let idx = lx + (lz * 16) + (ly * 256);
     return chunk.blocks[idx];
 }
 
@@ -2055,7 +2059,7 @@ function setGlobalBlock(gx, gy, gz, typeData) {
     let lx = gx - (cx * chunkSize);
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
-    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+    let idx = lx + lz * 16 + ly * 256;
     
     if (chunk.blocks[idx] !== typeId) {
         chunk.blocks[idx] = typeId;
@@ -2066,14 +2070,6 @@ function setGlobalBlock(gx, gy, gz, typeData) {
     if (lx === chunkSize - 1) chunksToRebuild.add(`${cx + 1},${cz}`);
     if (lz === 0) chunksToRebuild.add(`${cx},${cz - 1}`);
     if (lz === chunkSize - 1) chunksToRebuild.add(`${cx},${cz + 1}`);
-}
-
-function checkIsSnowy(gx, gy, gz) {
-    const blockAbove = getGlobalBlock(gx, gy + 1, gz);
-    if (blockAbove === TYPE.snow || blockAbove === TYPE.snow_block || blockAbove === TYPE.powder_snow) {
-        return true;
-    }
-    return false;
 }
 
 function doRandomTicks() {
@@ -2088,7 +2084,7 @@ function doRandomTicks() {
             let lz = Math.floor(Math.random() * chunkSize);
             let ly = Math.floor(Math.random() * worldHeight);
             
-            let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+            let idx = lx + lz * 16 + ly * 256;
             let blockType = chunk.blocks[idx];
 
             if (blockType === TYPE.grass_block) {
@@ -2235,11 +2231,15 @@ function mergeBufferGeometries(geos) {
     return mergedGeo;
 }
 
+// OPTIMIZATION: Pre-allocated Global Arrays for Light Processing!
+// Stops JavaScript from destroying memory and dropping frames on Garbage Collection every chunk!
+const sharedLightMap = new Uint8Array(16 * 16 * 256);
+const sharedLightQueue = new Int32Array(16 * 16 * 256 * 2);
+
 function computeChunkLight(blocks) {
-    const lightMap = new Uint8Array(chunkSize * chunkSize * worldHeight);
-    const queue = new Int32Array(chunkSize * chunkSize * worldHeight * 2);
+    sharedLightMap.fill(0);
     let head = 0, tail = 0;
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+    const getIdx = (x, y, z) => x + (z * 16) + (y * 256);
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -2254,22 +2254,22 @@ function computeChunkLight(blocks) {
                     currentLight = Math.max(0, currentLight - 2); 
                 }
 
-                lightMap[idx] = currentLight;
+                sharedLightMap[idx] = currentLight;
                 if (currentLight > 0) {
-                    queue[tail++] = idx;
+                    sharedLightQueue[tail++] = idx;
                 }
             }
         }
     }
 
     while (head < tail) {
-        let idx = queue[head++];
-        let light = lightMap[idx];
+        let idx = sharedLightQueue[head++];
+        let light = sharedLightMap[idx];
         if (light <= 1) continue;
 
         let x = idx % chunkSize;
         let z = Math.floor(idx / chunkSize) % chunkSize;
-        let y = Math.floor(idx / (chunkSize * chunkSize));
+        let y = Math.floor(idx / 256);
 
         let nextLight = light - 1;
 
@@ -2277,14 +2277,14 @@ function computeChunkLight(blocks) {
             if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
                 let nIdx = getIdx(nx, ny, nz);
                 let b = blocks[nIdx];
-                if ((b === 0 || isTransparent[b]) && lightMap[nIdx] < nextLight) {
+                if ((b === 0 || isTransparent[b]) && sharedLightMap[nIdx] < nextLight) {
                     let drop = 1;
                     if (b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.water) drop = 2;
                     let targetLight = light - drop;
                     
-                    if (targetLight > lightMap[nIdx]) {
-                        lightMap[nIdx] = targetLight;
-                        queue[tail++] = nIdx;
+                    if (targetLight > sharedLightMap[nIdx]) {
+                        sharedLightMap[nIdx] = targetLight;
+                        sharedLightQueue[tail++] = nIdx;
                     }
                 }
             }
@@ -2297,7 +2297,7 @@ function computeChunkLight(blocks) {
         processN(x, y, z - 1);
         processN(x, y, z + 1);
     }
-    return lightMap;
+    return sharedLightMap;
 }
 
 async function generateChunk(chunkX, chunkZ) {
@@ -2310,7 +2310,7 @@ async function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+    const getIdx = (x, y, z) => x + (z * 16) + (y * 256);
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -2557,6 +2557,8 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[bName].chunkId = chunkId;
         meshes[bName].maxCapacity = cap;
         meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        // OPTIMIZATION: Stop expensive continuous matrix update on dead block meshes
+        meshes[bName].matrixAutoUpdate = false;
         meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
         indices[bName] = 0;
     }
@@ -2636,8 +2638,14 @@ async function generateChunk(chunkX, chunkZ) {
                             }
                         }
 
-                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
-                        matrix.setPosition(startX + x, actualY, startZ + z);
+                        // OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
+                        if (rot[0] === 0 && rot[1] === 0 && rot[2] === 0) {
+                            matrix.makeTranslation(startX + x, actualY, startZ + z);
+                        } else {
+                            matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
+                            matrix.setPosition(startX + x, actualY, startZ + z);
+                        }
+
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj); 
                         indices[bName]++;
@@ -2651,7 +2659,8 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); 
+        // OPTIMIZATION: Hardcoded bounding spheres instead of forcing the CPU to scan all instances
+        meshes[key].boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + 8, 128 + minworldY, startZ + 8), 140); 
         scene.add(meshes[key]);
         interactableMeshes.push(meshes[key]);
     }
@@ -2667,7 +2676,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
     const { meshes, blocks } = chunkData;
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+    const getIdx = (x, y, z) => x + (z * 16) + (y * 256);
 
     const lightMap = computeChunkLight(blocks);
 
@@ -2689,6 +2698,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
             meshes[bName].chunkId = chunkId;
             meshes[bName].maxCapacity = cap;
             meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            meshes[bName].matrixAutoUpdate = false;
             meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
             scene.add(meshes[bName]);
             interactableMeshes.push(meshes[bName]);
@@ -2778,8 +2788,13 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                             }
                         }
 
-                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
-                        matrix.setPosition(globalX, actualY, globalZ);
+                        if (rot[0] === 0 && rot[1] === 0 && rot[2] === 0) {
+                            matrix.makeTranslation(globalX, actualY, globalZ);
+                        } else {
+                            matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
+                            matrix.setPosition(globalX, actualY, globalZ);
+                        }
+                        
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj);
                         indices[bName]++;
@@ -2793,7 +2808,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); 
+        meshes[key].boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + 8, 128 + minworldY, startZ + 8), 140);
     }
 }
 
