@@ -661,7 +661,7 @@ async function loadCustomModel(bName) {
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
-                { w: 16, h: 16, d: 16, mcX: 0, mcY: -8, mcZ: 0, uX: 112, uY: 20 },
+                { w: 16, h: 16, d: 16, mcX: 0, mcY: -8, mcZ: 0, uX: 112, uY: 30 },
                 { w: 12, h: 5,  d: 16, mcX: -6, mcY: 3, mcZ: -24, uX: 112, uY: 24 }, // Upper snout
                 { w: 12, h: 4,  d: 16, mcX: -6, mcY: -1, mcZ: -24, uX: 176, uY: 65, pivot: [0, -6, -5], rotX: -0.15 }, // Jaw opened with authentic Minecraft pivot!
                 { w: 2,  h: 4,  d: 6,  mcX: -5, mcY: 16, mcZ: -4, uX: 0, uY: 0 }, // Right Horn
