@@ -34,7 +34,7 @@ if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else
 document.body.appendChild(renderer.domElement);
 
 const clock = new THREE.Clock();
-const moveSpeed = 10;
+const moveSpeed = 2;
 const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
