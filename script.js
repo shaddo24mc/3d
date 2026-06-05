@@ -632,19 +632,23 @@ async function loadCustomModel(bName) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, u, v, fw, fh) => {
+                const setF = (faceIdx, u, v, fw, fh, rot180 = false) => {
                     const u1 = u / tS, u2 = (u + fw) / tS;
                     const v1 = 1 - (v + fh) / tS, v2 = 1 - v / tS;
                     const i = faceIdx * 8;
-                    uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2; uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
+                    if (rot180) {
+                        uvs[i]=u2; uvs[i+1]=v1; uvs[i+2]=u1; uvs[i+3]=v1; uvs[i+4]=u2; uvs[i+5]=v2; uvs[i+6]=u1; uvs[i+7]=v2;
+                    } else {
+                        uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2; uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
+                    }
                 };
 
-                setF(1, uX, uY + d, d, h);                 // Left viewing side
-                setF(4, uX + d, uY + d, w, h);             // Front viewing side
-                setF(0, uX + d + w, uY + d, d, h);         // Right viewing side
-                setF(5, uX + d + w + d, uY + d, w, h);     // Back viewing side
-                setF(2, uX + d, uY, w, d);                 // Top
-                setF(3, uX + d + w, uY, w, d);             // Bottom
+                setF(1, uX, uY + d, d, h);                 // Right texture -> Left side (-x)
+                setF(5, uX + d, uY + d, w, h);             // Front texture -> Front side (-z)
+                setF(0, uX + d + w, uY + d, d, h);         // Left texture -> Right side (+x)
+                setF(4, uX + d + w + d, uY + d, w, h);     // Back texture -> Back side (+z)
+                setF(2, uX + d, uY, w, d, true);           // Top texture -> Top side (+y, rotated 180)
+                setF(3, uX + d + w, uY, w, d, true);       // Bottom texture -> Bottom side (-y, rotated 180)
 
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
@@ -661,7 +665,7 @@ async function loadCustomModel(bName) {
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
-                { w: 16, h: 16, d: 16, mcX: -13, mcY: -8, mcZ: -9, uX: 112, uY: 30 },
+                { w: 16, h: 16, d: 16, mcX: -11, mcY: -8, mcZ: -11, uX: 112, uY: 30 },
                 { w: 12, h: 5,  d: 16, mcX: -6, mcY: 3, mcZ: -24, uX: 176, uY: 44 }, // Upper snout
                 { w: 12, h: 4,  d: 16, mcX: -6, mcY: -1, mcZ: -24, uX: 176, uY: 65, pivot: [0, -6, -5], rotX: -0.15 }, // Jaw opened with authentic Minecraft pivot!
                 { w: 2,  h: 4,  d: 6,  mcX: -5, mcY: 16, mcZ: -4, uX: 0, uY: 0 }, // Right Horn
