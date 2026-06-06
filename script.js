@@ -673,16 +673,16 @@ async function loadCustomModel(bName) {
 
                 const m = mirror || false;
                 
-                // Three.js wraps side faces in the opposite direction of Minecraft natively, 
-                // so we flipU (!m) all four sides to match Blockbench exactly!
-                setF(0, uvEast, d, h, false, !m);                 // East Right (+x)
-                setF(5, uvNorth, w, h, false, !m);                // North Front (-z)
-                setF(1, uvWest, d, h, false, !m);                 // West Left (-x)
-                setF(4, uvSouth, w, h, false, !m);                // South Back (+z)
+                // Three.js and Blockbench orientation offset fix
+                // Swapping North/South and East/West maps the Blockbench UVs correctly to the physical geometry
+                setF(0, uvWest, d, h, false, !m);                 // Right (+x) gets West
+                setF(5, uvSouth, w, h, false, !m);                // Front (-z) gets South
+                setF(1, uvEast, d, h, false, !m);                 // Left (-x) gets East
+                setF(4, uvNorth, w, h, false, !m);                // Back (+z) gets North
                 
-                // Restored the 180-degree rotations for the top/bottom faces
-                setF(2, uvUp, w, d, true, m);                     // Top (+y)
-                setF(3, uvDown, w, d, true, m);                   // Bottom (-y)
+                // Top and bottom 180-rotation removed to align with the swapped side faces
+                setF(2, uvUp, w, d, false, m);                    // Top (+y)
+                setF(3, uvDown, w, d, false, m);                  // Bottom (-y)
 
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
