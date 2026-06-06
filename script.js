@@ -671,14 +671,18 @@ async function loadCustomModel(bName) {
                     }
                 };
 
-                // Changed the arguments to take precise arrays, and removed the forced 180 rotation on Down!
                 const m = mirror || false;
-                setF(0, uvEast, d, h, false, !m);                 // Right texture (+x)
-                setF(5, uvNorth, w, h, false, m);                 // Front texture (-z)
-                setF(1, uvWest, d, h, false, !m);                 // Left texture (-x)
-                setF(4, uvSouth, w, h, false, m);                 // Back texture (+z)
-                setF(2, uvUp, w, d, true, m);                     // Top texture (+y)
-                setF(3, uvDown, w, d, false, m);                  // Bottom texture (-y, fixed 180 rotation!)
+                
+                // Three.js wraps side faces in the opposite direction of Minecraft natively, 
+                // so we flipU (!m) all four sides to match Blockbench exactly!
+                setF(0, uvEast, d, h, false, !m);                 // East Right (+x)
+                setF(5, uvNorth, w, h, false, !m);                // North Front (-z)
+                setF(1, uvWest, d, h, false, !m);                 // West Left (-x)
+                setF(4, uvSouth, w, h, false, !m);                // South Back (+z)
+                
+                // Restored the 180-degree rotations for the top/bottom faces
+                setF(2, uvUp, w, d, true, m);                     // Top (+y)
+                setF(3, uvDown, w, d, true, m);                   // Bottom (-y)
 
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
