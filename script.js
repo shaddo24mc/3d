@@ -706,7 +706,7 @@ async function loadCustomModel(bName) {
             const parts = [
                 { size: [16, 16, 16], pos: [-8, -7.3, -13.2], uvUp: [128,30], uvDown: [144,30], uvNorth: [160,46], uvSouth: [128,46], uvEast: [144,46], uvWest: [112,46] },
                 { size: [12, 5, 16],  pos: [-6, 3, -24], uvUp: [192,44], uvDown: [204,44], uvNorth: [216,60], uvSouth: [192,60], uvEast: [204,60], uvWest: [176,60] }, // Upper snout
-                { size: [12, 4, 16],  pos: [-6, -1, -26], uvUp: [192,65], uvDown: [204,81], uvNorth: [216,81], uvSouth: [192,81], uvEast: [204,81], uvWest: [176,81], pivot: [0, -6, -5], rot: [-8.6, 0, 0] }, // Jaw
+                { size: [12, 4, 16],  pos: [-6, -1, -26], uvUp: [192,65], uvDown: [204,65], uvNorth: [216,81], uvSouth: [192,81], uvEast: [204,81], uvWest: [176,81], pivot: [0, -6, -5], rot: [-8.6, 0, 0] }, // Jaw
                 { size: [2, 4, 6],    pos: [-5, 16, -4], uvUp: [6,0], uvDown: [8,0], uvNorth: [14,6], uvSouth: [6,6], uvEast: [8,6], uvWest: [0,6], mirror: true }, // Right Horn
                 { size: [2, 4, 6],    pos: [3, 16, -4],  uvUp: [6,0], uvDown: [8,0], uvNorth: [14,6], uvSouth: [6,6], uvEast: [8,6], uvWest: [0,6] }, // Left Horn
                 { size: [2, 2, 4],    pos: [-5, 5, -26], uvUp: [116,0], uvDown: [118,0], uvNorth: [112,4], uvSouth: [116,4], uvEast: [118,4], uvWest: [112,4], mirror: true }, // Right Nostril
