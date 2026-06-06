@@ -681,14 +681,15 @@ async function loadCustomModel(bName) {
                 };
 
                 const m = mirror || false;
+                const flipSide = !m;
                 
                 // Directly map faces cleanly without complex transformations
-                setF(0, uvEast, d, h, m, false);                 // East Right (+x)
-                setF(1, uvWest, d, h, m, false);                 // West Left (-x)
-                setF(2, uvUp, w, d, m, false);                   // Top (+y)
-                setF(3, uvDown, w, d, m, false);                 // Bottom (-y)
-                setF(4, uvSouth, w, h, m, false);                // South Back (+z)
-                setF(5, uvNorth, w, h, m, false);                // North Front (-z)
+                setF(0, uvEast, d, h, flipSide, false);                 // East (+x)
+                setF(1, uvWest, d, h, flipSide, false);                 // West (-x)
+                setF(2, uvUp, w, d, m, false);                          // Top (+y)
+                setF(3, uvDown, w, d, m, false);                        // Bottom (-y)
+                setF(4, uvSouth, w, h, flipSide, false);                // South (+z)
+                setF(5, uvNorth, w, h, flipSide, false);                // North (-z)
 
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
@@ -714,21 +715,27 @@ async function loadCustomModel(bName) {
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
-                { size: [16, 16, 16], pos: [-8, -7.3, -13.2], uvUp: [128,30], uvDown: [144,30], uvNorth: [160,46], uvSouth: [128,46], uvEast: [144,46], uvWest: [112,46] },
-                { size: [12, 5, 16],  pos: [-6, 3, -24], uvUp: [192,44], uvDown: [204,44], uvNorth: [216,60], uvSouth: [192,60], uvEast: [204,60], uvWest: [176,60] }, // Upper snout
-                { size: [12, 4, 16],  pos: [-6, -1, -26], uvUp: [192,65], uvDown: [204,65], uvNorth: [216,81], uvSouth: [192,81], uvEast: [204,81], uvWest: [176,81], pivot: [0, -6, -5], rot: [-8.6, 0, 0] }, // Jaw
-                { size: [2, 4, 6],    pos: [-5, 16, -4], uvUp: [6,0], uvDown: [8,0], uvNorth: [14,6], uvSouth: [6,6], uvEast: [8,6], uvWest: [0,6], mirror: true }, // Right Horn
-                { size: [2, 4, 6],    pos: [3, 16, -4],  uvUp: [6,0], uvDown: [8,0], uvNorth: [14,6], uvSouth: [6,6], uvEast: [8,6], uvWest: [0,6] }, // Left Horn
-                { size: [2, 2, 4],    pos: [-5, 5, -26], uvUp: [116,0], uvDown: [118,0], uvNorth: [112,4], uvSouth: [116,4], uvEast: [118,4], uvWest: [112,4], mirror: true }, // Right Nostril
-                { size: [2, 2, 4],    pos: [3, 5, -26],  uvUp: [116,0], uvDown: [118,0], uvNorth: [112,4], uvSouth: [116,4], uvEast: [118,4], uvWest: [112,4] }  // Left Nostril
+                // Skull: 16x16x16. Centered perfectly around 0,0,0 (-8 to +8 bounds)
+                { size: [16, 16, 16], pos: [-8, -8, -8], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
+                // Upper snout (Attaches flush to front of skull at Z=-8)
+                { size: [12, 5, 16],  pos: [-6, 2, -24], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
+                // Jaw (Hinges at front of skull base)
+                { size: [12, 4, 16],  pos: [-6, -2, -24], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [0, 2, -8], rot: [-8.6, 0, 0] }, 
+                // Right Horn (Mirrored)
+                { size: [2, 4, 6],    pos: [-5, 8, 2], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
+                // Left Horn
+                { size: [2, 4, 6],    pos: [3, 8, 2],  uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6] }, 
+                // Right Nostril (Mirrored)
+                { size: [2, 2, 4],    pos: [-5, 7, -23], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
+                // Left Nostril
+                { size: [2, 2, 4],    pos: [3, 7, -23],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
             ];
             headGeo = buildMCModel(parts, 256);
             headGeo.scale(0.75, 0.75, 0.75); 
-            headGeo.translate(0, -0.15, 0.25); // Push slightly forward so it sits perfectly in UI
         } else {
             // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
             const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
-                uvEast: [0, 8], uvNorth: [8, 8], uvWest: [16, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
+                uvWest: [0, 8], uvNorth: [8, 8], uvEast: [16, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
             } ];
             headGeo = buildMCModel(parts, 64);
             headGeo.translate(0, -0.25, 0); 
