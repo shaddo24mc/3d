@@ -652,37 +652,43 @@ async function loadCustomModel(bName) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, uvArr, fw, fh, rot180 = false, flipU = false) => {
+                const setF = (faceIdx, uvArr, fw, fh, flipU = false, flipV = false) => {
                     if (!uvArr) return; // Skip if UV isn't defined
                     const u = uvArr[0];
-                    const v = uvArr[1];
-                    let u1 = u / tS, u2 = (u + fw) / tS;
-                    const v1 = 1 - (v + fh) / tS, v2 = 1 - v / tS;
+                    const v = uvArr[1] !== undefined ? uvArr[1] : 0;
+                    let u1 = u / tS;
+                    let u2 = (u + fw) / tS;
+                    let v1 = 1 - (v + fh) / tS; // bottom-left in UV space
+                    let v2 = 1 - v / tS;        // top-left in UV space
                     
                     if (flipU) {
                         const tmp = u1; u1 = u2; u2 = tmp;
                     }
+                    if (flipV) {
+                        const tmp = v1; v1 = v2; v2 = tmp;
+                    }
                     
                     const i = faceIdx * 8;
-                    if (rot180) {
-                        uvs[i]=u2; uvs[i+1]=v1; uvs[i+2]=u1; uvs[i+3]=v1; uvs[i+4]=u2; uvs[i+5]=v2; uvs[i+6]=u1; uvs[i+7]=v2;
-                    } else {
-                        uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2; uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
-                    }
+                    // Standard Three.js face UV layout:
+                    // Vertex 0: top-left (u1, v2)
+                    // Vertex 1: top-right (u2, v2)
+                    // Vertex 2: bottom-left (u1, v1)
+                    // Vertex 3: bottom-right (u2, v1)
+                    uvs[i]     = u1; uvs[i + 1] = v2;
+                    uvs[i + 2] = u2; uvs[i + 3] = v2;
+                    uvs[i + 4] = u1; uvs[i + 5] = v1;
+                    uvs[i + 6] = u2; uvs[i + 7] = v1;
                 };
 
                 const m = mirror || false;
                 
-                // Three.js and Blockbench orientation offset fix
-                // Swapping North/South and East/West maps the Blockbench UVs correctly to the physical geometry
-                setF(0, uvWest, d, h, false, !m);                 // Right (+x) gets West
-                setF(5, uvSouth, w, h, false, !m);                // Front (-z) gets South
-                setF(1, uvEast, d, h, false, !m);                 // Left (-x) gets East
-                setF(4, uvNorth, w, h, false, !m);                // Back (+z) gets North
-                
-                // Top and bottom 180-rotation removed to align with the swapped side faces
-                setF(2, uvUp, w, d, false, m);                    // Top (+y)
-                setF(3, uvDown, w, d, false, m);                  // Bottom (-y)
+                // Directly map faces cleanly without complex transformations
+                setF(0, uvEast, d, h, m, false);                 // East Right (+x)
+                setF(1, uvWest, d, h, m, false);                 // West Left (-x)
+                setF(2, uvUp, w, d, m, false);                   // Top (+y)
+                setF(3, uvDown, w, d, m, false);                 // Bottom (-y)
+                setF(4, uvSouth, w, h, m, false);                // South Back (+z)
+                setF(5, uvNorth, w, h, m, false);                // North Front (-z)
 
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
