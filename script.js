@@ -692,9 +692,6 @@ async function loadCustomModel(bName) {
                 setF(4, uvNorth, w, h, m, false);                       // South (+z) - Swapped with North
                 setF(5, uvSouth, w, h, m, false);                       // North (-z) - Swapped with South
 
-                // Rotate each individual part 180 degrees around its own center before positioning
-                geo.rotateY(Math.PI);
-
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
                 if (pivot) {
@@ -711,6 +708,15 @@ async function loadCustomModel(bName) {
                     
                     geo.translate(pivot[0]*px, pivot[1]*px, pivot[2]*px);
                 }
+
+                // Rotate each individual part 180 degrees around its own center right before the final assembly
+                geo.computeBoundingBox();
+                const partCenter = new THREE.Vector3();
+                geo.boundingBox.getCenter(partCenter);
+                geo.translate(-partCenter.x, -partCenter.y, -partCenter.z);
+                geo.rotateY(Math.PI);
+                geo.translate(partCenter.x, partCenter.y, partCenter.z);
+
                 geos.push(geo);
             }
             return mergeBufferGeometries(geos);
