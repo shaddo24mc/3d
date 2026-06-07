@@ -715,23 +715,28 @@ async function loadCustomModel(bName) {
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
-                // Skull: 16x16x16. Centered perfectly around 0,0,0 (-8 to +8 bounds)
-                { size: [16, 16, 16], pos: [-8, -8, -8], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
-                // Upper snout (Attaches flush to front of skull at Z=-8)
-                { size: [12, 5, 16],  pos: [-6, 2, -24], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
+                // Skull: 16x16x16. 0,0,0 is now the North-West-Bottom corner!
+                { size: [16, 16, 16], pos: [0, 0, 0], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
+                // Upper snout (Attaches flush to front of skull at Z=0)
+                { size: [12, 5, 16],  pos: [2, 10, -16], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
                 // Jaw (Hinges at front of skull base)
-                { size: [12, 4, 16],  pos: [-6, -2, -24], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [0, 2, -8], rot: [-8.6, 0, 0] }, 
+                { size: [12, 4, 16],  pos: [2, 6, -16], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 10, 0], rot: [-8.6, 0, 0] }, 
                 // Right Horn (Mirrored)
-                { size: [2, 4, 6],    pos: [-5, 8, 2], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
+                { size: [2, 4, 6],    pos: [3, 16, 10], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
-                { size: [2, 4, 6],    pos: [3, 8, 2],  uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6] }, 
+                { size: [2, 4, 6],    pos: [11, 16, 10],  uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6] }, 
                 // Right Nostril (Mirrored)
-                { size: [2, 2, 4],    pos: [-5, 7, -23], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
+                { size: [2, 2, 4],    pos: [3, 15, -15], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
                 // Left Nostril
-                { size: [2, 2, 4],    pos: [3, 7, -23],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
+                { size: [2, 2, 4],    pos: [11, 15, -15],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
             ];
             headGeo = buildMCModel(parts, 256);
+            
+            // Shift the geometry so the NW-Bottom coordinate logic aligns perfectly within the 3D world center (-0.5 to 0.5)
+            headGeo.translate(-0.5, -0.5, -0.5);
             headGeo.scale(0.75, 0.75, 0.75); 
+            // Ensure the head rests flat on the ground of the block it is placed on
+            headGeo.translate(0, -0.125, 0);
         } else {
             // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
             const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
