@@ -653,7 +653,7 @@ async function loadCustomModel(bName) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, uvArr, fw, fh, flipU = false, flipV = false) => {
+                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
                     if (!uvArr) return; // Skip if UV isn't defined
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
@@ -662,35 +662,35 @@ async function loadCustomModel(bName) {
                     let v1 = 1 - (v + fh) / tS; // bottom-left in UV space
                     let v2 = 1 - v / tS;        // top-left in UV space
                     
-                    if (flipU) {
+                    if (mirrorU) {
                         const tmp = u1; u1 = u2; u2 = tmp;
-                    }
-                    if (flipV) {
-                        const tmp = v1; v1 = v2; v2 = tmp;
                     }
                     
                     const i = faceIdx * 8;
-                    // Standard Three.js face UV layout:
-                    // Vertex 0: top-left (u1, v2)
-                    // Vertex 1: top-right (u2, v2)
-                    // Vertex 2: bottom-left (u1, v1)
-                    // Vertex 3: bottom-right (u2, v1)
-                    uvs[i]     = u1; uvs[i + 1] = v2;
-                    uvs[i + 2] = u2; uvs[i + 3] = v2;
-                    uvs[i + 4] = u1; uvs[i + 5] = v1;
-                    uvs[i + 6] = u2; uvs[i + 7] = v1;
+                    if (rot180) {
+                        // 180 degree rotation
+                        uvs[i]     = u2; uvs[i + 1] = v1;
+                        uvs[i + 2] = u1; uvs[i + 3] = v1;
+                        uvs[i + 4] = u2; uvs[i + 5] = v2;
+                        uvs[i + 6] = u1; uvs[i + 7] = v2;
+                    } else {
+                        // Standard Three.js face UV layout
+                        uvs[i]     = u1; uvs[i + 1] = v2;
+                        uvs[i + 2] = u2; uvs[i + 3] = v2;
+                        uvs[i + 4] = u1; uvs[i + 5] = v1;
+                        uvs[i + 6] = u2; uvs[i + 7] = v1;
+                    }
                 };
 
                 const m = mirror || false;
-                const flipSide = !m;
                 
                 // Directly map faces cleanly without complex transformations
-                setF(0, uvEast, d, h, flipSide, false);                 // East (+x)
-                setF(1, uvWest, d, h, flipSide, false);                 // West (-x)
+                setF(0, uvEast, d, h, false, false);                    // East (+x)
+                setF(1, uvWest, d, h, false, false);                    // West (-x)
                 setF(2, uvUp, w, d, m, false);                          // Top (+y)
-                setF(3, uvDown, w, d, m, false);                        // Bottom (-y)
-                setF(4, uvSouth, w, h, flipSide, false);                // South (+z)
-                setF(5, uvNorth, w, h, flipSide, false);                // North (-z)
+                setF(3, uvDown, w, d, m, true);                         // Bottom (-y) - Rotated 180
+                setF(4, uvNorth, w, h, m, false);                       // South (+z) - Swapped with North
+                setF(5, uvSouth, w, h, m, false);                       // North (-z) - Swapped with South
 
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
@@ -719,17 +719,17 @@ async function loadCustomModel(bName) {
                 // Skull: 16x16x16. 
                 { size: [16, 16, 16], pos: [2, 0, 2], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
                 // Upper snout (Attaches flush to front of skull)
-                { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
+                { size: [12, 5, 16],  pos: [4, 10, -14], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
                 // Jaw (Hinges at front of skull base)
-                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [10, 10, 2], rot: [-8.6, 0, 0] }, 
+                { size: [12, 4, 16],  pos: [4, 6, -14], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [10, 10, 2], rot: [-8.6, 0, 0] }, 
                 // Right Horn (Mirrored)
-                { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
+                { size: [2, 4, 6],    pos: [5, 16, 12], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
-                { size: [2, 4, 6],    pos: [10.25, 12, 5],  uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6] }, 
+                { size: [2, 4, 6],    pos: [13, 16, 12],  uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6] }, 
                 // Right Nostril (Mirrored)
-                { size: [2, 2, 4],    pos: [4.25, 6.75, 20], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
+                { size: [2, 2, 4],    pos: [5, 15, -13], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
                 // Left Nostril
-                { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
+                { size: [2, 2, 4],    pos: [13, 15, -13],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
             ];
             headGeo = buildMCModel(parts, 256);
             
@@ -3545,4 +3545,4 @@ function animate() {
     stats.update();
 }
 
-animate();
+animate();ss
