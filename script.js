@@ -692,6 +692,9 @@ async function loadCustomModel(bName) {
                 setF(4, uvNorth, w, h, m, false);                       // South (+z) - Swapped with North
                 setF(5, uvSouth, w, h, m, false);                       // North (-z) - Swapped with South
 
+                // Rotate each individual part 180 degrees around its own center before positioning
+                geo.rotateY(Math.PI);
+
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
                 if (pivot) {
@@ -738,6 +741,7 @@ async function loadCustomModel(bName) {
             
             // Shift the geometry so the NW-Bottom coordinate logic aligns perfectly within the 3D world center (-0.5 to 0.5)
             headGeo.translate(-0.5, -0.5, -0.5);
+            
             headGeo.scale(0.75, 0.75, 0.75); 
             // Ensure the head rests flat on the ground of the block it is placed on
             headGeo.translate(0, -0.125, 0);
@@ -3545,4 +3549,4 @@ function animate() {
     stats.update();
 }
 
-animate();ss
+animate();
