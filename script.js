@@ -248,14 +248,14 @@ let currentCreativeRow = 0;
 const INVENTORY_SIZE = 9; 
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
-inventory[0] = { type: 'stone', count: 64 };
+inventory[0] = { type: 'netherite_shovel', count: 1 };
 inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
 inventory[3] = { type: 'compass', count: 1 };
 inventory[4] = { type: 'sculk_sensor', count: 64 };
 inventory[5] = { type: 'acacia_stairs', count: 64 };
 inventory[6] = { type: 'magma_block', count: 64 };
-inventory[7] = { type: 'creeper_head', count: 64 };
+inventory[7] = { type: 'dragon_head', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
 const activeChunks = {};
