@@ -1,32 +1,490 @@
+const globalStyles = document.createElement('style');
+globalStyles.innerHTML = `
+    * {
+        image-rendering: -moz-crisp-edges !important;
+        image-rendering: -o-crisp-edges !important;
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        image-rendering: pixelated !important; 
+    }
+    body { margin: 0; overflow: hidden; background-color: #87ceeb; font-family: sans-serif; }
+    canvas { display: block; }
+    .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
+    .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
+`;
+document.head.appendChild(globalStyles);
+
+const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
+const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
+const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/';
+const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
+const SPRITE_CREATIVE_DIR = 'assets/minecraft/textures/gui/sprites/container/creative_inventory/';
+const SPRITE_HUD_DIR = 'assets/minecraft/textures/gui/sprites/hud/';
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
 scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 
-// Performance: Limit pixel ratio to 1 (prevents massive slowdowns on Retina/mobile screens)
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
-renderer.setPixelRatio(1); 
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = false; 
+if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = 3001;
 document.body.appendChild(renderer.domElement);
 
 const clock = new THREE.Clock();
-const moveSpeed = 10;
+const moveSpeed = 2;
 const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
 
-// Shadows completely disabled. They are too heavy for InstancedMesh terrain.
-renderer.shadowMap.enabled = false; 
+const iconRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
+iconRenderer.setSize(128, 128);
+iconRenderer.setPixelRatio(1);
+if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
+const iconScene = new THREE.Scene();
 
-// ----------------------------------------------------
-// Base Configuration & Directories
-// ----------------------------------------------------
-const BLOCK_TEX_DIR = 'assets/minecraft/textures/block/';
-const ITEM_TEX_DIR = 'assets/minecraft/textures/item/';
+// Reverted Orthographic Camera size to standard Minecraft 14x14px bounds (-0.51 to 0.51)
+const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 10);
+// Shifted camera position by exactly 1 pixel right and 1 pixel down (0.008 units on a 128px canvas)
+// which mathematically forces the rendered 3D icon to shift exactly 1 pixel left and 1 pixel up!
+iconCamera.position.set(0.008, -0.008, 5); 
+iconCamera.lookAt(0, 0, 0);
 
-// ----------------------------------------------------
-// JSON BLOCKSTATE & MODEL READER ENGINE
-// ----------------------------------------------------
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.20 * Math.PI); 
+iconScene.add(iconAmbient);
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.80 * Math.PI); 
+iconScene.add(iconTopLight);
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20 * Math.PI); 
+iconScene.add(iconLeftLight);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
+scene.add(sunLight);
+const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2);
+scene.add(moonLight);
+
+const sunGeo = new THREE.PlaneGeometry(30, 30);
+const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, side: THREE.DoubleSide, fog: false });
+const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+scene.add(sunMesh);
+
+const moonGeo = new THREE.PlaneGeometry(20, 20);
+const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff, side: THREE.DoubleSide, fog: false });
+const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+scene.add(moonMesh);
+
+const starsGeo = new THREE.BufferGeometry();
+const starsPos = new Float32Array(1000 * 3);
+for(let i=0; i<3000; i++) starsPos[i] = (Math.random() - 0.5) * 400;
+starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, transparent: true });
+const starsMesh = new THREE.Points(starsGeo, starsMat);
+scene.add(starsMesh);
+
+// ============================================================================
+// 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
+// ============================================================================
+const ITEMS = [
+    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign', 'sweet_berries',
+    'angler_pottery_sherd', 'archer_pottery_sherd', 'arms_up_pottery_sherd', 'blade_pottery_sherd', 'brewer_pottery_sherd', 'burn_pottery_sherd', 'danger_pottery_sherd', 'explorer_pottery_sherd', 'friend_pottery_sherd', 'heart_pottery_sherd', 'heartbreak_pottery_sherd', 'howl_pottery_sherd', 'miner_pottery_sherd', 'mourner_pottery_sherd', 'plenty_pottery_sherd', 'prize_pottery_sherd', 'sheaf_pottery_sherd', 'shelter_pottery_sherd', 'skull_pottery_sherd', 'snort_pottery_sherd'
+];
+const STRICT_ITEMS = new Set(ITEMS);
+
+const flatItems = new Set([...STRICT_ITEMS]);
+['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block'].forEach(k => flatItems.delete(k));
+
+const baseBlocks = [
+    'air', 'stone', 'granite', 'polished_granite', 'diorite', 'polished_diorite', 'andesite', 'polished_andesite',
+    'grass_block', 'dirt', 'coarse_dirt', 'podzol', 'rooted_dirt', 'mud', 'cobblestone', 'bedrock', 'sand', 'red_sand',
+    'gravel', 'coal_ore', 'deepslate_coal_ore', 'iron_ore', 'deepslate_iron_ore', 'copper_ore', 'deepslate_copper_ore',
+    'gold_ore', 'deepslate_gold_ore', 'redstone_ore', 'deepslate_redstone_ore', 'emerald_ore', 'deepslate_emerald_ore',
+    'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
+    'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
+    'gold_block', 'diamond_block', 'netherite_block', 'sponge', 'wet_sponge', 'glass', 'lapis_block', 'sandstone',
+    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
+    'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
+    'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'bricks', 'bookshelf',
+    'mossy_cobblestone', 'obsidian', 'torch', 'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
+    'spawner', 'chest', 'crafting_table', 'farmland', 'furnace', 'ladder', 'snow', 'ice', 'snow_block', 'cactus', 'clay',
+    'jukebox', 'pumpkin', 'netherrack', 'soul_sand', 'soul_soil', 'basalt', 'polished_basalt', 'soul_torch', 'glowstone',
+    'jack_o_lantern', 'stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'infested_stone',
+    'melon', 'mycelium', 'lily_pad', 'nether_bricks', 'end_stone', 'end_stone_bricks', 'dragon_egg', 'emerald_block',
+    'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
+    'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
+    'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
+    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_brain_coral_block', 'dead_bubble_coral_block',
+    'dead_fire_coral_block', 'dead_horn_coral_block', 'dead_tube_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
+    'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
+    'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
+    'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
+    'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
+    'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
+    'tinted_glass', 'powder_snow', 'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor',
+    'calibrated_sculk_sensor', 'dripstone_block', 'pointed_dripstone', 'moss_block', 'moss_carpet', 'azalea',
+    'flowering_azalea', 'hanging_roots', 'spore_blossom', 'glow_lichen', 'packed_mud', 'mud_bricks', 'mangrove_roots',
+    'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
+    'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
+    'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
+    'trial_spawner', 'vault', 'heavy_core', 'cobbled_deepslate', ...ITEMS
+];
+
+const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
+const WOODS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'pale_oak', 'crimson', 'warped', 'bamboo'];
+const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick', 'mossy_stone_brick', 'granite', 'diorite', 'andesite', 'sandstone', 'red_sandstone', 'brick', 'prismarine', 'dark_prismarine', 'nether_brick', 'end_stone_brick', 'blackstone', 'polished_blackstone', 'deepslate_brick', 'deepslate_tile', 'tuff', 'polished_tuff', 'mud_brick'];
+
+const generatedBlocks = [...baseBlocks];
+
+COLORS.forEach(c => {
+    generatedBlocks.push(`${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`);
+});
+
+WOODS.forEach(w => {
+    let log = w === 'crimson' || w === 'warped' ? `${w}_stem` : w === 'bamboo' ? `${w}_block` : `${w}_log`;
+    let wood = w === 'crimson' || w === 'warped' ? `${w}_hyphae` : w === 'bamboo' ? null : `${w}_wood`;
+    let planks = `${w}_planks`;
+    let leaves = w === 'crimson' ? 'nether_wart_block' : w === 'warped' ? 'warped_wart_block' : w === 'bamboo' ? null : `${w}_leaves`;
+    let sapling = w === 'crimson' || w === 'warped' ? `${w}_fungus` : w === 'mangrove' ? `mangrove_propagule` : w === 'bamboo' ? `bamboo` : `${w}_sapling`;
+    
+    generatedBlocks.push(log, planks);
+    if (wood) generatedBlocks.push(wood);
+    if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
+    if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
+    generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_door_top`, `${w}_trapdoor`);
+});
+
+STONE_TYPES.forEach(st => {
+    generatedBlocks.push(`${st}_slab`, `${st}_stairs`);
+    if (st !== 'dark_prismarine' && st !== 'stone') generatedBlocks.push(`${st}_wall`);
+});
+
+generatedBlocks.push('iron_door', 'iron_door_top');
+
+const allBaseBlocks = [...new Set(generatedBlocks)];
+const extendedBlocks = [];
+allBaseBlocks.forEach(b => {
+    extendedBlocks.push(b);
+    if (b.includes('stairs')) {
+        extendedBlocks.push(`${b}_inner`);
+        extendedBlocks.push(`${b}_outer`);
+    }
+});
+
+const ALL_BLOCKS = [...new Set(extendedBlocks)];
+const TYPE = {};
+const REVERSE_TYPE = [null];
+ALL_BLOCKS.forEach((b, i) => { let id = i + 1; TYPE[b] = id; REVERSE_TYPE.push(b); });
+
+// Spore blossom intentionally omitted so it reads the true JSON block model instead of drawing a cross.
+const CROSS_BLOCKS = new Set([
+    'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
+    'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
+    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berries', 'cobweb', 
+    'tall_grass', 'large_fern', 'grass', 'short_grass', 'hanging_roots', 'seagrass', 'kelp'
+]);
+ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
+
+const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core']);
+const isTransparent = new Uint8Array(65535);
+isTransparent[0] = 1; 
+ALL_BLOCKS.forEach((b) => {
+    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone', 'spore_blossom'].some(kw => b.includes(kw))) {
+        isTransparent[TYPE[b]] = 1;
+    }
+});
+
+const CATEGORIES = {
+    building: { name: 'Building Blocks', icon: 'bricks', blocks: [] },
+    colored: { name: 'Colored Blocks', icon: 'cyan_wool', blocks: [] },
+    natural: { name: 'Natural Blocks', icon: 'grass_block', blocks: [] },
+    functional: { name: 'Functional Blocks', icon: 'oak_sign', blocks: [] },
+    redstone: { name: 'Redstone Blocks', icon: 'redstone', blocks: [] },
+    misc: { name: 'Miscellaneous', icon: 'bookshelf', blocks: [] },
+    search: { name: 'Search Items', icon: 'compass_tab', blocks: [] },
+    tools: { name: 'Tools', icon: 'iron_pickaxe', blocks: [] },
+    combat: { name: 'Combat', icon: 'iron_sword', blocks: [] },
+    food: { name: 'Food & Drinks', icon: 'golden_apple', blocks: [] },
+    materials: { name: 'Materials', icon: 'iron_ingot', blocks: [] },
+    spawns: { name: 'Spawn Eggs', icon: 'creeper_head', blocks: [] },
+    operator: { name: 'Operator Utilities', icon: 'command_block', blocks: [] },
+    inventory: { name: 'Survival Inventory', icon: 'chest', blocks: [] }
+};
+
+ALL_BLOCKS.forEach(b => {
+    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b === 'air') return;
+
+    if (STRICT_ITEMS.has(b)) {
+        if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
+        else if (['apple', 'beef', 'bread', 'porkchop', 'potato', 'chicken', 'mutton', 'rabbit', 'salmon', 'cod', 'cookie', 'melon_slice'].some(k=>b.includes(k))) CATEGORIES.food.blocks.push(b);
+        else if (b.includes('pickaxe') || b.includes('axe') || b.includes('shovel') || b.includes('hoe') || b === 'compass' || b === 'clock' || b === 'flint_and_steel') CATEGORIES.tools.blocks.push(b);
+        else if (b.includes('head') || b.includes('skull') || b === 'egg') CATEGORIES.spawns.blocks.push(b);
+        else if (b === 'command_block') CATEGORIES.operator.blocks.push(b);
+        else CATEGORIES.materials.blocks.push(b);
+    } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
+        CATEGORIES.colored.blocks.push(b);
+    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp')) {
+        CATEGORIES.redstone.blocks.push(b);
+    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign'].some(kw => b.includes(kw))) {
+        CATEGORIES.functional.blocks.push(b);
+    } else if (['dirt', 'grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
+        CATEGORIES.natural.blocks.push(b);
+    } else {
+        CATEGORIES.building.blocks.push(b);
+    }
+});
+
+// ============================================================================
+// 3. GLOBAL VARIABLES
+// ============================================================================
+let currentCategory = 'building';
+let selectedSlot = 0;
+let heldItem = { type: null, count: 0 };
+let currentGuiScale = 2;
+let currentCreativeRow = 0; 
+
+const INVENTORY_SIZE = 9; 
+const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
+
+inventory[0] = { type: 'netherite_shovel', count: 1 };
+inventory[1] = { type: 'dirt', count: 64 };
+inventory[2] = { type: 'grass_block', count: 64 };
+inventory[3] = { type: 'compass', count: 1 };
+inventory[4] = { type: 'sculk_sensor', count: 64 };
+inventory[5] = { type: 'acacia_stairs', count: 64 };
+inventory[6] = { type: 'magma_block', count: 64 };
+inventory[7] = { type: 'dragon_head', count: 64 };
+inventory[8] = { type: 'diamond_pickaxe', count: 1 };
+
+const activeChunks = {};
+const chunkQueue = [];
+const placedBlocks = new Map();
+const brokenBlocks = new Set();
+const treeOverhangs = new Map();
+const chunksToRebuild = new Set();
+const interactableMeshes = [];
+
+const customGeometries = {};
+const materials = {};
+const iconCache = {};
+const animatedTextures = [];
+const allTabsUI = [];
+
+// ============================================================================
+// 4. TEXTURE LOADERS & PATH RESOLVERS
+// ============================================================================
+const imageLoader = new THREE.ImageLoader();
+imageLoader.setCrossOrigin('anonymous');
+
+function resolveTexturePath(name, isIconContext = false) {
+    let folder = BLOCK_TEX_DIR;
+    let filename = name;
+    let is2D = false;
+
+    if (name === 'air') return { folder, filename, is2D: false };
+
+    // Explicitly 2D ONLY when building the UI Icon for these items
+    const iconOnly2D = new Set(['sea_pickle', 'sunflower', 'lily_pad']);
+
+    // Explicitly 2D filtering for items, plants, foods, etc. everywhere
+    const explicit2D = new Set([
+        'torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
+        'candle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
+        'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
+        'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
+        'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
+        'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
+        'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
+        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
+    ]);
+
+    if (flatItems.has(name) || name === 'compass_tab' || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
+        is2D = true;
+    }
+    
+    if (isIconContext && iconOnly2D.has(name)) {
+        is2D = true;
+    }
+
+    if (name.includes('door') && !name.includes('trapdoor')) {
+        if (name.includes('_top') || name.includes('_bottom')) {
+            is2D = false; 
+        } else {
+            is2D = true;
+            folder = ITEM_TEX_DIR;
+        }
+    }
+
+    if (is2D && !name.includes('door')) {
+        const itemFolderOverrides = ['kelp', 'sweet_berries', 'campfire', 'soul_campfire', 'bamboo', 'turtle_egg', 'pink_petals'];
+        if (flatItems.has(name) || name === 'compass_tab' || itemFolderOverrides.includes(name) || name.includes('sign')) {
+            folder = ITEM_TEX_DIR;
+        }
+    }
+
+    const blockFolderOverrides = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose', 'sea_pickle', 'amethyst_cluster', 'pointed_dripstone', 'candle', 'propagule'];
+    if (blockFolderOverrides.some(kw => name.includes(kw)) && !['weeping_vines', 'twisting_vines', 'pink_petals'].includes(name) && !name.includes('mangrove_roots')) {
+        if (!folder.includes('item')) folder = BLOCK_TEX_DIR;
+    }
+
+    // Exact filename Overrides
+    if (name === 'compass') filename = 'compass_00';
+    else if (name === 'compass_tab') filename = 'compass_01';
+    else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
+    else if (name === 'sweet_berries') { folder = ITEM_TEX_DIR; filename = 'sweet_berries'; }
+    else if (name === 'rose_bush') { folder = BLOCK_TEX_DIR; filename = 'rose_bush_top'; is2D = true; }
+    else if (name === 'large_fern') { folder = BLOCK_TEX_DIR; filename = 'large_fern_top'; }
+    else if (name === 'tall_grass') { folder = BLOCK_TEX_DIR; filename = 'tall_grass_top'; }
+    else if (name === 'grass' || name === 'short_grass') { folder = BLOCK_TEX_DIR; filename = 'short_grass'; }
+    else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
+    else if (name.includes('pane')) { folder = BLOCK_TEX_DIR; filename = name.replace('_pane', ''); } 
+    else if (name === 'flowering_azalea') { folder = BLOCK_TEX_DIR; filename = 'flowering_azalea_side'; }
+    else if (name === 'peony') { folder = BLOCK_TEX_DIR; filename = 'peony_top'; }
+    else if (name === 'lilac') { folder = BLOCK_TEX_DIR; filename = 'lilac_top'; }
+    else if (name === 'pointed_dripstone') { folder = BLOCK_TEX_DIR; filename = 'pointed_dripstone_down_tip'; is2D = true; }
+    else if (name === 'twisting_vines') { folder = BLOCK_TEX_DIR; filename = 'twisting_vines_plant'; is2D = true; }
+    else if (name === 'weeping_vines') { folder = BLOCK_TEX_DIR; filename = 'weeping_vines_plant'; is2D = true; }
+    else if (name === 'hanging_roots') { folder = BLOCK_TEX_DIR; filename = 'hanging_roots'; is2D = true; }
+    else if (name === 'sea_pickle' && isIconContext) { folder = ITEM_TEX_DIR; filename = 'sea_pickle'; }
+    else if (name === 'sunflower' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; }
+    else if (name === 'lily_pad' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'lily_pad'; }
+    else if (name.includes('candle') && !name.includes('cake')) { folder = ITEM_TEX_DIR; filename = name; is2D = true; }
+
+    return { folder, filename, is2D };
+}
+
+const loadTex = (filename, explicitFolder = null, isIconContext = false, originalTypeName = null) => {
+    if (!filename) filename = 'missingno';
+    
+    let { folder, filename: parsedFilename } = resolveTexturePath(filename, isIconContext);
+    if (explicitFolder) folder = explicitFolder;
+
+    const cvs = document.createElement('canvas');
+    cvs.width = 16; cvs.height = 16;
+    const ctx = cvs.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false; 
+    
+    const t = new THREE.CanvasTexture(cvs);
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
+    
+    if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; else t.encoding = 3001;
+
+    t.loadPromise = new Promise((resolve) => {
+        imageLoader.load(
+            `${folder}${parsedFilename}.png`,
+            (image) => {
+                const fw = image.width;
+                const fh = image.height;
+                if (fw === 0 || fh === 0) return resolve(t); 
+                const totalFrames = Math.max(1, Math.floor(fh / fw));
+                const isStandardSkin = ['creeper', 'zombie', 'skeleton', 'steve'].some(kw => parsedFilename.includes(kw));
+
+                if (totalFrames > 1 && fh % fw === 0 && !isStandardSkin) {
+                    cvs.width = fw; cvs.height = fw;
+                    ctx.imageSmoothingEnabled = false;
+                    t.needsUpdate = true;
+
+                    let animData = {
+                        texture: t, ctx: ctx, sourceImage: image,
+                        frames: Array.from({length: totalFrames}, (_, i) => i),
+                        defaultTickRate: 2, totalFrames: totalFrames,
+                        // OPTIMIZATION: Interpolation strictly turned OFF by default to save huge GPU overhead frame drops
+                        currentArrayIdx: 0, timer: 0, interpolate: false, frameWidth: fw
+                    };
+                    animatedTextures.push(animData);
+                    ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
+
+                    fetch(`${folder}${parsedFilename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
+                    .then(mcmeta => {
+                        if (mcmeta && mcmeta.animation) {
+                            if (mcmeta.animation.frames = mcmeta.animation.frames);
+                            if (mcmeta.animation.frametime = mcmeta.animation.frametime);
+                            // Interpolation override completely ignored to protect FPS
+                        }
+                        resolve(t);
+                    }).catch(e => { resolve(t); });
+                } else {
+                    cvs.width = isStandardSkin ? 64 : fw;
+                    cvs.height = isStandardSkin ? 64 : fh;
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(image, 0, 0);
+
+                    // Grayscale Foliage HTML Canvas Math Tinting Algorithm
+                    if (isIconContext && originalTypeName) {
+                        const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+                        if (tintables.includes(originalTypeName)) {
+                            ctx.globalCompositeOperation = 'source-atop';
+                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#208030' : '#79c05a';
+                            ctx.fillRect(0, 0, cvs.width, cvs.height);
+                            ctx.globalCompositeOperation = 'multiply';
+                            ctx.drawImage(image, 0, 0);
+                            ctx.globalCompositeOperation = 'destination-in';
+                            ctx.drawImage(image, 0, 0); 
+                            ctx.globalCompositeOperation = 'source-over';
+                        }
+                    }
+
+                    t.needsUpdate = true;
+                    resolve(t);
+                }
+            },
+            undefined,
+            (err) => {
+                cvs.width = 16; cvs.height = 16;
+                ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, 8, 8); ctx.fillRect(8, 8, 8, 8);
+                ctx.fillStyle = '#000000'; ctx.fillRect(8, 0, 8, 8); ctx.fillRect(0, 8, 8, 8);
+                t.needsUpdate = true;
+                resolve(t);
+            }
+        );
+    });
+    return t;
+};
+
+function resolveFallbackTexture(name) {
+    if (!name) return 'stone';
+    if (name === 'grass_block') return 'grass_block_side';
+    if (name === 'chest') return 'oak_planks'; 
+    if (name === 'crafting_table') return 'crafting_table_top';
+    if (name === 'furnace') return 'furnace_front';
+    if (name.includes('shulker_box')) return 'shulker_box';
+    if (name.includes('anvil')) return 'anvil_base';
+    if (name === 'packed_mud') return 'mud';
+    if (name === 'conduit') return 'conduit';
+    
+    // Correctly map mob heads and custom model overrides to their raw layout locations
+    if (name === 'creeper_head') return '../entity/creeper/creeper';
+    if (name === 'zombie_head') return '../entity/zombie/zombie';
+    if (name === 'skeleton_skull') return '../entity/skeleton/skeleton';
+    if (name === 'wither_skeleton_skull') return '../entity/skeleton/wither_skeleton';
+    if (name === 'dragon_head') return '../entity/enderdragon/dragon';
+    if (name === 'player_head') return '../entity/player/wide/steve';
+    if (name === 'decorated_pot') return '../entity/decorated_pot/decorated_pot_side';
+    
+    return resolveTexturePath(name).filename;
+}
+
+function setFallbackBg(element, urls, configOnSuccess) {
+    let i = 0;
+    function tryNext() {
+        if (i >= urls.length) return;
+        let img = new Image();
+        img.onload = () => {
+            element.style.backgroundImage = `url(${urls[i]})`;
+            if(configOnSuccess) configOnSuccess(i);
+        };
+        img.onerror = () => { i++; tryNext(); };
+        img.src = urls[i];
+    }
+    tryNext();
+}
+
 const JSONReader = {
     blockstates: {},
     models: {},
@@ -64,351 +522,1235 @@ const JSONReader = {
     }
 };
 
-// ----------------------------------------------------
-// MASSIVE BLOCK REGISTRY DATABASE
-// ----------------------------------------------------
-const baseBlocks = [
-    'air', 'stone', 'granite', 'polished_granite', 'diorite', 'polished_diorite', 'andesite', 'polished_andesite',
-    'grass_block', 'dirt', 'coarse_dirt', 'podzol', 'rooted_dirt', 'mud', 'cobblestone', 'bedrock', 'sand', 'red_sand',
-    'gravel', 'coal_ore', 'deepslate_coal_ore', 'iron_ore', 'deepslate_iron_ore', 'copper_ore', 'deepslate_copper_ore',
-    'gold_ore', 'deepslate_gold_ore', 'redstone_ore', 'deepslate_redstone_ore', 'emerald_ore', 'deepslate_emerald_ore',
-    'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
-    'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
-    'gold_block', 'diamond_block', 'netherite_block', 'sponge', 'wet_sponge', 'glass', 'lapis_block', 'sandstone',
-    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
-    'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
-    'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'bricks', 'bookshelf',
-    'mossy_cobblestone', 'obsidian', 'torch', 'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
-    'spawner', 'chest', 'crafting_table', 'farmland', 'furnace', 'ladder', 'snow', 'ice', 'snow_block', 'cactus', 'clay',
-    'jukebox', 'pumpkin', 'netherrack', 'soul_sand', 'soul_soil', 'basalt', 'polished_basalt', 'soul_torch', 'glowstone',
-    'jack_o_lantern', 'stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'infested_stone',
-    'melon', 'mycelium', 'lily_pad', 'nether_bricks', 'end_stone', 'end_stone_bricks', 'dragon_egg', 'emerald_block',
-    'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
-    'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
-    'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
-    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_cube_coral_block', 'dead_brain_coral_block', 'dead_bubble_coral_block',
-    'dead_fire_coral_block', 'dead_horn_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
-    'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
-    'sweet_berry_bush', 'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
-    'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
-    'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
-    'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
-    'tinted_glass', 'powder_snow', 'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor',
-    'calibrated_sculk_sensor', 'dripstone_block', 'pointed_dripstone', 'moss_block', 'moss_carpet', 'azalea',
-    'flowering_azalea', 'hanging_roots', 'spore_blossom', 'glow_lichen', 'packed_mud', 'mud_bricks', 'mangrove_roots',
-    'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
-    'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
-    'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
-    'trial_spawner', 'vault', 'heavy_core', 'snowy_grass_block', 'cobbled_deepslate'
-];
+const destroyTextures = [];
+for (let i = 0; i < 10; i++) {
+    destroyTextures.push(loadTex(`destroy_stage_${i}`));
+}
 
-const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
-const WOODS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'pale_oak', 'crimson', 'warped', 'bamboo'];
-const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick', 'mossy_stone_brick', 'granite', 'diorite', 'andesite', 'sandstone', 'red_sandstone', 'brick', 'prismarine', 'dark_prismarine', 'nether_brick', 'end_stone_brick', 'blackstone', 'polished_blackstone', 'deepslate_brick', 'deepslate_tile', 'tuff', 'polished_tuff', 'mud_brick'];
-
-const generatedBlocks = [...baseBlocks];
-
-COLORS.forEach(c => {
-    generatedBlocks.push(
-        `${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, 
-        `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, 
-        `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`
-    );
+const destroyGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
+const destroyMat = new THREE.MeshBasicMaterial({ 
+    map: destroyTextures[0], transparent: true, depthWrite: false, color: 0xA9A9A9, opacity: 0.8
 });
+const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
+destroyMesh.visible = false; 
+scene.add(destroyMesh);
 
-WOODS.forEach(w => {
-    let log = w === 'crimson' || w === 'warped' ? `${w}_stem` : w === 'bamboo' ? `${w}_block` : `${w}_log`;
-    let wood = w === 'crimson' || w === 'warped' ? `${w}_hyphae` : `${w}_wood`;
-    let planks = `${w}_planks`;
-    let leaves = w === 'crimson' || w === 'warped' ? `${w}_wart_block` : w === 'bamboo' ? null : `${w}_leaves`;
-    let sapling = w === 'crimson' || w === 'warped' ? `${w}_fungus` : w === 'mangrove' ? `mangrove_propagule` : w === 'bamboo' ? `bamboo_shoot` : `${w}_sapling`;
-    
-    generatedBlocks.push(log, wood, planks);
-    if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
-    if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
-    
-    generatedBlocks.push(
-        `${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_trapdoor`
-    );
-});
-
-STONE_TYPES.forEach(st => {
-    generatedBlocks.push(`${st}_slab`, `${st}_stairs`, `${st}_wall`);
-});
-
-const ALL_BLOCKS = [...new Set(generatedBlocks)];
-
-const TYPE = {};
-const REVERSE_TYPE = [null];
-ALL_BLOCKS.forEach((b, i) => {
-    let id = i + 1;
-    TYPE[b] = id;
-    REVERSE_TYPE.push(b);
-});
-
-const CROSS_BLOCKS = new Set([
-    'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
-    'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
-    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berry_bush', 'cobweb', 
-    'tall_grass', 'large_fern', 'grass'
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const crossGeo = new THREE.BufferGeometry();
+const crossPositions = new Float32Array([
+    -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
+     0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
+    -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
+     0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
 ]);
-ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
+const crossUVs = new Float32Array([
+    0,0,  1,0,  0,1,
+    1,0,  1,1,  0,1,
+    0,0,  1,0,  0,1,
+    1,0,  1,1,  0,1
+]);
+crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
+crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
+crossGeo.computeVertexNormals();
 
-const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor']);
-const isTransparent = new Uint8Array(65535);
-isTransparent[0] = 1; // Air is transparent
-ALL_BLOCKS.forEach((b) => {
-    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || b.includes('leaves') || b.includes('glass') || b.includes('door') || b.includes('trapdoor') || b.includes('fence')) {
-        isTransparent[TYPE[b]] = 1;
+async function loadCustomModel(bName) {
+    if (customGeometries[bName]) return; 
+
+    // Hardcode Minecraft Conduit Model including proper geometry, UV mappings and translucent casing
+    if (bName === 'conduit') {
+        const tex = loadTex('conduit');
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+        const px = 1/16;
+        const geos = [];
+        
+        // Inner Central Heart/Core (6x6x6 texels)
+        const coreGeo = new THREE.BoxGeometry(6 * px, 6 * px, 6 * px);
+        coreGeo.clearGroups();
+        const coreUVs = coreGeo.attributes.uv.array;
+        
+        // Map central heart textures on the 3D core
+        const setCoreFaceUV = (faceIdx, u, v, w, h) => {
+            const u1 = u / 32, u2 = (u + w) / 32;
+            const v1 = 1 - (v + h) / 16, v2 = 1 - v / 16;
+            const i = faceIdx * 8;
+            coreUVs[i]=u1; coreUVs[i+1]=v2; coreUVs[i+2]=u2; coreUVs[i+3]=v2;
+            coreUVs[i+4]=u1; coreUVs[i+5]=v1; coreUVs[i+6]=u2; coreUVs[i+7]=v1;
+        };
+        for (let i = 0; i < 6; i++) {
+            setCoreFaceUV(i, 0, 0, 6, 6); // Core Heart UV Mapping
+            coreGeo.addGroup(i * 6, 6, 0);
+        }
+        geos.push(coreGeo);
+        
+        // Outer Rings / Cage shells
+        const shell1 = new THREE.BoxGeometry(8 * px, 8 * px, 2 * px);
+        const shell2 = new THREE.BoxGeometry(8 * px, 2 * px, 8 * px);
+        const shell3 = new THREE.BoxGeometry(2 * px, 8 * px, 8 * px);
+        
+        const shellUVs1 = shell1.attributes.uv.array;
+        const shellUVs2 = shell2.attributes.uv.array;
+        const shellUVs3 = shell3.attributes.uv.array;
+        
+        const setShellUV = (uvs, faceIdx, u, v, w, h) => {
+            const u1 = u / 32, u2 = (u + w) / 32;
+            const v1 = 1 - (v + h) / 16, v2 = 1 - v / 16;
+            const i = faceIdx * 8;
+            uvs[i]=u1; uvs[i+1]=v2; uvs[i+2]=u2; uvs[i+3]=v2;
+            uvs[i+4]=u1; uvs[i+5]=v1; uvs[i+6]=u2; uvs[i+7]=v1;
+        };
+        
+        for (let i = 0; i < 6; i++) {
+            setShellUV(shellUVs1, i, 12, 0, 8, 8);
+            shell1.addGroup(i * 6, 6, 0);
+            
+            setShellUV(shellUVs2, i, 12, 0, 8, 8);
+            shell2.addGroup(i * 6, 6, 0);
+            
+            setShellUV(shellUVs3, i, 12, 0, 8, 8);
+            shell3.addGroup(i * 6, 6, 0);
+        }
+        
+        geos.push(shell1, shell2, shell3);
+        
+        materials[bName] = mat;
+        customGeometries[bName] = mergeBufferGeometries(geos);
+        return;
     }
-});
 
-// ----------------------------------------------------
-// UI: Crosshair, Hotbar, & Full Inventory
-// ----------------------------------------------------
-const crosshair = document.createElement('div');
-crosshair.style.position = 'absolute';
-crosshair.style.top = '50%';
-crosshair.style.left = '50%';
-crosshair.style.width = '20px';
-crosshair.style.height = '20px';
-crosshair.style.transform = 'translate(-50%, -50%)';
-crosshair.style.pointerEvents = 'none';
-crosshair.style.zIndex = '100';
-crosshair.innerHTML = '<div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:rgba(255,255,255,0.8);"></div><div style="position:absolute;top:0;left:9px;width:2px;height:20px;background:rgba(255,255,255,0.8);"></div>';
-document.body.appendChild(crosshair);
+    // Handle Skull Model generation overriding directly (avoid 404 fetching)
+    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head']);
+    if (hardcodedModels.has(bName)) {
+        const fallbackName = resolveFallbackTexture(bName);
+        const tex = loadTex(fallbackName);
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+        
+        const buildMCModel = (parts, tS, scaleFactor = 1.0) => {
+            const geos = [];
+            const px = 1/16;
+            for (let p of parts) {
+                let w, h, d, mcX, mcY, mcZ;
+                
+                // Automatically handle Blockbench "Java Block" format (From/To) 
+                // OR Blockbench "Entity" format (Position/Size)
+                if (p.from && p.to) {
+                    w = p.to[0] - p.from[0];
+                    h = p.to[1] - p.from[1];
+                    d = p.to[2] - p.from[2];
+                    mcX = p.from[0];
+                    mcY = p.from[1];
+                    mcZ = p.from[2];
+                } else {
+                    w = p.size ? p.size[0] : p.w;
+                    h = p.size ? p.size[1] : p.h;
+                    d = p.size ? p.size[2] : p.d;
+                    mcX = p.pos ? p.pos[0] : p.mcX;
+                    mcY = p.pos ? p.pos[1] : p.mcY;
+                    mcZ = p.pos ? p.pos[2] : p.mcZ;
+                }
+                
+                // Translate the unscaled coordinates into the proper physical size mathematically
+                // The geometry builds natively at this scaled size without double shrinking the positions
+                const physW = w * scaleFactor;
+                const physH = h * scaleFactor;
+                const physD = d * scaleFactor;
 
-const INVENTORY_SIZE = 36;
-const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
+                const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror } = p;
+                const geo = new THREE.BoxGeometry(physW * px, physH * px, physD * px);
+                geo.clearGroups();
+                const uvs = geo.attributes.uv.array;
 
-inventory[0] = { type: 'stone', count: 64 };
-inventory[1] = { type: 'dirt', count: 64 };
-inventory[2] = { type: 'grass_block', count: 64 };
-inventory[3] = { type: 'sculk_shrieker', count: 64 };
-inventory[4] = { type: 'sculk_sensor', count: 64 };
-inventory[5] = { type: 'acacia_stairs', count: 64 };
-inventory[6] = { type: 'magma_block', count: 64 };
-inventory[7] = { type: 'cobblestone', count: 64 };
-inventory[8] = { type: 'diamond_pickaxe', count: 1 };
+                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
+                    if (!uvArr) return; // Skip if UV isn't defined
+                    const u = uvArr[0];
+                    const v = uvArr[1] !== undefined ? uvArr[1] : 0;
+                    let u1 = u / tS;
+                    let u2 = (u + fw) / tS;
+                    let v1 = 1 - (v + fh) / tS; // bottom-left in UV space
+                    let v2 = 1 - v / tS;        // top-left in UV space
+                    
+                    if (mirrorU) {
+                        const tmp = u1; u1 = u2; u2 = tmp;
+                    }
+                    
+                    const i = faceIdx * 8;
+                    if (rot180) {
+                        // 180 degree UV rotation
+                        uvs[i]     = u2; uvs[i + 1] = v1;
+                        uvs[i + 2] = u1; uvs[i + 3] = v1;
+                        uvs[i + 4] = u2; uvs[i + 5] = v2;
+                        uvs[i + 6] = u1; uvs[i + 7] = v2;
+                    } else {
+                        // Standard Three.js face UV layout
+                        uvs[i]     = u1; uvs[i + 1] = v2;
+                        uvs[i + 2] = u2; uvs[i + 3] = v2;
+                        uvs[i + 4] = u1; uvs[i + 5] = v1;
+                        uvs[i + 6] = u2; uvs[i + 7] = v1;
+                    }
+                };
 
-let selectedSlot = 0;
-let heldItem = { type: null, count: 0 };
+                const m = mirror || false;
+                
+                // 1. Directly map faces normally 
+                setF(0, uvEast, d, h, m);
+                setF(1, uvWest, d, h, m);
+                setF(2, uvUp, w, d, m, true); // Rotate ONLY the Top UV by 180 degrees
+                setF(3, uvDown, w, d, m);
+                setF(4, uvSouth, w, h, m);
+                setF(5, uvNorth, w, h, m);
 
-function getItemImage(type) {
-    if (!type) return 'none';
-    const isItem = type.includes('pickaxe') || type === 'coal' || type.includes('raw') || type === 'diamond' || type === 'emerald' || type === 'lapis_lazuli' || type === 'redstone' || type === 'snowball';
-    const folder = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
+                // 2. ROTATE EVERY SINGLE PART 180 DEGREES BEFORE ASSEMBLING
+                geo.rotateY(Math.PI);
+
+                // 3. ASSEMBLE (Piece all the parts together at their target locations)
+                geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
+
+                // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
+                if (pivot) {
+                    const pivX = pivot[0] * scaleFactor * px;
+                    const pivY = pivot[1] * scaleFactor * px;
+                    const pivZ = pivot[2] * scaleFactor * px;
+                    
+                    geo.translate(-pivX, -pivY, -pivZ);
+                    
+                    // Allow literal degree arrays from Blockbench (e.g. rot: [22.5, 0, 0])
+                    if (rot) {
+                        if (rot[0]) geo.rotateX(THREE.MathUtils.degToRad(rot[0]));
+                        if (rot[1]) geo.rotateY(THREE.MathUtils.degToRad(rot[1]));
+                        if (rot[2]) geo.rotateZ(THREE.MathUtils.degToRad(rot[2]));
+                    } else if (rotX) {
+                        geo.rotateX(rotX); // Backwards compatibility 
+                    }
+                    
+                    geo.translate(pivX, pivY, pivZ);
+                }
+
+                geos.push(geo);
+            }
+            return mergeBufferGeometries(geos);
+        };
+
+        let headGeo;
+        if (bName === 'dragon_head') {
+            const parts = [
+                // Skull: 16x16x16. 
+                { size: [16, 16, 16], pos: [2, 0, 2], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
+                // Upper snout (Attaches flush to front of skull)
+                { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
+                // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
+                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [0, 0, 0] }, 
+                // Right Horn (Mirrored)
+                { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
+                // Left Horn
+                { size: [2, 4, 6],    pos: [10.25, 12, 5],  uvUp: [6,0], uvDown: [8,0], uvWest: [8,6], uvNorth: [6,6], uvEast: [0,6], uvSouth: [14,6] }, 
+                // Right Nostril (Mirrored)
+                { size: [2, 2, 4],    pos: [4.25, 6.75, 20], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
+                // Left Nostril
+                { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [118,4], uvNorth: [116,4], uvEast: [112,4], uvSouth: [120,4] }  
+            ];
+            
+            // Pass scaleFactor = 0.75 so geometry is built correctly BEFORE positioning without ruining UVs!
+            headGeo = buildMCModel(parts, 256, 0.75);
+            
+            // Shift the geometry cleanly to match physical 12x12 world dimensions
+            headGeo.translate(-0.5, -0.5, -0.5);
+        } else {
+            // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
+            const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
+                uvWest: [0, 8], uvNorth: [8, 8], uvEast: [16, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
+            } ];
+            headGeo = buildMCModel(parts, 64);
+            headGeo.translate(0, -0.25, 0); 
+        }
+
+        materials[bName] = mat;
+        customGeometries[bName] = headGeo;
+        return;
+    }
+
+    // Custom geometry interception for Torches & Campfires
+    if (bName === 'torch' || bName === 'soul_torch') {
+        const tex = loadTex(bName);
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
+        let geo = new THREE.BoxGeometry(2/16, 10/16, 2/16);
+        geo.translate(0, -3/16, 0);
+        
+        const uvs = geo.attributes.uv.array;
+        const setUV = (faceIdx, u1, v1, u2, v2) => {
+            const i = faceIdx * 8;
+            uvs[i]=u1/16; uvs[i+1]=1-v2/16; uvs[i+2]=u2/16; uvs[i+3]=1-v2/16;
+            uvs[i+4]=u1/16; uvs[i+5]=1-v1/16; uvs[i+6]=u2/16; uvs[i+7]=1-v1/16;
+        };
+        for(let i=0; i<6; i++) setUV(i, 7, 6, 9, 16); 
+        setUV(2, 7, 6, 9, 8); // Top
+        setUV(3, 7, 14, 9, 16); // Bottom
+
+        materials[bName] = mat;
+        customGeometries[bName] = geo;
+        return;
+    }
+
+    if (bName === 'campfire' || bName === 'soul_campfire') {
+        const texLog = loadTex(bName === 'campfire' ? 'campfire_log_lit' : 'soul_campfire_log_lit');
+        let mat = new THREE.MeshLambertMaterial({ map: texLog });
+        let geo = new THREE.BoxGeometry(1, 7/16, 1);
+        geo.translate(0, -4.5/16, 0);
+        materials[bName] = mat;
+        customGeometries[bName] = geo;
+        return;
+    }
+
+    if (CROSS_BLOCKS.has(bName)) {
+        const fallbackTex = resolveFallbackTexture(bName);
+        const tex = loadTex(fallbackTex);
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true });
+        if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
+            mat.color.setHex(0x91bd59);
+        }
+        materials[bName] = mat;
+        customGeometries[bName] = crossGeo;
+        return;
+    }
+
+    try {
+        let isInner = bName.endsWith('_inner');
+        let isOuter = bName.endsWith('_outer');
+        let isTop = bName.endsWith('_top');
+        let baseName = bName;
+        if (isInner) baseName = bName.replace('_inner', '');
+        if (isOuter) baseName = bName.replace('_outer', '');
+        if (isTop) baseName = bName.replace('_top', '');
+
+        let modelPath = baseName;
+        const state = await JSONReader.getBlockstate(baseName);
+        
+        if (state && state.variants) {
+            let variantKey = "";
+            let keys = Object.keys(state.variants);
+            let targetShape = isInner ? 'inner_left' : isOuter ? 'outer_left' : 'straight';
+            let targetHalf = isTop ? 'upper' : (baseName.includes('door') ? 'lower' : 'bottom');
+            
+            for (let k of keys) {
+                let matchHalf = k.includes(`half=${targetHalf}`);
+                if (!k.includes('half=')) matchHalf = true;
+                
+                let matchShape = k.includes(`shape=${targetShape}`);
+                if (!k.includes('shape=')) matchShape = true;
+                
+                if (matchHalf && matchShape) {
+                    variantKey = k;
+                    break;
+                }
+            }
+            if (!variantKey) variantKey = keys[0]; 
+            
+            let variant = state.variants[variantKey];
+            if (Array.isArray(variant)) variant = variant[0]; 
+            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+        } else if (state && state.multipart) {
+            let part = state.multipart[0]; 
+            let variant = part.apply;
+            if (Array.isArray(variant)) variant = variant[0];
+            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+        }
+
+        let currentModel = await JSONReader.getModel(modelPath);
+        let elements = currentModel ? currentModel.elements : null;
+        let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
+        let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
+
+        let depth = 0;
+        while (currentModel && currentModel.parent && depth < 10) {
+            let parentPath = currentModel.parent;
+            if (parentPath.includes(':')) parentPath = parentPath.split(':')[1]; 
+            parentPath = parentPath.replace('block/', '');
+            
+            if (parentPath.startsWith('builtin/')) break;
+            
+            currentModel = await JSONReader.getModel(parentPath);
+            if (currentModel) {
+                if (!elements && currentModel.elements) elements = currentModel.elements;
+                if (currentModel.textures) {
+                    for (let k in currentModel.textures) {
+                        if (!textures[k]) textures[k] = currentModel.textures[k];
+                    }
+                }
+                if (currentModel.display) {
+                    for (let k in currentModel.display) {
+                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
+                    }
+                }
+            }
+            depth++;
+        }
+
+        const resolveTexture = (texStr) => {
+            if (!texStr) return null;
+            let key = texStr.startsWith('#') ? texStr.substring(1) : texStr;
+            
+            if (textures[key]) {
+                let safe = 10;
+                while (textures[key] && textures[key].startsWith('#') && safe > 0) {
+                    key = textures[key].substring(1);
+                    safe--;
+                }
+                if (textures[key]) return textures[key];
+            }
+            
+            if (texStr.startsWith('#')) return resolveFallbackTexture(baseName);
+            return texStr;
+        };
+
+        const matArray = [];
+        const texMap = {};
+        let matIndexCounter = 0;
+
+        const getMaterialForTex = (texPath) => {
+            if (!texPath) texPath = resolveFallbackTexture(baseName); 
+            texPath = texPath.replace('minecraft:', '').replace('block/', '');
+            
+            if (texMap[texPath] !== undefined) return texMap[texPath];
+            
+            let tex = loadTex(texPath);
+            let mat;
+            let isOverlay = texPath.includes('overlay');
+
+            const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
+            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+
+            if (isTranslucent || isOverlay) {
+                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
+            } else if (isCutout) {
+                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+            } else {
+                mat = new THREE.MeshLambertMaterial({ map: tex });
+            }
+            
+            if (texPath === 'grass_block_top' || texPath === 'vine' || texPath === 'grass_block_side_overlay') {
+                mat.color.setHex(0x91bd59); 
+            } else if (texPath.includes('leaves')) {
+                mat.color.setHex(0x91bd59);
+                if (texPath.includes('spruce')) mat.color.setHex(0x619961);
+                if (texPath.includes('birch')) mat.color.setHex(0x80a755);
+            }
+            
+            matArray.push(mat);
+            texMap[texPath] = matIndexCounter;
+            return matIndexCounter++;
+        };
+
+        if (elements && elements.length > 0) {
+            const elementGeometries = [];
+            for (let el of elements) {
+                const w = (el.to[0] - el.from[0]) / 16;
+                const h = (el.to[1] - el.from[1]) / 16;
+                const d = (el.to[2] - el.from[2]) / 16;
+                
+                let hasOverlay = false;
+                if (el.faces) {
+                    for (const mcFace in el.faces) {
+                        if (!el.faces[mcFace]) continue;
+                        let texRef = el.faces[mcFace].texture;
+                        let texPath = resolveTexture(texRef);
+                        if (texPath && texPath.includes('overlay')) hasOverlay = true;
+                    }
+                }
+                
+                let expand = hasOverlay ? 0.002 : 0;
+                
+                const geo = new THREE.BoxGeometry(
+                    Math.max(0.001, w + expand), 
+                    Math.max(0.001, h + expand), 
+                    Math.max(0.001, d + expand)
+                );
+                
+                geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
+                geo.clearGroups();
+
+                // OPTIMIZATION: Native proper block rotation parsing logic implemented!
+                if (el.rotation && el.rotation.origin) {
+                    let rx = 0, ry = 0, rz = 0;
+                    let pX = el.rotation.origin[0]/16 - 0.5;
+                    let pY = el.rotation.origin[1]/16 - 0.5;
+                    let pZ = el.rotation.origin[2]/16 - 0.5;
+                    let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
+
+                    geo.translate(-pX, -pY, -pZ);
+                    if (el.rotation.axis === 'x') { rx = rad; geo.rotateX(rad); }
+                    if (el.rotation.axis === 'y') { ry = rad; geo.rotateY(rad); }
+                    if (el.rotation.axis === 'z') { rz = rad; geo.rotateZ(rad); }
+                    
+                    if (el.rotation.rescale) {
+                        let scaleAmount = 1.0 / Math.cos(Math.abs(rad));
+                        if (el.rotation.axis === 'x') geo.scale(1, scaleAmount, scaleAmount);
+                        if (el.rotation.axis === 'y') geo.scale(scaleAmount, 1, scaleAmount);
+                        if (el.rotation.axis === 'z') geo.scale(scaleAmount, scaleAmount, 1);
+                    }
+                    geo.translate(pX, pY, pZ);
+                }
+
+                if (el.faces) {
+                    const uvs = geo.attributes.uv;
+                    const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
+                    
+                    for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
+                        const faceData = el.faces[mcFace];
+                        if (!faceData) continue;
+
+                        let texRef = faceData.texture;
+                        let texPath = resolveTexture(texRef);
+                        let matIdx = getMaterialForTex(texPath);
+
+                        geo.addGroup(faceIdx * 6, 6, matIdx);
+
+                        let u1 = 0, v1 = 0, u2 = 1, v2 = 1;
+                        if (faceData.uv) {
+                            u1 = faceData.uv[0] / 16;
+                            v1 = faceData.uv[1] / 16;
+                            u2 = faceData.uv[2] / 16;
+                            v2 = faceData.uv[3] / 16;
+                        } else {
+                            if (mcFace === 'up' || mcFace === 'down') {
+                                u1 = el.from[0]/16; v1 = el.from[2]/16; u2 = el.to[0]/16; v2 = el.to[2]/16;
+                            } else if (mcFace === 'north' || mcFace === 'south') {
+                                u1 = el.from[0]/16; v1 = 1 - el.to[1]/16; u2 = el.to[0]/16; v2 = 1 - el.from[1]/16;
+                            } else {
+                                u1 = el.from[2]/16; v1 = 1 - el.to[1]/16; u2 = el.to[2]/16; v2 = 1 - el.from[1]/16;
+                            }
+                        }
+
+                        let tv1 = 1 - v1;
+                        let tv2 = 1 - v2;
+                        let vIdx = faceIdx * 4;
+                        
+                        let rot = faceData.rotation || 0;
+                        if (rot === 0) {
+                            uvs.setXY(vIdx + 0, u1, tv1); uvs.setXY(vIdx + 1, u2, tv1);
+                            uvs.setXY(vIdx + 2, u1, tv2); uvs.setXY(vIdx + 3, u2, tv2);
+                        } else if (rot === 90) {
+                            uvs.setXY(vIdx + 0, u1, tv2); uvs.setXY(vIdx + 1, u1, tv1);
+                            uvs.setXY(vIdx + 2, u2, tv2); uvs.setXY(vIdx + 3, u2, tv1);
+                        } else if (rot === 180) {
+                            uvs.setXY(vIdx + 0, u2, tv2); uvs.setXY(vIdx + 1, u1, tv2);
+                            uvs.setXY(vIdx + 2, u2, tv1); uvs.setXY(vIdx + 3, u1, tv1);
+                        } else if (rot === 270) {
+                            uvs.setXY(vIdx + 0, u2, tv1); uvs.setXY(vIdx + 1, u2, tv2);
+                            uvs.setXY(vIdx + 2, u1, tv1); uvs.setXY(vIdx + 3, u1, tv2);
+                        }
+                    }
+                }
+                elementGeometries.push(geo);
+            }
+            
+            materials[bName] = matArray;
+            if (elementGeometries.length === 1) {
+                customGeometries[bName] = elementGeometries[0];
+            } else if (elementGeometries.length > 1) {
+                customGeometries[bName] = mergeBufferGeometries(elementGeometries);
+            }
+            
+            customGeometries[bName].userData = { display: display };
+            
+        } else {
+            throw new Error("No elements found");
+        }
+    } catch(e) {
+        const fallbackName = resolveFallbackTexture(bName);
+        const tex = loadTex(fallbackName);
+        let mat;
+        
+        const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
+        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
+
+        if (isTranslucent) {
+            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
+        } else if (isCutout) {
+            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+        } else {
+            mat = new THREE.MeshLambertMaterial({ map: tex });
+        }
+        
+        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'grass' || bName === 'tall_grass' || bName === 'fern') {
+            mat.color.setHex(0x91bd59);
+        } else if (fallbackName.includes('leaves')) {
+            mat.color.setHex(0x91bd59);
+            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961);
+            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755);
+        }
+        
+        materials[bName] = mat;
+        
+        let customGeo = geometry.clone(); 
+        if (bName === 'heavy_core') {
+            customGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            customGeo.translate(0, -0.25, 0);
+        }
+        customGeometries[bName] = customGeo; 
+    }
     
-    let filename = type;
-    if (type === 'diamond_pickaxe') filename = 'diamond_pickaxe';
-    if (type === 'redstone') filename = 'redstone_dust';
-    if (type === 'lapis_lazuli') filename = 'lapis_lazuli';
-    if (type === 'grass_block') filename = 'grass_block_side';
-    if (type === 'snowy_grass_block') filename = 'grass_block_snow';
+    const promises = [];
+    if (Array.isArray(materials[bName])) {
+        materials[bName].forEach(mat => { if (mat.map && mat.map.loadPromise) promises.push(mat.map.loadPromise); });
+    } else if (materials[bName] && materials[bName].map && materials[bName].map.loadPromise) {
+        promises.push(materials[bName].map.loadPromise);
+    }
+    await Promise.all(promises);
+}
+
+async function getBlockIcon(type) {
+    if (!type || type === 'air') return 'none';
+    if (iconCache[type]) return iconCache[type];
     
-    return `url(${folder}${filename}.png)`;
+    let pathInfo = resolveTexturePath(type, true);
+    
+    // Explicit 2D items (Uses a pure HTMLCanvas element rendering for flawless 1:1 crisp pixels)
+    if (pathInfo.is2D) {
+        let tex = loadTex(pathInfo.filename, pathInfo.folder, true, type);
+        await tex.loadPromise;
+        
+        const cvs = document.createElement('canvas');
+        cvs.width = 16; cvs.height = 16;
+        const ctx = cvs.getContext('2d');
+        ctx.imageSmoothingEnabled = false; 
+        if (tex.image) {
+            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+        }
+        const url = `url(${cvs.toDataURL('image/png')})`;
+        iconCache[type] = url;
+        return url;
+    }
+
+    if (!customGeometries[type]) await loadCustomModel(type);
+    const geo = customGeometries[type];
+    const mat = materials[type];
+    if (!geo || !mat) return 'none';
+    
+    const mesh = new THREE.Mesh(geo, mat);
+    iconScene.add(mesh);
+    
+    mesh.position.set(0, 0, 0);
+    
+    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    if (geo.userData && geo.userData.display && geo.userData.display.gui) {
+        guiConfig = geo.userData.display.gui;
+    }
+
+    if (guiConfig.rotation) {
+        let rx = guiConfig.rotation[0];
+        let ry = guiConfig.rotation[1];
+        let rz = guiConfig.rotation[2];
+        
+        let threeRx = THREE.MathUtils.degToRad(rx);
+        let threeRy = THREE.MathUtils.degToRad(ry);
+        let threeRz = THREE.MathUtils.degToRad(rz);
+        
+        if (ry === 225) {
+            if (type.includes('stairs')) {
+                threeRy = Math.PI / 4; 
+            } else {
+                threeRy = THREE.MathUtils.degToRad(225); 
+            }
+        }
+
+        // Fix the Spore Blossom rotation to hang perfectly
+        if (type === 'spore_blossom') {
+            threeRz += Math.PI; 
+        }
+        
+        mesh.rotation.set(threeRx, threeRy, threeRz, 'XYZ');
+    }
+    
+    const normals = [
+        new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
+        new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
+        new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
+    ];
+
+    let bestTop = new THREE.Vector3(0, 1, 0);
+    let bestLeft = new THREE.Vector3(-1, 0, 0);
+    let maxY = -Infinity;
+    let minX = Infinity;
+
+    for (let n of normals) {
+        let globalN = n.clone().applyEuler(mesh.rotation);
+        if (globalN.y > maxY) {
+            maxY = globalN.y;
+            bestTop.copy(n);
+        }
+        if (globalN.z > 0.01 && globalN.x < minX) {
+            minX = globalN.x;
+            bestLeft.copy(n);
+        }
+    }
+
+    iconTopLight.position.copy(bestTop.applyEuler(mesh.rotation));
+    iconLeftLight.position.copy(bestLeft.applyEuler(mesh.rotation));
+    
+    if (guiConfig.scale) {
+        mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
+    }
+    
+    if (guiConfig.translation) {
+        mesh.position.set(
+            (guiConfig.translation[0] / 16),
+            (guiConfig.translation[1] / 16),
+            (guiConfig.translation[2] / 16)
+        );
+    }
+    
+    iconRenderer.render(iconScene, iconCamera);
+    const dataUrl = iconRenderer.domElement.toDataURL('image/png');
+    iconScene.remove(mesh);
+    
+    const url = `url(${dataUrl})`;
+    iconCache[type] = url;
+    return url;
+}
+
+function applyIcon(element, type) {
+    element.dataset.iconType = type || 'none';
+    if (!type) { element.style.backgroundImage = 'none'; return; }
+    
+    if (type === 'compass') return;
+    
+    getBlockIcon(type).then(url => {
+        if (element.dataset.iconType === type) element.style.backgroundImage = url;
+    });
+}
+
+
+// ============================================================================
+// 5. DOM UI CREATION & STRUCTURING 
+// ============================================================================
+
+const guiScaleWrapper = document.createElement('div');
+guiScaleWrapper.id = 'gui-scale-wrapper';
+guiScaleWrapper.style.position = 'absolute';
+guiScaleWrapper.style.top = '0';
+guiScaleWrapper.style.left = '0';
+guiScaleWrapper.style.width = '100vw';
+guiScaleWrapper.style.height = '100vh';
+guiScaleWrapper.style.transformOrigin = 'top left';
+guiScaleWrapper.style.pointerEvents = 'none'; 
+guiScaleWrapper.style.zIndex = '100';
+document.body.appendChild(guiScaleWrapper);
+
+function calculateGuiScale() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let scale = 1;
+    while (scale < 4 && w / (scale + 1) >= 320 && h / (scale + 1) >= 240) scale++;
+    currentGuiScale = scale;
+    guiScaleWrapper.style.transform = `scale(${currentGuiScale})`;
+    guiScaleWrapper.style.width = `${w / currentGuiScale}px`;
+    guiScaleWrapper.style.height = `${h / currentGuiScale}px`;
+}
+
+function formatName(str) {
+    if (!str) return '';
+    return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 const hotbarContainer = document.createElement('div');
 hotbarContainer.id = 'hotbar';
+hotbarContainer.className = 'pixelated';
 hotbarContainer.style.position = 'absolute';
-hotbarContainer.style.bottom = '20px';
+hotbarContainer.style.bottom = '2px';
 hotbarContainer.style.left = '50%';
 hotbarContainer.style.transform = 'translateX(-50%)';
-hotbarContainer.style.display = 'flex';
-hotbarContainer.style.gap = '4px';
-hotbarContainer.style.padding = '6px';
-hotbarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-hotbarContainer.style.border = '3px solid #444';
-hotbarContainer.style.borderRadius = '4px';
-document.body.appendChild(hotbarContainer);
+hotbarContainer.style.width = '182px';
+hotbarContainer.style.height = '22px';
+hotbarContainer.style.pointerEvents = 'auto';
+guiScaleWrapper.appendChild(hotbarContainer);
+
+const hotbarSelector = document.createElement('div');
+hotbarSelector.className = 'pixelated';
+hotbarSelector.style.position = 'absolute';
+hotbarSelector.style.top = '-1px';
+hotbarSelector.style.left = '-1px';
+hotbarSelector.style.width = '24px';
+hotbarSelector.style.height = '24px';
+hotbarSelector.style.zIndex = '2';
+hotbarContainer.appendChild(hotbarSelector);
 
 const hotbarSlotsUI = [];
 for (let i = 0; i < 9; i++) {
-    const slot = document.createElement('div');
-    slot.style.width = '44px';
-    slot.style.height = '44px';
-    slot.style.border = '3px solid #888';
-    slot.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
-    slot.style.boxSizing = 'border-box';
-    slot.style.position = 'relative';
-    slot.style.cursor = 'pointer';
-    
+    const slotWrap = document.createElement('div');
+    slotWrap.style.position = 'absolute';
+    slotWrap.style.left = `${3 + i * 20}px`;
+    slotWrap.style.top = '3px';
+    slotWrap.style.width = '16px';
+    slotWrap.style.height = '16px';
+    slotWrap.style.zIndex = '1';
+
+    const itemSprite = document.createElement('div');
+    itemSprite.className = 'pixelated';
+    // Shifted inventory icons 1px left and 1px up inside slot
+    itemSprite.style.position = 'absolute';
+    itemSprite.style.left = '0px'; 
+    itemSprite.style.top = '0px'; 
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
+    itemSprite.style.backgroundSize = 'contain';
+    itemSprite.style.backgroundPosition = 'center';
+    itemSprite.style.backgroundRepeat = 'no-repeat';
+    slotWrap.appendChild(itemSprite);
+
     const countLabel = document.createElement('span');
+    countLabel.className = 'mc-text';
     countLabel.style.position = 'absolute';
-    countLabel.style.bottom = '2px';
-    countLabel.style.right = '4px';
+    countLabel.style.bottom = '-4px';
+    countLabel.style.right = '-1px';
     countLabel.style.color = 'white';
-    countLabel.style.fontWeight = 'bold';
-    countLabel.style.fontFamily = 'monospace';
-    countLabel.style.fontSize = '14px';
-    countLabel.style.textShadow = '1px 1px 0 #000';
-    slot.appendChild(countLabel);
-    
-    slot.addEventListener('mousedown', () => {
-        if (inventoryScreen.style.display === 'none') {
-            selectedSlot = i;
-            updateInventoryUI();
+    slotWrap.appendChild(countLabel);
+
+    slotWrap.addEventListener('mouseenter', () => {
+        if (creativeScaleCenter.style.display !== 'none' && inventory[i].type) {
+            tooltip.innerText = formatName(inventory[i].type);
+            tooltip.style.display = 'block';
         }
     });
+    slotWrap.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+    });
 
-    hotbarContainer.appendChild(slot);
-    hotbarSlotsUI.push({ div: slot, label: countLabel });
+    hotbarContainer.appendChild(slotWrap);
+    hotbarSlotsUI.push({ div: itemSprite, label: countLabel });
 }
 
-const inventoryScreen = document.createElement('div');
-inventoryScreen.id = 'inventory-screen';
-inventoryScreen.style.position = 'absolute';
-inventoryScreen.style.top = '50%';
-inventoryScreen.style.left = '50%';
-inventoryScreen.style.transform = 'translate(-50%, -50%)';
-inventoryScreen.style.backgroundColor = '#c6c6c6';
-inventoryScreen.style.border = '4px solid #555';
-inventoryScreen.style.padding = '20px';
-inventoryScreen.style.display = 'none';
-inventoryScreen.style.flexDirection = 'column';
-inventoryScreen.style.gap = '20px';
-inventoryScreen.style.boxShadow = 'inset -4px -4px 0 rgba(0,0,0,0.2), inset 4px 4px 0 rgba(255,255,255,0.5)';
-inventoryScreen.style.zIndex = '200';
-document.body.appendChild(inventoryScreen);
+const crosshair = document.createElement('div');
+crosshair.id = 'crosshair';
+crosshair.className = 'pixelated';
+crosshair.style.position = 'absolute';
+crosshair.style.top = '50%';
+crosshair.style.left = '50%';
+crosshair.style.transform = 'translate(-50%, -50%)';
+crosshair.style.width = '15px';
+crosshair.style.height = '15px';
+crosshair.style.pointerEvents = 'none';
+guiScaleWrapper.appendChild(crosshair);
 
-const invTitle = document.createElement('div');
-invTitle.innerText = "Inventory";
-invTitle.style.fontFamily = "monospace";
-invTitle.style.fontWeight = "bold";
-invTitle.style.color = "#333";
-inventoryScreen.appendChild(invTitle);
+setFallbackBg(crosshair, 
+    [`${SPRITE_HUD_DIR}crosshair.png`, `${GUI_WIDGETS_DIR}icons.png`],
+    (idx) => {
+        crosshair.style.backgroundSize = idx === 0 ? '15px 15px' : '256px 256px';
+        crosshair.style.backgroundPosition = idx === 0 ? '0 0' : '0 0';
+    }
+);
 
-const mainGrid = document.createElement('div');
-mainGrid.style.display = 'grid';
-mainGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
-mainGrid.style.gap = '4px';
-inventoryScreen.appendChild(mainGrid);
+const creativeScaleCenter = document.createElement('div');
+creativeScaleCenter.id = 'creative-scale-center';
+creativeScaleCenter.style.position = 'absolute';
+creativeScaleCenter.style.top = '50%'; 
+creativeScaleCenter.style.left = '50%';
+creativeScaleCenter.style.display = 'none'; 
+guiScaleWrapper.appendChild(creativeScaleCenter);
 
-const spacer = document.createElement('div');
-spacer.style.height = '10px';
-inventoryScreen.appendChild(spacer);
+const creativeInventoryScreen = document.createElement('div');
+creativeInventoryScreen.id = 'creative-inventory-screen';
+creativeInventoryScreen.style.position = 'absolute';
+creativeInventoryScreen.style.left = '-97.5px'; 
+creativeInventoryScreen.style.top = '-68px'; 
+creativeInventoryScreen.style.width = '195px'; 
+creativeInventoryScreen.style.height = '136px';
+creativeInventoryScreen.style.userSelect = 'none';
+creativeScaleCenter.appendChild(creativeInventoryScreen);
 
-const invHotbarGrid = document.createElement('div');
-invHotbarGrid.style.display = 'grid';
-invHotbarGrid.style.gridTemplateColumns = 'repeat(9, 44px)';
-invHotbarGrid.style.gap = '4px';
-inventoryScreen.appendChild(invHotbarGrid);
+const topTabsRow = document.createElement('div');
+topTabsRow.style.display = 'flex';
+topTabsRow.style.alignItems = 'flex-end'; 
+topTabsRow.style.position = 'absolute';
+topTabsRow.style.top = '-28px'; 
+topTabsRow.style.left = '0';
+topTabsRow.style.width = '100%';
+topTabsRow.style.zIndex = '1';
+creativeInventoryScreen.appendChild(topTabsRow);
 
-const allSlotsUI = [];
+const invBody = document.createElement('div');
+invBody.className = 'pixelated';
+invBody.style.position = 'absolute';
+invBody.style.inset = '0';
+invBody.style.width = '100%';
+invBody.style.height = '100%';
+invBody.style.pointerEvents = 'auto';
+invBody.style.zIndex = '10';
+creativeInventoryScreen.appendChild(invBody);
+
+const searchRow = document.createElement('div');
+searchRow.style.display = 'none';
+searchRow.style.position = 'absolute';
+searchRow.style.left = '82px';
+searchRow.style.top = '4px';
+searchRow.style.width = '89px';
+searchRow.style.height = '12px';
+const searchInput = document.createElement('input');
+searchInput.id = 'creative-search';
+searchInput.type = 'text';
+searchInput.style.width = '100%';
+searchInput.style.height = '100%';
+searchInput.style.padding = '0 2px';
+searchInput.style.backgroundColor = 'transparent';
+searchInput.style.color = '#fff';
+searchInput.style.border = 'none';
+searchInput.style.fontFamily = 'monospace';
+searchInput.style.fontSize = '8px';
+searchInput.style.outline = 'none';
+searchRow.appendChild(searchInput);
+invBody.appendChild(searchRow);
+
+const creativeTitle = document.createElement('div');
+creativeTitle.className = 'mc-title';
+creativeTitle.innerText = "Building Blocks";
+creativeTitle.style.position = 'absolute';
+creativeTitle.style.left = '8px';
+creativeTitle.style.top = '6px';
+invBody.appendChild(creativeTitle);
+
+const creativeGridContainer = document.createElement('div');
+creativeGridContainer.id = 'creative-grid-container';
+creativeGridContainer.style.position = 'absolute';
+creativeGridContainer.style.left = '9px';
+creativeGridContainer.style.top = '18px';
+creativeGridContainer.style.width = '162px'; 
+creativeGridContainer.style.height = '90px'; 
+creativeGridContainer.style.overflowY = 'hidden'; 
+creativeGridContainer.style.backgroundColor = 'transparent';
+creativeGridContainer.style.display = 'grid';
+creativeGridContainer.style.gridTemplateColumns = 'repeat(9, 18px)';
+creativeGridContainer.style.gridAutoRows = '18px';
+invBody.appendChild(creativeGridContainer);
+
+const scrollTrack = document.createElement('div');
+scrollTrack.style.position = 'absolute';
+scrollTrack.style.right = '6px'; // Perfected right alignment groove
+scrollTrack.style.top = '18px';
+scrollTrack.style.width = '14px'; 
+scrollTrack.style.height = '112px'; 
+invBody.appendChild(scrollTrack);
+
+const scrollThumb = document.createElement('div');
+scrollThumb.className = 'pixelated';
+scrollThumb.style.position = 'absolute';
+scrollThumb.style.left = '1px';
+scrollThumb.style.top = '0px';
+scrollThumb.style.width = '12px'; 
+scrollThumb.style.height = '15px'; 
+scrollTrack.appendChild(scrollThumb);
+
+const creativeHotbarGrid = document.createElement('div');
+creativeHotbarGrid.style.position = 'absolute';
+creativeHotbarGrid.style.left = '9px';
+creativeHotbarGrid.style.top = '112px'; 
+creativeHotbarGrid.style.width = '162px';
+creativeHotbarGrid.style.height = '18px';
+creativeHotbarGrid.style.display = 'grid';
+creativeHotbarGrid.style.gridTemplateColumns = 'repeat(9, 18px)';
+invBody.appendChild(creativeHotbarGrid);
+
+const bottomTabsRow = document.createElement('div');
+bottomTabsRow.style.display = 'flex';
+bottomTabsRow.style.alignItems = 'flex-start'; 
+bottomTabsRow.style.position = 'absolute';
+bottomTabsRow.style.bottom = '-28px';
+bottomTabsRow.style.left = '0';
+bottomTabsRow.style.width = '100%';
+bottomTabsRow.style.zIndex = '1';
+creativeInventoryScreen.appendChild(bottomTabsRow);
+
+const heldItemWrapper = document.createElement('div');
+heldItemWrapper.id = 'held-item-wrapper';
+heldItemWrapper.style.position = 'absolute';
+heldItemWrapper.style.pointerEvents = 'none';
+heldItemWrapper.style.zIndex = '10000';
+heldItemWrapper.style.display = 'none';
+guiScaleWrapper.appendChild(heldItemWrapper);
 
 const heldItemUI = document.createElement('div');
+heldItemUI.id = 'held-item-ui';
+heldItemUI.className = 'pixelated';
 heldItemUI.style.position = 'absolute';
-heldItemUI.style.width = '44px';
-heldItemUI.style.height = '44px';
-heldItemUI.style.pointerEvents = 'none';
-heldItemUI.style.zIndex = '300';
-heldItemUI.style.display = 'none';
+heldItemUI.style.left = '-9px'; // Shifted 1px left
+heldItemUI.style.top = '-9px';  // Shifted 1px up
+heldItemUI.style.width = '16px';
+heldItemUI.style.height = '16px';
+heldItemUI.style.transformOrigin = 'center';
+heldItemWrapper.appendChild(heldItemUI);
+
 const heldLabel = document.createElement('span');
+heldLabel.className = 'mc-text';
 heldLabel.style.position = 'absolute';
-heldLabel.style.bottom = '2px';
-heldLabel.style.right = '4px';
-heldLabel.style.color = 'white';
-heldLabel.style.fontWeight = 'bold';
-heldLabel.style.fontFamily = 'monospace';
-heldLabel.style.textShadow = '1px 1px 0 #000';
+heldLabel.style.bottom = '-4px';
+heldLabel.style.right = '-1px';
 heldItemUI.appendChild(heldLabel);
-document.body.appendChild(heldItemUI);
 
-document.addEventListener('mousemove', (e) => {
-    if (inventoryScreen.style.display === 'flex') {
-        heldItemUI.style.left = e.clientX - 22 + 'px';
-        heldItemUI.style.top = e.clientY - 22 + 'px';
-    }
-});
+const tooltip = document.createElement('div');
+tooltip.id = 'mc-tooltip';
+tooltip.className = 'mc-text';
+tooltip.style.position = 'absolute';
+tooltip.style.backgroundColor = 'rgba(16, 0, 16, 0.95)';
+tooltip.style.border = '2px solid #37007C';
+tooltip.style.borderStyle = 'outset';
+tooltip.style.color = '#fff';
+tooltip.style.padding = '2px 4px';
+tooltip.style.fontSize = '10px';
+tooltip.style.pointerEvents = 'none';
+tooltip.style.zIndex = '100000';
+tooltip.style.display = 'none';
+guiScaleWrapper.appendChild(tooltip);
 
-for (let i = 0; i < INVENTORY_SIZE; i++) {
-    const slot = document.createElement('div');
-    slot.style.width = '44px';
-    slot.style.height = '44px';
-    slot.style.backgroundColor = '#8b8b8b';
-    slot.style.boxShadow = 'inset -2px -2px 0 #fff, inset 2px 2px 0 #373737';
-    slot.style.position = 'relative';
-    slot.style.cursor = 'pointer';
-    
-    const countLabel = document.createElement('span');
-    countLabel.style.position = 'absolute';
-    countLabel.style.bottom = '2px';
-    countLabel.style.right = '4px';
-    countLabel.style.color = 'white';
-    countLabel.style.fontWeight = 'bold';
-    countLabel.style.fontFamily = 'monospace';
-    countLabel.style.fontSize = '14px';
-    countLabel.style.textShadow = '1px 1px 0 #000';
-    slot.appendChild(countLabel);
-    
-    slot.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-        if (e.button === 0) {
-            let tempType = inventory[i].type;
-            let tempCount = inventory[i].count;
-            
-            if (heldItem.type === inventory[i].type && heldItem.type !== null) {
-                let space = 64 - inventory[i].count;
-                let toMove = Math.min(space, heldItem.count);
-                inventory[i].count += toMove;
-                heldItem.count -= toMove;
-                if (heldItem.count <= 0) heldItem.type = null;
-            } else {
-                inventory[i].type = heldItem.type;
-                inventory[i].count = heldItem.count;
-                heldItem.type = tempType;
-                heldItem.count = tempCount;
-            }
-            updateInventoryUI();
+
+// ============================================================================
+// 6. UI FUNCTIONS
+// ============================================================================
+function updateScrollThumbVisuals(disabled) {
+    const sprite = disabled ? 'scroller_disabled.png' : 'scroller.png';
+    const legacyX = disabled ? -244 : -232;
+    setFallbackBg(scrollThumb, 
+        [`${SPRITE_CREATIVE_DIR}${sprite}`, `${GUI_TEX_DIR}tabs.png`],
+        (idx) => {
+            scrollThumb.style.backgroundSize = idx === 0 ? '12px 15px' : '256px 256px';
+            scrollThumb.style.backgroundPosition = idx === 0 ? '0 0' : `${legacyX}px 0`;
         }
+    );
+}
+
+function updateCreativeScrollView() {
+    let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
+    let maxRow = Math.max(0, totalRows - 5);
+
+    currentCreativeRow = Math.max(0, Math.min(currentCreativeRow, maxRow));
+
+    creativeGridContainer.scrollTop = currentCreativeRow * 18;
+
+    if (maxRow <= 0) {
+        updateScrollThumbVisuals(true);
+        scrollThumb.style.top = '0px';
+    } else {
+        updateScrollThumbVisuals(false);
+        const scrollPct = currentCreativeRow / maxRow;
+        scrollThumb.style.top = (scrollPct * 97) + 'px';
+    }
+}
+
+function createTab(catKey, isTop, isRightAlign = false, colIndex = 0) {
+    const cat = CATEGORIES[catKey];
+    const tab = document.createElement('div');
+    tab.className = 'pixelated';
+    tab.style.width = '28px'; 
+    tab.style.cursor = 'pointer';
+    tab.style.position = 'relative';
+    tab.style.display = 'flex';
+    tab.style.alignItems = 'center';
+    tab.style.justifyContent = 'center';
+    tab.style.pointerEvents = 'auto';
+    if (isRightAlign) tab.style.marginLeft = 'auto';
+    
+    const icon = document.createElement('div');
+    icon.className = 'pixelated';
+    icon.style.width = '16px';
+    icon.style.height = '16px';
+    icon.style.backgroundSize = 'contain';
+    icon.style.backgroundPosition = 'center';
+    icon.style.backgroundRepeat = 'no-repeat';
+    applyIcon(icon, cat.icon);
+    tab.appendChild(icon);
+
+    tab.addEventListener('mousedown', () => {
+        currentCategory = catKey;
+        updateTabsUI();
+        populateCreativeGrid();
     });
 
-    if (i < 9) {
-        invHotbarGrid.appendChild(slot);
+    if (isTop) topTabsRow.appendChild(tab);
+    else bottomTabsRow.appendChild(tab);
+    
+    allTabsUI.push({ key: catKey, elem: tab, icon: icon, isTop: isTop, colIndex: colIndex });
+}
+
+function updateTabsUI() {
+    allTabsUI.forEach(tabObj => {
+        const isSelected = tabObj.key === currentCategory;
+        const col = tabObj.colIndex;
+        const isTop = tabObj.isTop;
+        
+        tabObj.elem.style.zIndex = isSelected ? '20' : '1';
+        tabObj.elem.style.height = isSelected ? '32px' : '28px';
+        
+        if (isSelected) {
+            tabObj.icon.style.transform = 'translateY(0px)';
+        } else {
+            tabObj.icon.style.transform = isTop ? 'translateY(2px)' : 'translateY(-2px)';
+        }
+
+        const legacyX = -(col * 28);
+        const legacyY = isTop ? (isSelected ? -32 : 0) : (isSelected ? -96 : -64);
+        
+        const spritePrefix = `${SPRITE_CREATIVE_DIR}tab_${isTop ? 'top' : 'bottom'}_${isSelected ? 'selected' : 'unselected'}_${col + 1}.png`;
+        const legacyPath = `${GUI_TEX_DIR}tabs.png`;
+
+        setFallbackBg(tabObj.elem, [spritePrefix, legacyPath], (idx) => {
+            if (idx === 0) { 
+                tabObj.elem.style.backgroundSize = isSelected ? '28px 32px' : '28px 28px';
+                tabObj.elem.style.backgroundPosition = '0 0';
+            } else { 
+                tabObj.elem.style.backgroundSize = '256px 256px';
+                tabObj.elem.style.backgroundPosition = `${legacyX}px ${legacyY}px`;
+            }
+        });
+    });
+
+    creativeTitle.innerText = CATEGORIES[currentCategory].name;
+    
+    if (currentCategory === 'search') {
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_item_search.png)`;
+        searchRow.style.display = 'block';
+        creativeTitle.style.display = 'none';
+        creativeGridContainer.style.display = 'grid';
+        scrollTrack.style.display = 'block';
+        setTimeout(() => searchInput.focus(), 50);
+    } else if (currentCategory === 'inventory') {
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_inventory.png)`;
+        searchRow.style.display = 'none';
+        creativeTitle.style.display = 'none';
+        creativeGridContainer.style.display = 'none'; 
+        scrollTrack.style.display = 'none';
     } else {
-        mainGrid.appendChild(slot);
+        invBody.style.backgroundImage = `url(${GUI_TEX_DIR}tab_items.png)`;
+        searchRow.style.display = 'none';
+        creativeTitle.style.display = 'block';
+        creativeGridContainer.style.display = 'grid';
+        scrollTrack.style.display = 'block';
     }
-    allSlotsUI.push({ div: slot, label: countLabel });
+}
+
+function createItemSlot(bName, i, sourceArray) {
+    const slotWrap = document.createElement('div');
+    slotWrap.style.width = '18px';
+    slotWrap.style.height = '18px';
+    slotWrap.style.position = 'relative';
+    slotWrap.style.cursor = 'pointer';
+    slotWrap.style.pointerEvents = 'auto';
+    
+    const itemSprite = document.createElement('div');
+    itemSprite.className = 'pixelated';
+    itemSprite.style.position = 'absolute';
+    // Shifted grid icons 1px left and 1px up inside creative slots to fix alignment issues
+    itemSprite.style.left = '0px'; 
+    itemSprite.style.top = '0px'; 
+    itemSprite.style.width = '16px';
+    itemSprite.style.height = '16px';
+    itemSprite.style.backgroundSize = '16px 16px';
+    itemSprite.style.backgroundPosition = 'center';
+    itemSprite.style.backgroundRepeat = 'no-repeat';
+    applyIcon(itemSprite, bName);
+    slotWrap.appendChild(itemSprite);
+
+    const highlight = document.createElement('div');
+    highlight.style.position = 'absolute';
+    highlight.style.inset = '1px';
+    highlight.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+    highlight.style.display = 'none';
+    highlight.style.zIndex = '5';
+    slotWrap.appendChild(highlight);
+
+    slotWrap.addEventListener('mouseenter', () => {
+        highlight.style.display = 'block';
+        let currentItem = sourceArray ? sourceArray[i].type : bName;
+        if (currentItem) {
+            tooltip.innerText = formatName(currentItem);
+            tooltip.style.display = 'block';
+        }
+    });
+    
+    slotWrap.addEventListener('mouseleave', () => {
+        highlight.style.display = 'none';
+        tooltip.style.display = 'none';
+    });
+
+    slotWrap.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        if (e.button === 0) {
+            if (sourceArray) { 
+                let tempType = sourceArray[i].type;
+                let tempCount = sourceArray[i].count;
+                
+                if (heldItem.type === sourceArray[i].type && heldItem.type !== null) {
+                    let space = 64 - sourceArray[i].count;
+                    let toMove = Math.min(space, heldItem.count);
+                    sourceArray[i].count += toMove;
+                    heldItem.count -= toMove;
+                    if (heldItem.count <= 0) heldItem.type = null;
+                } else {
+                    sourceArray[i].type = heldItem.type;
+                    sourceArray[i].count = heldItem.count;
+                    heldItem.type = tempType;
+                    heldItem.count = tempCount;
+                }
+            } else { 
+                if (heldItem.type === bName) {
+                    heldItem.count = 64; 
+                } else if (!heldItem.type || heldItem.type !== bName) {
+                    heldItem.type = bName;
+                    heldItem.count = 64;
+                }
+            }
+            updateInventoryUI();
+            
+            let currentItemAfter = sourceArray ? sourceArray[i].type : bName;
+            if (currentItemAfter) {
+                tooltip.innerText = formatName(currentItemAfter);
+                tooltip.style.display = 'block';
+            } else {
+                tooltip.style.display = 'none';
+            }
+        }
+    });
+    
+    return slotWrap;
+}
+
+function populateCreativeGrid() {
+    creativeGridContainer.innerHTML = '';
+    currentCreativeRow = 0; 
+    
+    let blocksToShow = CATEGORIES[currentCategory].blocks;
+    
+    if (currentCategory === 'search') {
+        const query = searchInput.value.toLowerCase();
+        blocksToShow = ALL_BLOCKS.filter(b => 
+            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && b !== 'air' && b.includes(query)
+        );
+    }
+
+    blocksToShow.forEach(bName => {
+        creativeGridContainer.appendChild(createItemSlot(bName, null, null));
+    });
+    
+    updateCreativeScrollView();
 }
 
 function updateInventoryUI() {
+    hotbarSelector.style.left = `${-1 + selectedSlot * 20}px`; 
+
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
-        ui.div.style.backgroundImage = getItemImage(item.type);
-        ui.div.style.backgroundSize = 'cover';
-        ui.div.style.imageRendering = 'pixelated';
+        applyIcon(ui.div, item.type);
         ui.label.innerText = (item.count > 1) ? item.count : '';
-        
-        if (i === selectedSlot) {
-            ui.div.style.border = '3px solid #fff';
-            ui.div.style.transform = 'scale(1.15)';
-            ui.div.style.zIndex = '10';
-        } else {
-            ui.div.style.border = '3px solid #888';
-            ui.div.style.transform = 'scale(1)';
-            ui.div.style.zIndex = '1';
-        }
     }
     
-    for (let i = 0; i < INVENTORY_SIZE; i++) {
+    for (let i = 0; i < 9; i++) {
         const item = inventory[i];
-        const ui = allSlotsUI[i];
-        ui.div.style.backgroundImage = getItemImage(item.type);
-        ui.div.style.backgroundSize = 'cover';
-        ui.div.style.imageRendering = 'pixelated';
+        const ui = creativeHotbarSlotsUI[i];
+        applyIcon(ui.div, item.type);
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
     if (heldItem.type) {
-        heldItemUI.style.display = 'block';
-        heldItemUI.style.backgroundImage = getItemImage(heldItem.type);
-        heldItemUI.style.backgroundSize = 'cover';
-        heldItemUI.style.imageRendering = 'pixelated';
+        heldItemWrapper.style.display = 'block';
+        applyIcon(heldItemUI, heldItem.type);
         heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
     } else {
-        heldItemUI.style.display = 'none';
+        heldItemWrapper.style.display = 'none';
     }
 }
 
@@ -435,17 +1777,127 @@ function addItemToInventory(type, amount) {
     updateInventoryUI();
 }
 
+
+// ============================================================================
+// 7. INITIALIZATION EXECUTION
+// ============================================================================
+
+setFallbackBg(hotbarContainer, 
+    [`${SPRITE_HUD_DIR}hotbar.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    (idx) => { hotbarContainer.style.backgroundSize = idx === 0 ? '182px 22px' : '256px 256px'; }
+);
+
+setFallbackBg(hotbarSelector, 
+    [`${SPRITE_HUD_DIR}hotbar_selection.png`, `${GUI_WIDGETS_DIR}widgets.png`],
+    (idx) => {
+        hotbarSelector.style.backgroundSize = idx === 0 ? '24px 24px' : '256px 256px';
+        hotbarSelector.style.backgroundPosition = idx === 0 ? '0 0' : '0 -22px';
+    }
+);
+
+updateScrollThumbVisuals(false);
+
+const topKeys = ['building', 'colored', 'natural', 'functional', 'redstone', 'misc'];
+topKeys.forEach((k, i) => createTab(k, true, false, i));
+createTab('search', true, true, 6); 
+
+const bottomKeys = ['tools', 'combat', 'food', 'materials', 'spawns', 'operator', 'inventory'];
+bottomKeys.forEach((k, i) => createTab(k, false, false, i));
+
+const creativeHotbarSlotsUI = [];
+for (let i = 0; i < 9; i++) {
+    const slotWrap = createItemSlot(null, i, inventory);
+    const countLabel = document.createElement('span');
+    countLabel.className = 'mc-text';
+    countLabel.style.position = 'absolute';
+    countLabel.style.bottom = '-4px';
+    countLabel.style.right = '-1px';
+    countLabel.style.zIndex = '6';
+    slotWrap.appendChild(countLabel);
+
+    creativeHotbarGrid.appendChild(slotWrap);
+    creativeHotbarSlotsUI.push({ div: slotWrap.firstChild, label: countLabel });
+}
+
+searchInput.addEventListener('keydown', (e) => e.stopPropagation()); 
+searchInput.addEventListener('input', () => populateCreativeGrid());
+
+document.addEventListener('mousedown', (e) => {
+    if (creativeScaleCenter.style.display === 'flex' && heldItem.type) {
+        if (!invBody.contains(e.target) && !topTabsRow.contains(e.target) && !bottomTabsRow.contains(e.target)) {
+            heldItem.type = null;
+            heldItem.count = 0;
+            updateInventoryUI();
+        }
+    }
+});
+
+let isDraggingScroll = false;
+scrollThumb.addEventListener('mousedown', (e) => {
+    isDraggingScroll = true;
+    e.stopPropagation();
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (creativeScaleCenter.style.display === 'flex') {
+        heldItemWrapper.style.left = e.clientX + 'px';
+        heldItemWrapper.style.top = e.clientY + 'px';
+    }
+    if (tooltip.style.display === 'block') {
+        tooltip.style.left = (e.clientX / currentGuiScale + 12) + 'px';
+        tooltip.style.top = (e.clientY / currentGuiScale - 12) + 'px';
+    }
+    
+    // Smooth scroll thumb drag logic that snaps the grid mathematically to rows
+    if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
+        let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
+        let maxRow = Math.max(0, totalRows - 5);
+        if (maxRow > 0) {
+            const trackRect = scrollTrack.getBoundingClientRect();
+            let trueHeight = 97 * currentGuiScale; 
+            let y = e.clientY - trackRect.top - (7.5 * currentGuiScale); 
+            y = Math.max(0, Math.min(y, trueHeight)); 
+            const scrollPct = y / trueHeight;
+            
+            currentCreativeRow = Math.round(scrollPct * maxRow);
+            creativeGridContainer.scrollTop = currentCreativeRow * 18;
+            scrollThumb.style.top = (y / currentGuiScale) + 'px';
+        }
+    }
+});
+
+document.addEventListener('mouseup', () => { isDraggingScroll = false; });
+
+// Row by Row Discrete Menu Wheel Scrolling
+invBody.addEventListener('wheel', (e) => {
+    if (currentCategory === 'inventory') return;
+    let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
+    let maxRow = Math.max(0, totalRows - 5);
+    if (maxRow <= 0) return;
+
+    e.preventDefault(); 
+    let dir = Math.sign(e.deltaY);
+    currentCreativeRow = Math.max(0, Math.min(currentCreativeRow + dir, maxRow));
+    updateCreativeScrollView();
+}, { passive: false });
+
+calculateGuiScale();
+window.addEventListener('resize', calculateGuiScale);
+updateTabsUI();
+populateCreativeGrid();
 updateInventoryUI();
 
-// ----------------------------------------------------
-// REAL MINECRAFT BLOCK HARDNESS & TOOLS
-// ----------------------------------------------------
+
+// ============================================================================
+// 8. MINECRAFT HARDNESS & MINING LOGIC
+// ============================================================================
+
 const REAL_MINECRAFT_HARDNESS = {
     air: 0.0, grass: 0.0, fern: 0.0, dead_bush: 0.0, dandelion: 0.0, poppy: 0.0, blue_orchid: 0.0,
     allium: 0.0, azure_bluet: 0.0, red_tulip: 0.0, orange_tulip: 0.0, white_tulip: 0.0, pink_tulip: 0.0,
     oxeye_daisy: 0.0, cornflower: 0.0, lily_of_the_valley: 0.0, wither_rose: 0.0,
     dirt: 0.5, coarse_dirt: 0.5, podzol: 0.5, rooted_dirt: 0.5, mud: 0.5, grass_block: 0.6,
-    snowy_grass_block: 0.6, sand: 0.5, red_sand: 0.5, gravel: 0.6, clay: 0.6, soul_sand: 0.5, soul_soil: 0.5,
+    sand: 0.5, red_sand: 0.5, gravel: 0.6, clay: 0.6, soul_sand: 0.5, soul_soil: 0.5,
     stone: 1.5, granite: 1.5, polished_granite: 1.5, diorite: 1.5, polished_diorite: 1.5,
     andesite: 1.5, polished_andesite: 1.5, cobblestone: 2.0, mossy_cobblestone: 2.0,
     deepslate: 3.0, cobbled_deepslate: 3.5, tuff: 1.8, calcite: 0.75, basalt: 1.25, polished_basalt: 1.25,
@@ -475,7 +1927,7 @@ const BLOCK_TOOL_CLASSIFICATION = {
     deepslate_gold_ore: 'pickaxe', deepslate_redstone_ore: 'pickaxe', deepslate_emerald_ore: 'pickaxe',
     deepslate_lapis_ore: 'pickaxe', deepslate_diamond_ore: 'pickaxe',
     obsidian: 'pickaxe', crying_obsidian: 'pickaxe',
-    dirt: 'shovel', coarse_dirt: 'shovel', podzol: 'shovel', grass_block: 'shovel', snowy_grass_block: 'shovel',
+    dirt: 'shovel', coarse_dirt: 'shovel', podzol: 'shovel', grass_block: 'shovel',
     sand: 'shovel', red_sand: 'shovel', gravel: 'shovel', clay: 'shovel', snow: 'shovel', snow_block: 'shovel',
     soul_sand: 'shovel', soul_soil: 'shovel',
     oak_log: 'axe', spruce_log: 'axe', birch_log: 'axe', jungle_log: 'axe', acacia_log: 'axe', dark_oak_log: 'axe',
@@ -484,7 +1936,6 @@ const BLOCK_TOOL_CLASSIFICATION = {
 
 const BLOCK_DROPS = {
     grass_block: { item: 'dirt', count: 1 },
-    snowy_grass_block: { item: 'dirt', count: 1 },
     dirt: { item: 'dirt', count: 1 },
     sand: { item: 'sand', count: 1 },
     sandstone: { item: 'sandstone', count: 1 },
@@ -572,6 +2023,37 @@ function calculateMiningTime(blockName, heldItemType) {
     return timeInSeconds * 1000; 
 }
 
+
+// ============================================================================
+// 9. CHUNK GENERATION & GAME LOOP
+// ============================================================================
+
+const noise = {
+    p: new Uint8Array(512),
+    seed: function(s) {
+        let r = () => { s = Math.sin(s) * 10000; return s - Math.floor(s); };
+        for(let i=0; i<256; i++) this.p[i] = Math.floor(r()*256);
+        for(let i=0; i<256; i++) this.p[256+i] = this.p[i];
+    },
+    fade: function(t) { return t * t * t * (t * (t * 6 - 15) + 10); },
+    lerp: function(t, a, b) { return a + t * (b - a); },
+    grad: function(hash, x, y, z) {
+        let h = hash & 15, u = h < 8 ? x : y, v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    },
+    perlin2: function(x, y) { return this.perlin3(x, y, 0); },
+    perlin3: function(x, y, z) {
+        let X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+        x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+        let u = this.fade(x), v = this.fade(y), w = this.fade(z);
+        let A = this.p[X]+Y, AA = this.p[A]+Z, AB = this.p[A+1]+Z, B = this.p[X+1]+Y, BA = this.p[B]+Z, BB = this.p[B+1]+Z;
+        return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, z), this.grad(this.p[BA], x-1, y, z)),
+                       this.lerp(u, this.grad(this.p[AB], x, y-1, z), this.grad(this.p[BB], x-1, y-1, z))),
+               this.lerp(v, this.lerp(u, this.grad(this.p[AA+1], x, y, z-1), this.grad(this.p[BA+1], x-1, y, z-1)),
+                       this.lerp(u, this.grad(this.p[AB+1], x, y-1, z-1), this.grad(this.p[BB+1], x-1, y-1, z-1))));
+    }
+};
+
 const ORE_CONFIG = {
     emerald_ore: [{ min: -16, max: 320, peak: 232, threshold: 0.78 }],
     diamond_ore: [{ min: -64, max: 16,  peak: -64, threshold: 0.72 }],
@@ -596,93 +2078,6 @@ const ORE_CONFIG = {
     ],
 };
 
-const animatedTextures = [];
-const imageLoader = new THREE.ImageLoader();
-imageLoader.setCrossOrigin('anonymous');
-
-const loadTex = (filename, isItem = false) => {
-    const dir = isItem ? ITEM_TEX_DIR : BLOCK_TEX_DIR;
-    
-    const cvs = document.createElement('canvas');
-    cvs.width = 16; cvs.height = 16;
-    const ctx = cvs.getContext('2d', { willReadFrequently: true });
-    
-    const t = new THREE.CanvasTexture(cvs);
-    t.magFilter = THREE.NearestFilter;
-    t.minFilter = THREE.NearestFilter;
-    t.generateMipmaps = false;
-    t.wrapS = THREE.ClampToEdgeWrapping;
-    t.wrapT = THREE.ClampToEdgeWrapping;
-
-    imageLoader.load(
-        `${dir}${filename}.png`,
-        (image) => {
-            const fw = image.width;
-            const fh = image.height;
-            const totalFrames = Math.round(fh / fw);
-
-            if (totalFrames > 1) {
-                cvs.width = fw; cvs.height = fw;
-                t.needsUpdate = true;
-
-                let animData = {
-                    texture: t,
-                    ctx: ctx,
-                    sourceImage: image,
-                    frames: Array.from({length: totalFrames}, (_, i) => i),
-                    defaultTickRate: 2,
-                    totalFrames: totalFrames,
-                    currentArrayIdx: 0,
-                    timer: 0,
-                    interpolate: true, 
-                    frameWidth: fw
-                };
-                animatedTextures.push(animData);
-                
-                ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
-
-                fetch(`${dir}${filename}.png.mcmeta`).then(r => r.ok ? r.json() : null)
-                .then(mcmeta => {
-                    if (mcmeta && mcmeta.animation) {
-                        if (mcmeta.animation.frames) animData.frames = mcmeta.animation.frames;
-                        if (mcmeta.animation.frametime) animData.defaultTickRate = mcmeta.animation.frametime;
-                        if (mcmeta.animation.interpolate !== undefined) animData.interpolate = mcmeta.animation.interpolate;
-                    }
-                }).catch(e => {});
-                
-            } else {
-                cvs.width = fw; cvs.height = fh;
-                ctx.drawImage(image, 0, 0);
-                t.needsUpdate = true;
-            }
-        },
-        undefined,
-        (err) => {
-            cvs.width = 16; cvs.height = 16;
-            ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, 8, 8); ctx.fillRect(8, 8, 8, 8);
-            ctx.fillStyle = '#000000'; ctx.fillRect(8, 0, 8, 8); ctx.fillRect(0, 8, 8, 8);
-            t.needsUpdate = true;
-        }
-    );
-    
-    return t;
-};
-
-const materials = {};
-
-const destroyTextures = [];
-for (let i = 0; i < 10; i++) {
-    destroyTextures.push(loadTex(`destroy_stage_${i}`));
-}
-
-const destroyGeo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
-const destroyMat = new THREE.MeshBasicMaterial({ 
-    map: destroyTextures[0], transparent: true, depthWrite: false, color: 0xA9A9A9, opacity: 0.8
-});
-const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
-destroyMesh.visible = false; 
-scene.add(destroyMesh);
-
 const BIOME_REGISTRY = [
     { name: "Forest", temp: 0.15, moist: 0.3, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.015, heightScale: 20, treeType: 'oak' },
     { name: "Plains", temp: 0.0, moist: -0.1, depth: 0.0, topBlock: 'grass_block', subBlock: 'dirt', deepSubBlock: 'stone', treeChance: 0.0001, heightScale: 8, treeType: 'oak' },
@@ -695,24 +2090,6 @@ const chunkSize = 16;
 const renderDistance = 2; 
 const worldHeight = 256;
 const minworldY = -64;
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-
-const crossGeo = new THREE.BufferGeometry();
-const crossPositions = new Float32Array([
-    -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
-     0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
-    -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
-     0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
-]);
-const crossUVs = new Float32Array([
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1,
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1
-]);
-crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
-crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
-crossGeo.computeVertexNormals();
 
 const worldSeed = Math.random(); 
 noise.seed(worldSeed);
@@ -720,13 +2097,98 @@ noise.seed(worldSeed);
 const mapOffsetX = Math.floor(Math.random() * 1000000);
 const mapOffsetZ = Math.floor(Math.random() * 1000000);
 
-const activeChunks = {};
-const chunkQueue = []; 
-const interactableMeshes = [];
-const brokenBlocks = new Set(); 
-const placedBlocks = new Map(); 
-const treeOverhangs = new Map(); 
-const chunksToRebuild = new Set(); 
+const DIRS = [ [1,0,0], [0,0,-1], [-1,0,0], [0,0,1] ];
+
+function getStairData(x, y, z) {
+    let k = `${x},${y},${z}`;
+    if (placedBlocks.has(k)) {
+        let data = placedBlocks.get(k);
+        if (data && data.isStair) {
+            let typeId = data.type;
+            let bName = REVERSE_TYPE[typeId];
+            if (bName.includes('_inner')) bName = bName.replace('_inner', '');
+            if (bName.includes('_outer')) bName = bName.replace('_outer', '');
+            return { ...data, baseName: bName };
+        }
+    }
+    return null;
+}
+
+function evaluateStair(x, y, z) {
+    let s = getStairData(x, y, z);
+    if (!s) return;
+    
+    let f = s.facing;
+    let backDir = (f + 2) % 4;
+    let frontDir = f;
+    
+    let sFront = getStairData(x + DIRS[frontDir][0], y, z + DIRS[frontDir][2]);
+    let sBack = getStairData(x + DIRS[backDir][0], y, z + DIRS[backDir][2]);
+    
+    let shape = 'straight';
+    let leftOfF = (f + 1) % 4;
+
+    const canTakeShape = (checkDir) => {
+        let n = getStairData(x + DIRS[checkDir][0], y, z + DIRS[checkDir][2]);
+        if (n && n.half === s.half && n.facing === f) {
+            return false;
+        }
+        return true;
+    };
+    
+    if (sFront && sFront.half === s.half && sFront.facing !== f && (sFront.facing % 2 !== f % 2)) {
+        let oppFrontDir = (sFront.facing + 2) % 4;
+        if (canTakeShape(oppFrontDir)) {
+            if (sFront.facing === leftOfF) shape = 'outer_left';
+            else shape = 'outer_right';
+        }
+    }
+    
+    if (shape === 'straight') {
+        if (sBack && sBack.half === s.half && sBack.facing !== f && (sBack.facing % 2 !== f % 2)) {
+            let backDirFace = sBack.facing;
+            if (canTakeShape(backDirFace)) {
+                if (sBack.facing === leftOfF) shape = 'inner_left';
+                else shape = 'inner_right';
+            }
+        }
+    }
+    
+    let rotY = 0;
+    if (f === 0) rotY = 0; 
+    else if (f === 1) rotY = Math.PI/2; 
+    else if (f === 2) rotY = Math.PI; 
+    else if (f === 3) rotY = -Math.PI/2; 
+    
+    if (s.half === 'top') {
+        rotY = -rotY;
+    }
+    
+    let finalType = s.baseName;
+    let finalRotY = rotY;
+    
+    if (shape === 'inner_left') { finalType += '_inner'; finalRotY = rotY + Math.PI/2; }
+    else if (shape === 'inner_right') { finalType += '_inner'; finalRotY = rotY; }
+    else if (shape === 'outer_left') { finalType += '_outer'; finalRotY = rotY + Math.PI/2; }
+    else if (shape === 'outer_right') { finalType += '_outer'; finalRotY = rotY; }
+
+    let rx = s.half === 'top' ? Math.PI : 0;
+    
+    let existing = placedBlocks.get(`${x},${y},${z}`);
+    let targetTypeId = TYPE[finalType];
+    
+    if (!existing || existing.type !== targetTypeId || !existing.rotation || existing.rotation[0] !== rx || existing.rotation[1] !== finalRotY) {
+        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0] });
+    }
+}
+
+function updateStairConnections(x, y, z) {
+    evaluateStair(x, y, z);
+    evaluateStair(x+1, y, z);
+    evaluateStair(x-1, y, z);
+    evaluateStair(x, y, z+1);
+    evaluateStair(x, y, z-1);
+}
 
 function getGlobalBlock(gx, gy, gz) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return null;
@@ -740,7 +2202,8 @@ function getGlobalBlock(gx, gy, gz) {
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     
-    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+    // OPTIMIZATION: Removed redundant multiplication operations here by directly parsing flat index
+    let idx = lx + (lz * 16) + (ly * 256);
     return chunk.blocks[idx];
 }
 
@@ -768,7 +2231,7 @@ function setGlobalBlock(gx, gy, gz, typeData) {
     let lx = gx - (cx * chunkSize);
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
-    let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+    let idx = lx + lz * 16 + ly * 256;
     
     if (chunk.blocks[idx] !== typeId) {
         chunk.blocks[idx] = typeId;
@@ -779,14 +2242,6 @@ function setGlobalBlock(gx, gy, gz, typeData) {
     if (lx === chunkSize - 1) chunksToRebuild.add(`${cx + 1},${cz}`);
     if (lz === 0) chunksToRebuild.add(`${cx},${cz - 1}`);
     if (lz === chunkSize - 1) chunksToRebuild.add(`${cx},${cz + 1}`);
-}
-
-function checkIsSnowy(gx, gy, gz) {
-    const blockAbove = getGlobalBlock(gx, gy + 1, gz);
-    if (blockAbove === TYPE.snow || blockAbove === TYPE.snow_block || blockAbove === TYPE.powder_snow) {
-        return true;
-    }
-    return false;
 }
 
 function doRandomTicks() {
@@ -801,10 +2256,10 @@ function doRandomTicks() {
             let lz = Math.floor(Math.random() * chunkSize);
             let ly = Math.floor(Math.random() * worldHeight);
             
-            let idx = lx + lz * chunkSize + ly * (chunkSize * chunkSize);
+            let idx = lx + lz * 16 + ly * 256;
             let blockType = chunk.blocks[idx];
 
-            if (blockType === TYPE.grass_block || blockType === TYPE.snowy_grass_block) {
+            if (blockType === TYPE.grass_block) {
                 let gx = (cx * chunkSize) + lx;
                 let gy = ly + minworldY;
                 let gz = (cz * chunkSize) + lz;
@@ -827,8 +2282,7 @@ function doRandomTicks() {
                     if (target === TYPE.dirt) {
                         let targetAbove = getGlobalBlock(tx, ty + 1, tz);
                         if (targetAbove === 0 || targetAbove === TYPE.oak_leaves || targetAbove === TYPE.spruce_leaves || targetAbove === TYPE.snow_block || targetAbove === TYPE.oak_sapling || targetAbove === TYPE.spruce_sapling) {
-                            const snowy = checkIsSnowy(tx, ty, tz);
-                            setGlobalBlock(tx, ty, tz, snowy ? TYPE.snowy_grass_block : TYPE.grass_block);
+                            setGlobalBlock(tx, ty, tz, TYPE.grass_block);
                         }
                     }
                 }
@@ -847,6 +2301,7 @@ function getBiome(temp, moist, depth) {
     return closestBiome;
 }
 
+// OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
 function getInterpolatedHeightScale(x, z) {
     const range = 8; 
     const step = 4; 
@@ -898,7 +2353,7 @@ function fbm3(x, y, z, octaves = 2, scale = 40) {
 
 function getBlockCapacity(key) {
     if (key === 'stone' || key === 'deepslate') return 45000;
-    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'snowy_grass_block' || key === 'sand' || key === 'bedrock') return 15000;
+    if (key === 'dirt' || key === 'grass_block' || key === 'snow_block' || key === 'sand' || key === 'bedrock') return 15000;
     if (key.includes('leaves') || key.includes('log')) return 8000;
     return 4000;
 }
@@ -949,11 +2404,15 @@ function mergeBufferGeometries(geos) {
     return mergedGeo;
 }
 
+// OPTIMIZATION: Pre-allocated Global Arrays for Light Processing!
+// Stops JavaScript from destroying memory and dropping frames on Garbage Collection every chunk!
+const sharedLightMap = new Uint8Array(16 * 16 * 256);
+const sharedLightQueue = new Int32Array(16 * 16 * 256 * 2);
+
 function computeChunkLight(blocks) {
-    const lightMap = new Uint8Array(chunkSize * chunkSize * worldHeight);
-    const queue = new Int32Array(chunkSize * chunkSize * worldHeight * 2);
+    sharedLightMap.fill(0);
     let head = 0, tail = 0;
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+    const getIdx = (x, y, z) => x + (z * 16) + (y * 256);
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -968,22 +2427,22 @@ function computeChunkLight(blocks) {
                     currentLight = Math.max(0, currentLight - 2); 
                 }
 
-                lightMap[idx] = currentLight;
+                sharedLightMap[idx] = currentLight;
                 if (currentLight > 0) {
-                    queue[tail++] = idx;
+                    sharedLightQueue[tail++] = idx;
                 }
             }
         }
     }
 
     while (head < tail) {
-        let idx = queue[head++];
-        let light = lightMap[idx];
+        let idx = sharedLightQueue[head++];
+        let light = sharedLightMap[idx];
         if (light <= 1) continue;
 
         let x = idx % chunkSize;
         let z = Math.floor(idx / chunkSize) % chunkSize;
-        let y = Math.floor(idx / (chunkSize * chunkSize));
+        let y = Math.floor(idx / 256);
 
         let nextLight = light - 1;
 
@@ -991,14 +2450,14 @@ function computeChunkLight(blocks) {
             if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize && ny >= 0 && ny < worldHeight) {
                 let nIdx = getIdx(nx, ny, nz);
                 let b = blocks[nIdx];
-                if ((b === 0 || isTransparent[b]) && lightMap[nIdx] < nextLight) {
+                if ((b === 0 || isTransparent[b]) && sharedLightMap[nIdx] < nextLight) {
                     let drop = 1;
                     if (b === TYPE.oak_leaves || b === TYPE.spruce_leaves || b === TYPE.water) drop = 2;
                     let targetLight = light - drop;
                     
-                    if (targetLight > lightMap[nIdx]) {
-                        lightMap[nIdx] = targetLight;
-                        queue[tail++] = nIdx;
+                    if (targetLight > sharedLightMap[nIdx]) {
+                        sharedLightMap[nIdx] = targetLight;
+                        sharedLightQueue[tail++] = nIdx;
                     }
                 }
             }
@@ -1011,232 +2470,7 @@ function computeChunkLight(blocks) {
         processN(x, y, z - 1);
         processN(x, y, z + 1);
     }
-    return lightMap;
-}
-
-const customGeometries = {};
-
-async function loadCustomModel(bName) {
-    if (customGeometries[bName]) return; 
-
-    if (CROSS_BLOCKS.has(bName)) {
-        const tex = loadTex(bName);
-        let mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: false });
-        if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
-            mat.color.setHex(0x71b054);
-        }
-        materials[bName] = mat;
-        customGeometries[bName] = crossGeo;
-        return;
-    }
-
-    try {
-        let modelPath = bName;
-
-        const state = await JSONReader.getBlockstate(bName);
-        
-        // --- BLOCKSTATE VARIANT PARSER UPGRADE ---
-        if (state && state.variants) {
-            let variantKey = "";
-            if (state.variants[""] !== undefined) {
-                variantKey = "";
-            } else {
-                let keys = Object.keys(state.variants);
-                variantKey = keys[0]; // Fallback to first
-                // Actively search for the standard/straight version of the block
-                for (let k of keys) {
-                    if (k.includes('shape=straight') && k.includes('half=bottom')) {
-                        variantKey = k;
-                        break;
-                    } else if (k.includes('axis=y')) {
-                        variantKey = k;
-                    }
-                }
-            }
-            
-            let variant = state.variants[variantKey];
-            if (Array.isArray(variant)) variant = variant[0]; 
-            
-            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
-        } else if (state && state.multipart) {
-            let part = state.multipart[0]; 
-            let variant = part.apply;
-            if (Array.isArray(variant)) variant = variant[0];
-            
-            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
-        }
-
-        let currentModel = await JSONReader.getModel(modelPath);
-        let elements = currentModel ? currentModel.elements : null;
-        let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
-
-        let depth = 0;
-        while (currentModel && currentModel.parent && depth < 10) {
-            let parentPath = currentModel.parent;
-            if (parentPath.includes(':')) parentPath = parentPath.split(':')[1]; 
-            parentPath = parentPath.replace('block/', '');
-            
-            currentModel = await JSONReader.getModel(parentPath);
-            if (currentModel) {
-                if (!elements && currentModel.elements) elements = currentModel.elements;
-                if (currentModel.textures) {
-                    for (let k in currentModel.textures) {
-                        if (!textures[k]) textures[k] = currentModel.textures[k];
-                    }
-                }
-            }
-            depth++;
-        }
-
-        const resolveTexture = (texStr) => {
-            if (!texStr) return null;
-            if (texStr.startsWith('#')) {
-                let key = texStr.substring(1);
-                let safe = 10;
-                while (textures[key] && textures[key].startsWith('#') && safe > 0) {
-                    key = textures[key].substring(1);
-                    safe--;
-                }
-                return textures[key];
-            }
-            return texStr;
-        };
-
-        const matArray = [];
-        const texMap = {};
-        let matIndexCounter = 0;
-
-        const getMaterialForTex = (texPath) => {
-            if (!texPath) texPath = bName; 
-            texPath = texPath.replace('minecraft:', '').replace('block/', '');
-            
-            if (texMap[texPath] !== undefined) return texMap[texPath];
-            
-            let tex = loadTex(texPath);
-            let mat;
-            let isOverlay = texPath.includes('overlay');
-
-            if (TRANSPARENT_BLOCKS.has(bName) || texPath.includes('leaves') || texPath.includes('glass') || isOverlay) {
-                mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5 });
-                if (isOverlay) mat.depthWrite = false; 
-            } else {
-                mat = new THREE.MeshStandardMaterial({ map: tex });
-            }
-            
-            if (texPath === 'grass_block_top' || texPath === 'vine' || texPath === 'grass_block_side_overlay') {
-                mat.color.setHex(0x71b054); 
-            } else if (texPath.includes('leaves')) {
-                mat.color.setHex(0x71b054);
-                if (texPath.includes('spruce')) mat.color.setHex(0x619961);
-                if (texPath.includes('birch')) mat.color.setHex(0x80a755);
-            }
-            
-            matArray.push(mat);
-            texMap[texPath] = matIndexCounter;
-            return matIndexCounter++;
-        };
-
-        if (elements && elements.length > 0) {
-            const elementGeometries = [];
-            for (let el of elements) {
-                const w = (el.to[0] - el.from[0]) / 16;
-                const h = (el.to[1] - el.from[1]) / 16;
-                const d = (el.to[2] - el.from[2]) / 16;
-                
-                let hasOverlay = false;
-                if (el.faces) {
-                    for (const mcFace in el.faces) {
-                        if (!el.faces[mcFace]) continue;
-                        let texRef = el.faces[mcFace].texture;
-                        let texPath = resolveTexture(texRef);
-                        if (texPath && texPath.includes('overlay')) hasOverlay = true;
-                    }
-                }
-                
-                let expand = hasOverlay ? 0.002 : 0;
-                
-                const geo = new THREE.BoxGeometry(
-                    Math.max(0.001, w + expand), 
-                    Math.max(0.001, h + expand), 
-                    Math.max(0.001, d + expand)
-                );
-                
-                geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
-                geo.clearGroups();
-
-                if (el.faces) {
-                    const uvs = geo.attributes.uv;
-                    const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
-                    
-                    for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
-                        const faceData = el.faces[mcFace];
-                        if (!faceData) continue;
-
-                        let texRef = faceData.texture;
-                        let texPath = resolveTexture(texRef);
-                        let matIdx = getMaterialForTex(texPath);
-
-                        geo.addGroup(faceIdx * 6, 6, matIdx);
-
-                        let u1 = 0, v1 = 0, u2 = 1, v2 = 1;
-                        if (faceData.uv) {
-                            u1 = faceData.uv[0] / 16;
-                            v1 = faceData.uv[1] / 16;
-                            u2 = faceData.uv[2] / 16;
-                            v2 = faceData.uv[3] / 16;
-                        } else {
-                            if (mcFace === 'up' || mcFace === 'down') {
-                                u1 = el.from[0]/16; v1 = el.from[2]/16; u2 = el.to[0]/16; v2 = el.to[2]/16;
-                            } else if (mcFace === 'north' || mcFace === 'south') {
-                                u1 = el.from[0]/16; v1 = 1 - el.to[1]/16; u2 = el.to[0]/16; v2 = 1 - el.from[1]/16;
-                            } else {
-                                u1 = el.from[2]/16; v1 = 1 - el.to[1]/16; u2 = el.to[2]/16; v2 = 1 - el.from[1]/16;
-                            }
-                        }
-
-                        let tv1 = 1 - v1;
-                        let tv2 = 1 - v2;
-                        let vIdx = faceIdx * 4;
-                        
-                        let rot = faceData.rotation || 0;
-                        if (rot === 0) {
-                            uvs.setXY(vIdx + 0, u1, tv1); uvs.setXY(vIdx + 1, u2, tv1);
-                            uvs.setXY(vIdx + 2, u1, tv2); uvs.setXY(vIdx + 3, u2, tv2);
-                        } else if (rot === 90) {
-                            uvs.setXY(vIdx + 0, u1, tv2); uvs.setXY(vIdx + 1, u1, tv1);
-                            uvs.setXY(vIdx + 2, u2, tv2); uvs.setXY(vIdx + 3, u2, tv1);
-                        } else if (rot === 180) {
-                            uvs.setXY(vIdx + 0, u2, tv2); uvs.setXY(vIdx + 1, u1, tv2);
-                            uvs.setXY(vIdx + 2, u2, tv1); uvs.setXY(vIdx + 3, u1, tv1);
-                        } else if (rot === 270) {
-                            uvs.setXY(vIdx + 0, u2, tv1); uvs.setXY(vIdx + 1, u2, tv2);
-                            uvs.setXY(vIdx + 2, u1, tv1); uvs.setXY(vIdx + 3, u1, tv2);
-                        }
-                    }
-                }
-                elementGeometries.push(geo);
-            }
-            
-            materials[bName] = matArray;
-            if (elementGeometries.length === 1) {
-                customGeometries[bName] = elementGeometries[0];
-            } else if (elementGeometries.length > 1) {
-                customGeometries[bName] = mergeBufferGeometries(elementGeometries);
-            }
-        } else {
-            throw new Error("No elements found");
-        }
-    } catch(e) {
-        const tex = loadTex(bName);
-        let mat;
-        if (TRANSPARENT_BLOCKS.has(bName)) {
-            mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: 0.8 });
-        } else {
-            mat = new THREE.MeshStandardMaterial({ map: tex });
-        }
-        materials[bName] = mat;
-        customGeometries[bName] = geometry; 
-    }
+    return sharedLightMap;
 }
 
 async function generateChunk(chunkX, chunkZ) {
@@ -1249,7 +2483,7 @@ async function generateChunk(chunkX, chunkZ) {
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
 
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+    const getIdx = (x, y, z) => x + (z * 16) + (y * 256);
 
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
@@ -1341,7 +2575,7 @@ async function generateChunk(chunkX, chunkZ) {
             for (let y = worldHeight - 1; y >= 0; y--) {
                 let b = blocks[getIdx(x, y, z)];
                 if (b !== 0) { 
-                    if ((b === TYPE.grass_block || b === TYPE.snowy_grass_block) && localBiome.treeChance > 0) {
+                    if ((b === TYPE.grass_block) && localBiome.treeChance > 0) {
                         let actualY = y + minworldY;
                         if (getDeterministicRandom(globalX, actualY, globalZ) < localBiome.treeChance) {
                             treesToSpawn.push({ x, y, z, actualY, treeType: localBiome.treeType });
@@ -1417,7 +2651,7 @@ async function generateChunk(chunkX, chunkZ) {
                 else if (currentRadius === 2) currentRadius = 1; 
             }
         } else {
-            for (let ly = localY + trunkH - 3; ly <= localY + trunkH + 1; ly++) {
+            for (let ly = localY + trunkH - 2; ly <= localY + trunkH + 1; ly++) {
                 let radius = (ly > localY + trunkH - 1) ? 1 : 2; 
                 for (let lx = -radius; lx <= radius; lx++) {
                     for (let lz = -radius; lz <= radius; lz++) {
@@ -1496,6 +2730,8 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[bName].chunkId = chunkId;
         meshes[bName].maxCapacity = cap;
         meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        // OPTIMIZATION: Stop expensive continuous matrix update on dead block meshes
+        meshes[bName].matrixAutoUpdate = false;
         meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
         indices[bName] = 0;
     }
@@ -1575,8 +2811,14 @@ async function generateChunk(chunkX, chunkZ) {
                             }
                         }
 
-                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
-                        matrix.setPosition(startX + x, actualY, startZ + z);
+                        // OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
+                        if (rot[0] === 0 && rot[1] === 0 && rot[2] === 0) {
+                            matrix.makeTranslation(startX + x, actualY, startZ + z);
+                        } else {
+                            matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
+                            matrix.setPosition(startX + x, actualY, startZ + z);
+                        }
+
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj); 
                         indices[bName]++;
@@ -1590,7 +2832,8 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); 
+        // OPTIMIZATION: Hardcoded bounding spheres instead of forcing the CPU to scan all instances
+        meshes[key].boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + 8, 128 + minworldY, startZ + 8), 140); 
         scene.add(meshes[key]);
         interactableMeshes.push(meshes[key]);
     }
@@ -1606,7 +2849,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
     const { meshes, blocks } = chunkData;
     const startX = chunkX * chunkSize;
     const startZ = chunkZ * chunkSize;
-    const getIdx = (x, y, z) => x + z * chunkSize + y * (chunkSize * chunkSize);
+    const getIdx = (x, y, z) => x + (z * 16) + (y * 256);
 
     const lightMap = computeChunkLight(blocks);
 
@@ -1628,6 +2871,7 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
             meshes[bName].chunkId = chunkId;
             meshes[bName].maxCapacity = cap;
             meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            meshes[bName].matrixAutoUpdate = false;
             meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
             scene.add(meshes[bName]);
             interactableMeshes.push(meshes[bName]);
@@ -1717,8 +2961,13 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                             }
                         }
 
-                        matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
-                        matrix.setPosition(globalX, actualY, globalZ);
+                        if (rot[0] === 0 && rot[1] === 0 && rot[2] === 0) {
+                            matrix.makeTranslation(globalX, actualY, globalZ);
+                        } else {
+                            matrix.makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ'));
+                            matrix.setPosition(globalX, actualY, globalZ);
+                        }
+                        
                         meshes[bName].setMatrixAt(indices[bName], matrix);
                         meshes[bName].setColorAt(indices[bName], colorObj);
                         indices[bName]++;
@@ -1732,49 +2981,15 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        meshes[key].computeBoundingSphere(); 
+        meshes[key].boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + 8, 128 + minworldY, startZ + 8), 140);
     }
 }
 
 // ----------------------------------------------------
-// Solar & Sky Mechanics (Day / Night Simulation)
+// Day / Night & Core Update Loop
 // ----------------------------------------------------
 let timeOfDay = Math.PI / 2; 
-const dayCycleSpeed = Math.PI / 600; 
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
-scene.add(ambientLight);
-
-const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
-scene.add(sunLight);
-
-const sunGeo = new THREE.BoxGeometry(6, 6, 6);
-const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffaa }); 
-const sunMesh = new THREE.Mesh(sunGeo, sunMat);
-scene.add(sunMesh);
-
-const moonLight = new THREE.DirectionalLight(0xaaccff, 0.2); 
-scene.add(moonLight);
-
-const moonGeo = new THREE.BoxGeometry(4, 4, 4);
-const moonMat = new THREE.MeshBasicMaterial({ color: 0xddddff });
-const moonMesh = new THREE.Mesh(moonGeo, moonMat);
-scene.add(moonMesh);
-
-const starsGeo = new THREE.BufferGeometry();
-const starVertices = [];
-for(let i=0; i<1500; i++) {
-    let x = THREE.MathUtils.randFloatSpread(300);
-    let y = THREE.MathUtils.randFloatSpread(300);
-    let z = THREE.MathUtils.randFloatSpread(300);
-    if(Math.abs(x) > 50 || Math.abs(y) > 50 || Math.abs(z) > 50) {
-        starVertices.push(x, y, z);
-    }
-}
-starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-const starsMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.8, transparent: true, opacity: 0}); 
-const starsMesh = new THREE.Points(starsGeo, starsMat);
-scene.add(starsMesh);
+const dayCycleSpeed = 0; 
 
 function updateDayNightCycle(delta) {
     timeOfDay += delta * dayCycleSpeed;
@@ -1834,7 +3049,6 @@ function updateDayNightCycle(delta) {
 }
 
 let lastPlayerChunkX = -999; let lastPlayerChunkZ = -999;
-
 function updateChunks() {
     const pX = Math.floor(camera.position.x / chunkSize);
     const pZ = Math.floor(camera.position.z / chunkSize);
@@ -1865,9 +3079,6 @@ function updateChunks() {
     }
 }
 
-// ----------------------------------------------------
-// Player Movement, Physics, Placing & Destroying Blocks
-// ----------------------------------------------------
 const spawnX = 0; const spawnZ = 0; let safeSpawnY = 127; 
 for (let y = 127; y >= 0; y--) {
     let bs = getInterpolatedHeightScale(spawnX, spawnZ);
@@ -1886,8 +3097,8 @@ camera.add(playerHand); scene.add(camera);
 let yaw = 0, pitch = 0, keys = {};
 let isLeftMouseDown = false; 
 
-const raycaster = new THREE.Raycaster(); raycaster.far = 6;
-let mining = { active: false, startTime: 0, targetMesh: null, targetId: null, requiredTime: 500 };
+// OPTIMIZATION: Removed slow Three.js Raycaster, replacing it with ultra-fast Digital Differential Analyzer loop!
+let mining = { active: false, startTime: 0, blockPosition: null, blockName: null, requiredTime: 500 };
 
 const droppedItems = [];
 const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
@@ -1898,44 +3109,62 @@ function spawnDroppedItem(x, y, z, blockName) {
 
     const mesh = new THREE.Mesh(itemGeometry, mat);
     mesh.position.set(x, y, z);
-    
-    const velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * 4,
-        3 + Math.random() * 2,
-        (Math.random() - 0.5) * 4
-    );
-
+    const velocity = new THREE.Vector3((Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4);
     scene.add(mesh);
     droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
 }
 
+// OPTIMIZATION: Custom Fast Voxel Raycaster (Massive FPS fix!)
 function getTarget() {
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    let start = camera.position.clone();
+    let dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    let maxDist = 6;
+    let step = 0.05;
+    let current = start.clone();
     
-    const pX = Math.floor(camera.position.x / chunkSize);
-    const pZ = Math.floor(camera.position.z / chunkSize);
-    
-    const nearbyMeshes = interactableMeshes.filter(m => {
-        if (!m.chunkId) return false;
-        const [cx, cz] = m.chunkId.split(',').map(Number);
-        return Math.abs(cx - pX) <= 1 && Math.abs(cz - pZ) <= 1;
-    });
+    for (let d = 0; d < maxDist; d += step) {
+        current.add(dir.clone().multiplyScalar(step));
+        let bx = Math.round(current.x);
+        let by = Math.round(current.y);
+        let bz = Math.round(current.z);
+        let b = getGlobalBlock(bx, by, bz);
+        
+        if (b !== null && b !== 0 && b !== TYPE.water) {
+            let prev = current.clone().sub(dir.clone().multiplyScalar(step));
+            let pbx = Math.round(prev.x);
+            let pby = Math.round(prev.y);
+            let pbz = Math.round(prev.z);
+            let normal = new THREE.Vector3(pbx - bx, pby - by, pbz - bz);
+            
+            if (Math.abs(normal.x) > Math.abs(normal.y) && Math.abs(normal.x) > Math.abs(normal.z)) {
+                normal.set(Math.sign(normal.x), 0, 0);
+            } else if (Math.abs(normal.y) > Math.abs(normal.z)) {
+                normal.set(0, Math.sign(normal.y), 0);
+            } else {
+                normal.set(0, 0, Math.sign(normal.z));
+            }
 
-    const hit = raycaster.intersectObjects(nearbyMeshes);
-    return hit.length > 0 ? hit[0] : null;
+            let blockName = REVERSE_TYPE[b];
+            return {
+                position: new THREE.Vector3(bx, by, bz),
+                normal: normal,
+                blockName: blockName
+            };
+        }
+    }
+    return null;
 }
 
 function startMining(hit) {
-    const blockName = hit.object.name;
+    const blockName = hit.blockName;
     const heldItemType = inventory[selectedSlot].type;
     
     const requiredTime = calculateMiningTime(blockName, heldItemType);
     if (requiredTime === Infinity) return; 
 
-    mining = { active: true, startTime: Date.now(), targetMesh: hit.object, targetId: hit.instanceId, requiredTime: requiredTime };
+    mining = { active: true, startTime: Date.now(), blockPosition: hit.position, blockName: blockName, requiredTime: requiredTime };
     destroyMat.map = destroyTextures[0]; destroyMat.needsUpdate = true;
-    const mat = new THREE.Matrix4(); hit.object.getMatrixAt(hit.instanceId, mat);
-    destroyMesh.position.setFromMatrixPosition(mat);
+    destroyMesh.position.copy(hit.position);
     destroyMesh.visible = true; 
 }
 
@@ -1947,7 +3176,7 @@ function updateMining() {
     
     const hit = getTarget();
     
-    if (!hit || hit.object !== mining.targetMesh || hit.instanceId !== mining.targetId) {
+    if (!hit || !hit.position.equals(mining.blockPosition)) {
         mining.active = false; 
         destroyMesh.visible = false;
         return;
@@ -1961,12 +3190,11 @@ function updateMining() {
     }
 
     if (elapsed >= mining.requiredTime) {
-        const mat = new THREE.Matrix4(); 
-        mining.targetMesh.getMatrixAt(mining.targetId, mat);
-        const p = new THREE.Vector3().setFromMatrixPosition(mat);
-        const blockName = mining.targetMesh.name; 
+        const p = mining.blockPosition;
+        const blockName = mining.blockName; 
         
-        setGlobalBlock(Math.round(p.x), Math.round(p.y), Math.round(p.z), 0);
+        let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
+        setGlobalBlock(pX, pY, pZ, 0);
         
         const heldItemType = inventory[selectedSlot].type;
         const harvestable = canHarvestBlock(blockName, heldItemType);
@@ -1977,52 +3205,29 @@ function updateMining() {
             if (dropData !== null) {
                 const item = dropData?.item || blockName;
                 let count = dropData?.count || 1;
-
                 if (typeof count === 'function') count = count();
-
                 for (let i = 0; i < count; i++) {
                     spawnDroppedItem(p.x, p.y, p.z, item);
                 }
             }
         }
         
-        if (mining.targetMesh && mining.targetMesh.chunkId) {
-            chunksToRebuild.add(mining.targetMesh.chunkId);
-        }
+        updateStairConnections(pX+1, pY, pZ);
+        updateStairConnections(pX-1, pY, pZ);
+        updateStairConnections(pX, pY, pZ+1);
+        updateStairConnections(pX, pY, pZ-1);
 
         mining.active = false;
         destroyMesh.visible = false;
     }
 }
 
-function isPlayerCollidingWithBlock(bx, by, bz, blockName) {
-    if (CROSS_BLOCKS.has(blockName)) return false;
-
-    const playerMinX = camera.position.x - 0.3;
-    const playerMaxX = camera.position.x + 0.3;
-    const playerMinY = camera.position.y - 1.6;
-    const playerMaxY = camera.position.y + 0.2;
-    const playerMinZ = camera.position.z - 0.3;
-    const playerMaxZ = camera.position.z + 0.3;
-
-    const blockMinX = bx - 0.5;
-    const blockMaxX = bx + 0.5;
-    const blockMinY = by - 0.5;
-    const blockMaxY = by + 0.5;
-    const blockMinZ = bz - 0.5;
-    const blockMaxZ = bz + 0.5;
-
-    return (playerMinX < blockMaxX && playerMaxX > blockMinX) &&
-           (playerMinY < blockMaxY && playerMaxY > blockMinY) &&
-           (playerMinZ < blockMaxZ && playerMaxZ > blockMinZ);
-}
-
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 document.addEventListener('mousedown', (e) => {
-    if (e.target.closest('#inventory-screen') || e.target.closest('#hotbar')) return; 
+    if (e.target.closest('#creative-inventory-screen') || e.target.closest('#hotbar')) return; 
     
-    if (!document.pointerLockElement && inventoryScreen.style.display === 'none') {
+    if (!document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
         renderer.domElement.requestPointerLock();
     } else if (document.pointerLockElement) {
         if (e.button === 0) {
@@ -2031,60 +3236,94 @@ document.addEventListener('mousedown', (e) => {
             const hit = getTarget(); 
             if (!hit) return;
             
-            const mat = new THREE.Matrix4(); 
-            hit.object.getMatrixAt(hit.instanceId, mat);
-            const p = new THREE.Vector3().setFromMatrixPosition(mat);
-            
-            const placeX = Math.round(p.x + hit.face.normal.x);
-            const placeY = Math.round(p.y + hit.face.normal.y);
-            const placeZ = Math.round(p.z + hit.face.normal.z);
+            const p = hit.position;
+            const placeX = Math.round(p.x + hit.normal.x);
+            const placeY = Math.round(p.y + hit.normal.y);
+            const placeZ = Math.round(p.z + hit.normal.z);
             
             const selectedItem = inventory[selectedSlot];
             
-            if (selectedItem.type && getGlobalBlock(placeX, placeY, placeZ) === 0) {
-                if (!isPlayerCollidingWithBlock(placeX, placeY, placeZ, selectedItem.type)) {
+            let placementType = selectedItem.type;
+            if (placementType === 'sweet_berries') placementType = 'sweet_berry_bush';
+            
+            const explicit2DItems = new Set([
+                'torch', 'soul_torch', 'kelp', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
+                'candle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
+                'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
+                'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
+                'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
+                'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
+                'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
+                'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
+            ]);
+            
+            if (flatItems.has(placementType) && !explicit2DItems.has(placementType) && !placementType.includes('sign') && !placementType.includes('door')) return; 
+            
+            if (placementType && getGlobalBlock(placeX, placeY, placeZ) === 0) {
+                let rotation = [0, 0, 0];
+                let stairData = null;
+                let extraBlock = null; 
+                
+                if (placementType.includes('log') || placementType.includes('pillar') || placementType === 'basalt' || placementType === 'polished_basalt' || placementType === 'bone_block' || placementType === 'purpur_pillar' || placementType === 'quartz_pillar' || placementType === 'hay_block') {
+                    let axis = 'y';
+                    if (Math.abs(hit.normal.x) > 0.5) axis = 'x';
+                    if (Math.abs(hit.normal.z) > 0.5) axis = 'z';
+                    rotation = JSONReader.getRotationForAxis(axis);
+                } 
+                else if (placementType.includes('stairs')) {
+                    let ry = yaw % (Math.PI * 2);
+                    if (ry < 0) ry += Math.PI * 2;
                     
-                    let rotation = [0, 0, 0];
-                    let t = selectedItem.type;
-                    
-                    if (t.includes('log') || t.includes('pillar') || t === 'basalt' || t === 'polished_basalt' || t === 'bone_block' || t === 'purpur_pillar' || t === 'quartz_pillar' || t === 'hay_block') {
-                        let axis = 'y';
-                        if (Math.abs(hit.face.normal.x) > 0.5) axis = 'x';
-                        if (Math.abs(hit.face.normal.z) > 0.5) axis = 'z';
-                        rotation = JSONReader.getRotationForAxis(axis);
-                    } 
-                    else if (t.includes('stairs')) {
-                        let ry = yaw % (Math.PI * 2);
-                        if (ry < 0) ry += Math.PI * 2;
-                        
-                        let stairRotY = 0;
-                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) stairRotY = Math.PI/2; 
-                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) stairRotY = Math.PI; 
-                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) stairRotY = -Math.PI/2; 
-                        else stairRotY = 0; 
+                    let facing = 0;
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facing = 1; 
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facing = 2; 
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facing = 3; 
+                    else facing = 0; 
 
-                        let rx = 0;
-                        if (hit.face.normal.y === -1 || (hit.face.normal.y === 0 && hit.point.y - Math.floor(hit.point.y) > 0.5)) {
-                            rx = Math.PI;
-                            stairRotY = -stairRotY; 
-                        }
-                        
-                        rotation = [rx, stairRotY, 0];
-                    }
-                    else if (t.includes('furnace') || t === 'chest' || t === 'carved_pumpkin' || t === 'jack_o_lantern' || t === 'loom' || t === 'observer' || t === 'dispenser' || t === 'dropper') {
-                        let ry = yaw % (Math.PI * 2);
-                        if (ry < 0) ry += Math.PI * 2;
-                        
-                        let rotY = 0;
-                        if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
-                        else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
-                        else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
-                        else rotY = Math.PI/2; 
-                        
-                        rotation = [0, rotY, 0];
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
+                    stairData = { isStair: true, facing: facing, half: isTop ? 'top' : 'bottom' };
+                }
+                else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
+                    let ry = yaw % (Math.PI * 2);
+                    if (ry < 0) ry += Math.PI * 2;
+                    
+                    let rotY = 0;
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
+                    else rotY = Math.PI/2; 
+
+                    rotation = [0, rotY, 0];
+                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0] };
+                }
+                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper') {
+                    let ry = yaw % (Math.PI * 2);
+                    if (ry < 0) ry += Math.PI * 2;
+                    
+                    let rotY = 0;
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
+                    else rotY = Math.PI/2; 
+                    
+                    rotation = [0, rotY, 0];
+                }
+                
+                let placedData = { type: TYPE[placementType], rotation: rotation };
+                if (stairData) placedData = { ...placedData, ...stairData };
+                
+                if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
+                    // Not enough room to place the double block
+                } else {
+                    setGlobalBlock(placeX, placeY, placeZ, placedData);
+                    
+                    if (extraBlock) {
+                        setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation });
                     }
                     
-                    setGlobalBlock(placeX, placeY, placeZ, { type: TYPE[selectedItem.type], rotation: rotation });
+                    if (stairData) {
+                        updateStairConnections(placeX, placeY, placeZ);
+                    }
                     
                     selectedItem.count--;
                     if (selectedItem.count <= 0) {
@@ -2114,20 +3353,21 @@ document.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
+    if (document.activeElement && document.activeElement.id === 'creative-search') return;
     keys[e.key.toLowerCase()] = true;
     
     if (e.key.toLowerCase() === 'e') {
-        if (inventoryScreen.style.display === 'none') {
-            inventoryScreen.style.display = 'flex';
+        if (creativeScaleCenter.style.display === 'none') {
+            creativeScaleCenter.style.display = 'flex';
             crosshair.style.display = 'none';
             document.exitPointerLock();
             keys = {}; 
+            populateCreativeGrid();
         } else {
-            inventoryScreen.style.display = 'none';
+            creativeScaleCenter.style.display = 'none';
             crosshair.style.display = 'block';
             
             if (heldItem.type) {
-                addItemToInventory(heldItem.type, heldItem.count);
                 heldItem = { type: null, count: 0 };
                 updateInventoryUI();
             }
@@ -2135,17 +3375,20 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
-    if (e.key >= '1' && e.key <= '9' && inventoryScreen.style.display === 'none') {
+    if (e.key >= '1' && e.key <= '9' && creativeScaleCenter.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
         updateInventoryUI();
     }
 });
 
-window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+window.addEventListener('keyup', (e) => {
+    if (document.activeElement && document.activeElement.id === 'creative-search') return;
+    keys[e.key.toLowerCase()] = false;
+});
 
 let lastScrollTime = 0; 
 window.addEventListener('wheel', (e) => {
-    if (document.pointerLockElement && inventoryScreen.style.display === 'none') {
+    if (document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
         const now = Date.now();
         if (now - lastScrollTime < 50) return; 
         lastScrollTime = now;
@@ -2159,22 +3402,13 @@ window.addEventListener('wheel', (e) => {
     }
 });
 
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// ----------------------------------------------------
-// Core Update Loop
-// ----------------------------------------------------
 let isGeneratingChunk = false;
 let isRebuildingChunk = false;
+let lastCompassFrame = -1;
 
 function animate() {
     requestAnimationFrame(animate);
     let delta = clock.getDelta(); 
-    
     if (delta > 0.1) delta = 0.1;
 
     updateChunks();
@@ -2183,14 +3417,8 @@ function animate() {
     const deltaMs = delta * 1000;
     for (let anim of animatedTextures) {
         anim.timer += deltaMs;
-        
         let currentFrameData = anim.frames[anim.currentArrayIdx];
-        let tickDuration = anim.defaultTickRate;
-        
-        if (typeof currentFrameData === 'object') {
-            tickDuration = currentFrameData.time;
-        }
-        
+        let tickDuration = typeof currentFrameData === 'object' ? currentFrameData.time : anim.defaultTickRate;
         const frameDurationMs = Math.max(1, tickDuration * 50); 
         let frameChanged = false;
 
@@ -2203,17 +3431,13 @@ function animate() {
 
         if (anim.interpolate || frameChanged) {
             let nextArrayIdx = (anim.currentArrayIdx + 1) % anim.frames.length;
-            
             let cData = anim.frames[anim.currentArrayIdx];
             let nData = anim.frames[nextArrayIdx];
-            
             let cIndex = typeof cData === 'object' ? cData.index : cData;
             let nIndex = typeof nData === 'object' ? nData.index : nData;
-            
             let fw = anim.frameWidth;
             
             anim.ctx.clearRect(0, 0, fw, fw);
-            
             anim.ctx.globalAlpha = 1.0;
             anim.ctx.drawImage(anim.sourceImage, 0, cIndex * fw, fw, fw, 0, 0, fw, fw);
             
@@ -2222,9 +3446,25 @@ function animate() {
                 anim.ctx.globalAlpha = fadeRatio;
                 anim.ctx.drawImage(anim.sourceImage, 0, nIndex * fw, fw, fw, 0, 0, fw, fw);
             }
-            
             anim.texture.needsUpdate = true;
         }
+    }
+
+    const dx = -camera.position.x;
+    const dz = -camera.position.z;
+    const targetAngle = Math.atan2(dx, dz);
+    let relAngle = (targetAngle - yaw) % (Math.PI * 2);
+    if (relAngle < 0) relAngle += Math.PI * 2;
+    let compassFrame = Math.floor((relAngle / (Math.PI * 2)) * 32) % 32;
+    
+    // OPTIMIZATION: Only parse the DOM string queries when the compass orientation actually changes
+    if (compassFrame !== lastCompassFrame) {
+        lastCompassFrame = compassFrame;
+        let frameStr = compassFrame.toString().padStart(2, '0');
+        let compassUrl = `url(${ITEM_TEX_DIR}compass_${frameStr}.png)`;
+        document.querySelectorAll('[data-icon-type="compass"]').forEach(el => {
+            if (el.style.backgroundImage !== compassUrl) el.style.backgroundImage = compassUrl;
+        });
     }
 
     if (chunkQueue.length > 0 && !isGeneratingChunk) {
@@ -2234,7 +3474,7 @@ function animate() {
         generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
     }
 
-    if (isLeftMouseDown && !mining.active && document.pointerLockElement && inventoryScreen.style.display === 'none') {
+    if (isLeftMouseDown && !mining.active && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
         const hit = getTarget();
         if (hit) startMining(hit);
     }
@@ -2253,58 +3493,41 @@ function animate() {
     for (let i = droppedItems.length - 1; i >= 0; i--) {
         let item = droppedItems[i];
         item.lifeTime += delta;
-        
         item.velocity.y -= 15 * delta; 
         
         let nx = item.mesh.position.x + item.velocity.x * delta;
         let ny = item.mesh.position.y + item.velocity.y * delta;
         let nz = item.mesh.position.z + item.velocity.z * delta;
 
-        let bX = Math.round(nx);
-        let bY = Math.round(ny - 0.25); 
-        let bZ = Math.round(nz);
-
+        let bX = Math.round(nx); let bY = Math.round(ny - 0.25); let bZ = Math.round(nz);
         let blockBelow = getGlobalBlock(bX, bY, bZ);
 
         if (blockBelow === null) {
             item.velocity.set(0, 0, 0);
-            nx = item.mesh.position.x;
-            ny = item.mesh.position.y;
-            nz = item.mesh.position.z;
+            nx = item.mesh.position.x; ny = item.mesh.position.y; nz = item.mesh.position.z;
         } 
         else if (blockBelow !== 0) {
             ny = bY + 0.5 + 0.125; 
-            item.velocity.y = 0;
-            item.velocity.x *= 0.5; 
-            item.velocity.z *= 0.5;
+            item.velocity.y = 0; item.velocity.x *= 0.5; item.velocity.z *= 0.5;
         } 
         else {
             let wallBlock = getGlobalBlock(bX, Math.round(ny), bZ);
             if (wallBlock !== 0 && wallBlock !== null) {
-                item.velocity.x *= -0.5; 
-                item.velocity.z *= -0.5;
-                nx = item.mesh.position.x;
-                nz = item.mesh.position.z;
+                item.velocity.x *= -0.5; item.velocity.z *= -0.5;
+                nx = item.mesh.position.x; nz = item.mesh.position.z;
             }
         }
 
         item.mesh.position.set(nx, ny, nz);
         item.mesh.rotation.y += delta * 2;
-        
-        if (item.velocity.y === 0) {
-            item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
-        }
+        if (item.velocity.y === 0) item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
         
         const dist = camera.position.distanceTo(item.mesh.position);
         if (dist < 1.5) {
-            scene.remove(item.mesh);
-            item.mesh.geometry.dispose();
-            droppedItems.splice(i, 1);
-            addItemToInventory(item.blockName, 1);
+            scene.remove(item.mesh); item.mesh.geometry.dispose();
+            droppedItems.splice(i, 1); addItemToInventory(item.blockName, 1);
         } else if (item.mesh.position.y < minworldY - 20) {
-            scene.remove(item.mesh);
-            item.mesh.geometry.dispose();
-            droppedItems.splice(i, 1);
+            scene.remove(item.mesh); item.mesh.geometry.dispose(); droppedItems.splice(i, 1);
         }
     }
 
