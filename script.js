@@ -685,12 +685,12 @@ async function loadCustomModel(bName) {
                 const m = mirror || false;
                 
                 // Directly map faces cleanly without complex transformations
-                setF(0, uvEast, d, h, false, false);                    // East (+x)
-                setF(1, uvWest, d, h, false, false);                    // West (-x)
-                setF(2, uvUp, w, d, m, false);                          // Top (+y)
-                setF(3, uvDown, w, d, m, true);                         // Bottom (-y) - Rotated 180
-                setF(4, uvNorth, w, h, m, false);                       // South (+z) - Swapped with North
-                setF(5, uvSouth, w, h, m, false);                       // North (-z) - Swapped with South
+                setF(0, uvEast, d, h, false, false);                    // East (+x) gets exactly uvEast, no mirror
+                setF(1, uvWest, d, h, false, false);                    // West (-x) gets exactly uvWest, no mirror
+                setF(2, uvUp, w, d, m, false);                          // Top (+y) gets mirror rule
+                setF(3, uvDown, w, d, m, true);                         // Bottom (-y) gets mirror rule and rot180
+                setF(4, uvNorth, w, h, m, false);                       // South (+z) swapped with North, gets mirror rule
+                setF(5, uvSouth, w, h, m, false);                       // North (-z) swapped with South, gets mirror rule
 
                 geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
 
@@ -708,16 +708,6 @@ async function loadCustomModel(bName) {
                     
                     geo.translate(pivot[0]*px, pivot[1]*px, pivot[2]*px);
                 }
-
-                // Rotate each individual part 180 degrees around its own exact mathematical center
-                // This bypasses the bounding box distortion on pre-rotated parts like the jaw
-                const cX = (mcX + w / 2) * px;
-                const cY = (mcY + h / 2) * px;
-                const cZ = (mcZ + d / 2) * px;
-                
-                geo.translate(-cX, -cY, -cZ);
-                geo.rotateY(Math.PI);
-                geo.translate(cX, cY, cZ);
 
                 geos.push(geo);
             }
