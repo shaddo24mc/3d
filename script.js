@@ -737,7 +737,7 @@ async function loadCustomModel(bName) {
                 // Upper snout (Attaches flush to front of skull)
                 { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
                 // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
-                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [15, 0, 0] }, 
+                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [0, 0, 0] }, 
                 // Right Horn (Mirrored)
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
@@ -745,32 +745,14 @@ async function loadCustomModel(bName) {
                 // Right Nostril (Mirrored)
                 { size: [2, 2, 4],    pos: [4.25, 6.75, 20], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
                 // Left Nostril
-                { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
+                { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [118,4], uvNorth: [116,4], uvEast: [112,4], uvSouth: [120,4] }  
             ];
-
-            // Fix: Un-scale ALL coordinate metrics (including size/from/to) because you derived them 
-            // from a 0.75x scaled Blockbench model. This aligns the center-point math perfectly!
-            const adjustedParts = parts.map(p => ({
-                ...p,
-                size: p.size ? [p.size[0] / 0.75, p.size[1] / 0.75, p.size[2] / 0.75] : undefined,
-                pos: p.pos ? [p.pos[0] / 0.75, p.pos[1] / 0.75, p.pos[2] / 0.75] : undefined,
-                from: p.from ? [p.from[0] / 0.75, p.from[1] / 0.75, p.from[2] / 0.75] : undefined,
-                to: p.to ? [p.to[0] / 0.75, p.to[1] / 0.75, p.to[2] / 0.75] : undefined,
-                pivot: p.pivot ? [p.pivot[0] / 0.75, p.pivot[1] / 0.75, p.pivot[2] / 0.75] : undefined
-            }));
-
-            headGeo = buildMCModel(adjustedParts, 256);
             
-            // Undo the +2 offset visually so it remains perfectly centered mathematically
-            headGeo.translate(-2/16, 0, -2/16);
+            // Pass scaleFactor = 0.75 so geometry is built correctly BEFORE positioning without ruining UVs!
+            headGeo = buildMCModel(parts, 256, 0.75);
             
-            // Shift the geometry so the NW-Bottom coordinate logic aligns perfectly within the 3D world center (-0.5 to 0.5)
+            // Shift the geometry cleanly to match physical 12x12 world dimensions
             headGeo.translate(-0.5, -0.5, -0.5);
-            
-            // Apply the intended overall shrink, putting everything perfectly back to 12x12
-            headGeo.scale(0.75, 0.75, 0.75); 
-            // Ensure the head rests flat on the ground of the block it is placed on
-            headGeo.translate(0, -0.125, 0);
         } else {
             // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
             const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
