@@ -624,7 +624,7 @@ async function loadCustomModel(bName) {
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
-        const buildMCModel = (parts, tS) => {
+        const buildMCModel = (parts, tS, scaleFactor = 1.0) => {
             const geos = [];
             const px = 1/16;
             for (let p of parts) {
@@ -647,9 +647,15 @@ async function loadCustomModel(bName) {
                     mcY = p.pos ? p.pos[1] : p.mcY;
                     mcZ = p.pos ? p.pos[2] : p.mcZ;
                 }
+                
+                // Translate the unscaled coordinates into the proper physical size mathematically
+                // The geometry builds natively at this scaled size without double shrinking the positions
+                const physW = w * scaleFactor;
+                const physH = h * scaleFactor;
+                const physD = d * scaleFactor;
 
                 const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror } = p;
-                const geo = new THREE.BoxGeometry(w * px, h * px, d * px);
+                const geo = new THREE.BoxGeometry(physW * px, physH * px, physD * px);
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
@@ -696,13 +702,13 @@ async function loadCustomModel(bName) {
                 geo.rotateY(Math.PI);
 
                 // 3. ASSEMBLE (Piece all the parts together at their target locations)
-                geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
+                geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
 
                 // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
                 if (pivot) {
-                    const pivX = pivot[0] * px;
-                    const pivY = pivot[1] * px;
-                    const pivZ = pivot[2] * px;
+                    const pivX = pivot[0] * scaleFactor * px;
+                    const pivY = pivot[1] * scaleFactor * px;
+                    const pivZ = pivot[2] * scaleFactor * px;
                     
                     geo.translate(-pivX, -pivY, -pivZ);
                     
@@ -730,8 +736,8 @@ async function loadCustomModel(bName) {
                 { size: [16, 16, 16], pos: [2, 0, 2], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
                 // Upper snout (Attaches flush to front of skull)
                 { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
-                // Jaw (Hinges at front of skull base) - Pure pivot at 8, 3, 12!
-                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [-8.6, 0, 0] }, 
+                // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
+                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [0, 0, 0] }, 
                 // Right Horn (Mirrored)
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
@@ -742,15 +748,11 @@ async function loadCustomModel(bName) {
                 { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [118,4], uvNorth: [116,4], uvEast: [112,4], uvSouth: [120,4] }  
             ];
             
-            // Pass pure geometry straight to the builder
-            headGeo = buildMCModel(parts, 256);
+            // Pass scaleFactor = 0.75 so geometry is built correctly BEFORE positioning without ruining UVs!
+            headGeo = buildMCModel(parts, 256, 0.75);
             
-            // Apply scale safely at the end
-            headGeo.scale(0.75, 0.75, 0.75); 
-            
-            // Ground it perfectly into the block
+            // Shift the geometry cleanly to match physical 12x12 world dimensions
             headGeo.translate(-0.5, -0.5, -0.5);
-            headGeo.translate(0, -0.125, 0); 
         } else {
             // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
             const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
@@ -1062,7 +1064,7 @@ async function loadCustomModel(bName) {
         if (isTranslucent) {
             mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
         } else if (isCutout) {
-            mat = new MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
         } else {
             mat = new THREE.MeshLambertMaterial({ map: tex });
         }
