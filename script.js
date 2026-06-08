@@ -624,7 +624,7 @@ async function loadCustomModel(bName) {
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         
-        const buildMCModel = (parts, tS) => {
+        const buildMCModel = (parts, tS, scaleFactor = 1.0) => {
             const geos = [];
             const px = 1/16;
             for (let p of parts) {
@@ -648,8 +648,14 @@ async function loadCustomModel(bName) {
                     mcZ = p.pos ? p.pos[2] : p.mcZ;
                 }
                 
+                // Translate the unscaled coordinates into the proper physical size mathematically
+                // The geometry builds natively at this scaled size without double shrinking the positions
+                const physW = w * scaleFactor;
+                const physH = h * scaleFactor;
+                const physD = d * scaleFactor;
+
                 const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror } = p;
-                const geo = new THREE.BoxGeometry(w * px, h * px, d * px);
+                const geo = new THREE.BoxGeometry(physW * px, physH * px, physD * px);
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
@@ -685,6 +691,7 @@ async function loadCustomModel(bName) {
                 const m = mirror || false;
                 
                 // Directly map faces cleanly without complex transformations
+                // Notice we still use `w, h, d` instead of physW, physH, physD here to keep original unscaled pixel mapping
                 setF(0, uvEast, d, h, false, false);                    // East (+x) gets exactly uvEast, no mirror
                 setF(1, uvWest, d, h, false, false);                    // West (-x) gets exactly uvWest, no mirror
                 setF(2, uvUp, w, d, m, false);                          // Top (+y) gets mirror rule
@@ -692,10 +699,13 @@ async function loadCustomModel(bName) {
                 setF(4, uvNorth, w, h, m, false);                       // South (+z) swapped with North, gets mirror rule
                 setF(5, uvSouth, w, h, m, false);                       // North (-z) swapped with South, gets mirror rule
 
-                geo.translate((mcX + w/2) * px, (mcY + h/2) * px, (mcZ + d/2) * px);
+                geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
 
                 if (pivot) {
-                    geo.translate(-pivot[0]*px, -pivot[1]*px, -pivot[2]*px);
+                    const pivX = pivot[0] * scaleFactor * px;
+                    const pivY = pivot[1] * scaleFactor * px;
+                    const pivZ = pivot[2] * scaleFactor * px;
+                    geo.translate(-pivX, -pivY, -pivZ);
                     
                     // Allow literal degree arrays from Blockbench (e.g. rot: [22.5, 0, 0])
                     if (rot) {
@@ -706,8 +716,17 @@ async function loadCustomModel(bName) {
                         geo.rotateX(rotX); // Backwards compatibility 
                     }
                     
-                    geo.translate(pivot[0]*px, pivot[1]*px, pivot[2]*px);
+                    geo.translate(pivX, pivY, pivZ);
                 }
+
+                // 180 Rotation around exact physical center avoiding jaw offset distortion
+                const cX = (mcX + physW / 2) * px;
+                const cY = (mcY + physH / 2) * px;
+                const cZ = (mcZ + physD / 2) * px;
+                
+                geo.translate(-cX, -cY, -cZ);
+                geo.rotateY(Math.PI);
+                geo.translate(cX, cY, cZ);
 
                 geos.push(geo);
             }
@@ -721,8 +740,8 @@ async function loadCustomModel(bName) {
                 { size: [16, 16, 16], pos: [2, 0, 2], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
                 // Upper snout (Attaches flush to front of skull)
                 { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
-                // Jaw (Hinges at front of skull base)
-                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [10, 10, 2], rot: [-8.6, 0, 0] }, 
+                // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
+                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [10.666, 4, 16.666], rot: [-8.6, 0, 0] }, 
                 // Right Horn (Mirrored)
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
@@ -732,17 +751,12 @@ async function loadCustomModel(bName) {
                 // Left Nostril
                 { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
             ];
-            headGeo = buildMCModel(parts, 256);
             
-            // Undo the +2 offset visually so it remains perfectly centered mathematically
-            headGeo.translate(-2/16, 0, -2/16);
+            // Pass scaleFactor = 0.75 so geometry is built correctly BEFORE positioning without ruining UVs!
+            headGeo = buildMCModel(parts, 256, 0.75);
             
-            // Shift the geometry so the NW-Bottom coordinate logic aligns perfectly within the 3D world center (-0.5 to 0.5)
+            // Shift the geometry cleanly to match physical 12x12 world dimensions
             headGeo.translate(-0.5, -0.5, -0.5);
-            
-            headGeo.scale(0.75, 0.75, 0.75); 
-            // Ensure the head rests flat on the ground of the block it is placed on
-            headGeo.translate(0, -0.125, 0);
         } else {
             // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
             const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
