@@ -706,9 +706,10 @@ async function loadCustomModel(bName) {
 
                 // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
                 if (pivot) {
-                    const pivX = pivot[0] * scaleFactor * px;
-                    const pivY = pivot[1] * scaleFactor * px;
-                    const pivZ = pivot[2] * scaleFactor * px;
+                    // Map the absolute Blockbench pivot coordinate correctly to the scaled part's position
+                    const pivX = (mcX + (pivot[0] - mcX) * scaleFactor) * px;
+                    const pivY = (mcY + (pivot[1] - mcY) * scaleFactor) * px;
+                    const pivZ = (mcZ + (pivot[2] - mcZ) * scaleFactor) * px;
                     
                     geo.translate(-pivX, -pivY, -pivZ);
                     
