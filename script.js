@@ -737,7 +737,7 @@ async function loadCustomModel(bName) {
                 // Upper snout (Attaches flush to front of skull)
                 { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
                 // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
-                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [0, 0, 0] }, 
+                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [15, 0, 0] }, 
                 // Right Horn (Mirrored)
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
