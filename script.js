@@ -659,7 +659,7 @@ async function loadCustomModel(bName) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false) => {
+                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
                     if (!uvArr) return; // Skip if UV isn't defined
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
@@ -673,11 +673,19 @@ async function loadCustomModel(bName) {
                     }
                     
                     const i = faceIdx * 8;
-                    // Standard Three.js face UV layout
-                    uvs[i]     = u1; uvs[i + 1] = v2;
-                    uvs[i + 2] = u2; uvs[i + 3] = v2;
-                    uvs[i + 4] = u1; uvs[i + 5] = v1;
-                    uvs[i + 6] = u2; uvs[i + 7] = v1;
+                    if (rot180) {
+                        // 180 degree UV rotation
+                        uvs[i]     = u2; uvs[i + 1] = v1;
+                        uvs[i + 2] = u1; uvs[i + 3] = v1;
+                        uvs[i + 4] = u2; uvs[i + 5] = v2;
+                        uvs[i + 6] = u1; uvs[i + 7] = v2;
+                    } else {
+                        // Standard Three.js face UV layout
+                        uvs[i]     = u1; uvs[i + 1] = v2;
+                        uvs[i + 2] = u2; uvs[i + 3] = v2;
+                        uvs[i + 4] = u1; uvs[i + 5] = v1;
+                        uvs[i + 6] = u2; uvs[i + 7] = v1;
+                    }
                 };
 
                 const m = mirror || false;
@@ -685,7 +693,7 @@ async function loadCustomModel(bName) {
                 // 1. Directly map faces normally 
                 setF(0, uvEast, d, h, m);
                 setF(1, uvWest, d, h, m);
-                setF(2, uvUp, w, d, m);
+                setF(2, uvUp, w, d, m, true); // Rotate ONLY the Top UV by 180 degrees
                 setF(3, uvDown, w, d, m);
                 setF(4, uvSouth, w, h, m);
                 setF(5, uvNorth, w, h, m);
@@ -729,7 +737,7 @@ async function loadCustomModel(bName) {
                 // Upper snout (Attaches flush to front of skull)
                 { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
                 // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
-                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [10.666, 4, 16.666], rot: [-8.6, 0, 0] }, 
+                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [15, 0, 0] }, 
                 // Right Horn (Mirrored)
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
