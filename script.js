@@ -653,6 +653,10 @@ async function loadCustomModel(bName) {
                 const physW = w * scaleFactor;
                 const physH = h * scaleFactor;
                 const physD = d * scaleFactor;
+                
+                const physX = mcX * scaleFactor;
+                const physY = mcY * scaleFactor;
+                const physZ = mcZ * scaleFactor;
 
                 const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror } = p;
                 const geo = new THREE.BoxGeometry(physW * px, physH * px, physD * px);
@@ -702,14 +706,14 @@ async function loadCustomModel(bName) {
                 geo.rotateY(Math.PI);
 
                 // 3. ASSEMBLE (Piece all the parts together at their target locations)
-                geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
+                geo.translate((physX + physW/2) * px, (physY + physH/2) * px, (physZ + physD/2) * px);
 
                 // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
                 if (pivot) {
-                    // Map the absolute Blockbench pivot coordinate correctly to the scaled part's position
-                    const pivX = (mcX + (pivot[0] - mcX) * scaleFactor) * px;
-                    const pivY = (mcY + (pivot[1] - mcY) * scaleFactor) * px;
-                    const pivZ = (mcZ + (pivot[2] - mcZ) * scaleFactor) * px;
+                    // Map the absolute Blockbench pivot coordinate correctly by scaling it uniformly
+                    const pivX = pivot[0] * scaleFactor * px;
+                    const pivY = pivot[1] * scaleFactor * px;
+                    const pivZ = pivot[2] * scaleFactor * px;
                     
                     geo.translate(-pivX, -pivY, -pivZ);
                     
