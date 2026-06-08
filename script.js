@@ -756,8 +756,8 @@ async function loadCustomModel(bName) {
             headGeo.translate(-0.5, -0.5, -0.5);
         } else {
             // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
-            const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
-                uvWest: [0, 8], uvNorth: [8, 8], uvEast: [16, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
+            const parts = [ { size: [8, 8, 8], pos: [-4, -4, -4], 
+                uvWest: [16, 8], uvNorth: [8, 8], uvEast: [0, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
             } ];
             headGeo = buildMCModel(parts, 64);
             headGeo.translate(0, -0.25, 0); 
