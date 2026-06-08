@@ -659,7 +659,7 @@ async function loadCustomModel(bName) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
+                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false) => {
                     if (!uvArr) return; // Skip if UV isn't defined
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
@@ -673,38 +673,35 @@ async function loadCustomModel(bName) {
                     }
                     
                     const i = faceIdx * 8;
-                    if (rot180) {
-                        // 180 degree rotation
-                        uvs[i]     = u2; uvs[i + 1] = v1;
-                        uvs[i + 2] = u1; uvs[i + 3] = v1;
-                        uvs[i + 4] = u2; uvs[i + 5] = v2;
-                        uvs[i + 6] = u1; uvs[i + 7] = v2;
-                    } else {
-                        // Standard Three.js face UV layout
-                        uvs[i]     = u1; uvs[i + 1] = v2;
-                        uvs[i + 2] = u2; uvs[i + 3] = v2;
-                        uvs[i + 4] = u1; uvs[i + 5] = v1;
-                        uvs[i + 6] = u2; uvs[i + 7] = v1;
-                    }
+                    // Standard Three.js face UV layout
+                    uvs[i]     = u1; uvs[i + 1] = v2;
+                    uvs[i + 2] = u2; uvs[i + 3] = v2;
+                    uvs[i + 4] = u1; uvs[i + 5] = v1;
+                    uvs[i + 6] = u2; uvs[i + 7] = v1;
                 };
 
                 const m = mirror || false;
                 
-                // Directly map faces cleanly without complex transformations
-                // Notice we still use `w, h, d` instead of physW, physH, physD here to keep original unscaled pixel mapping
-                setF(0, uvEast, d, h, false, false);                    // East (+x) gets exactly uvEast, no mirror
-                setF(1, uvWest, d, h, false, false);                    // West (-x) gets exactly uvWest, no mirror
-                setF(2, uvUp, w, d, m, false);                          // Top (+y) gets mirror rule
-                setF(3, uvDown, w, d, m, true);                         // Bottom (-y) gets mirror rule and rot180
-                setF(4, uvNorth, w, h, m, false);                       // South (+z) swapped with North, gets mirror rule
-                setF(5, uvSouth, w, h, m, false);                       // North (-z) swapped with South, gets mirror rule
+                // 1. Directly map faces normally 
+                setF(0, uvEast, d, h, m);
+                setF(1, uvWest, d, h, m);
+                setF(2, uvUp, w, d, m);
+                setF(3, uvDown, w, d, m);
+                setF(4, uvSouth, w, h, m);
+                setF(5, uvNorth, w, h, m);
 
+                // 2. ROTATE EVERY SINGLE PART 180 DEGREES BEFORE ASSEMBLING
+                geo.rotateY(Math.PI);
+
+                // 3. ASSEMBLE (Piece all the parts together at their target locations)
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
 
+                // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
                 if (pivot) {
                     const pivX = pivot[0] * scaleFactor * px;
                     const pivY = pivot[1] * scaleFactor * px;
                     const pivZ = pivot[2] * scaleFactor * px;
+                    
                     geo.translate(-pivX, -pivY, -pivZ);
                     
                     // Allow literal degree arrays from Blockbench (e.g. rot: [22.5, 0, 0])
@@ -718,15 +715,6 @@ async function loadCustomModel(bName) {
                     
                     geo.translate(pivX, pivY, pivZ);
                 }
-
-                // 180 Rotation around exact physical center avoiding jaw offset distortion
-                const cX = (mcX + physW / 2) * px;
-                const cY = (mcY + physH / 2) * px;
-                const cZ = (mcZ + physD / 2) * px;
-                
-                geo.translate(-cX, -cY, -cZ);
-                geo.rotateY(Math.PI);
-                geo.translate(cX, cY, cZ);
 
                 geos.push(geo);
             }
@@ -745,11 +733,11 @@ async function loadCustomModel(bName) {
                 // Right Horn (Mirrored)
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
                 // Left Horn
-                { size: [2, 4, 6],    pos: [10.25, 12, 5],  uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6] }, 
+                { size: [2, 4, 6],    pos: [10.25, 12, 5],  uvUp: [6,0], uvDown: [8,0], uvWest: [8,6], uvNorth: [6,6], uvEast: [0,6], uvSouth: [14,6] }, 
                 // Right Nostril (Mirrored)
                 { size: [2, 2, 4],    pos: [4.25, 6.75, 20], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
                 // Left Nostril
-                { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4] }  
+                { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [118,4], uvNorth: [116,4], uvEast: [112,4], uvSouth: [120,4] }  
             ];
             
             // Pass scaleFactor = 0.75 so geometry is built correctly BEFORE positioning without ruining UVs!
