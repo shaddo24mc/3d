@@ -709,13 +709,15 @@ async function loadCustomModel(bName) {
                     geo.translate(pivot[0]*px, pivot[1]*px, pivot[2]*px);
                 }
 
-                // Rotate each individual part 180 degrees around its own center right before the final assembly
-                geo.computeBoundingBox();
-                const partCenter = new THREE.Vector3();
-                geo.boundingBox.getCenter(partCenter);
-                geo.translate(-partCenter.x, -partCenter.y, -partCenter.z);
+                // Rotate each individual part 180 degrees around its own exact mathematical center
+                // This bypasses the bounding box distortion on pre-rotated parts like the jaw
+                const cX = (mcX + w / 2) * px;
+                const cY = (mcY + h / 2) * px;
+                const cZ = (mcZ + d / 2) * px;
+                
+                geo.translate(-cX, -cY, -cZ);
                 geo.rotateY(Math.PI);
-                geo.translate(partCenter.x, partCenter.y, partCenter.z);
+                geo.translate(cX, cY, cZ);
 
                 geos.push(geo);
             }
