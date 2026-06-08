@@ -706,9 +706,10 @@ async function loadCustomModel(bName) {
 
                 // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
                 if (pivot) {
-                    const pivX = pivot[0] * scaleFactor * px;
-                    const pivY = pivot[1] * scaleFactor * px;
-                    const pivZ = pivot[2] * scaleFactor * px;
+                    // FIX: Remove scaleFactor. The positions are absolute, so the pivot must be absolute too.
+                    const pivX = pivot[0] * px;
+                    const pivY = pivot[1] * px;
+                    const pivZ = pivot[2] * px;
                     
                     geo.translate(-pivX, -pivY, -pivZ);
                     
