@@ -118,8 +118,8 @@ const baseBlocks = [
     'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_brain_coral_block', 'dead_bubble_coral_block',
     'dead_fire_coral_block', 'dead_horn_coral_block', 'dead_tube_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
     'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
-    'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
-    'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
+    'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'weeping_vines_plant',
+    'twisting_vines', 'twisting_vines_plant', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
     'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
     'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
     'tinted_glass', 'powder_snow', 'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor',
@@ -454,6 +454,18 @@ const JSONReader = {
         if (axis === 'x') return [0, 0, Math.PI / 2];
         if (axis === 'z') return [Math.PI / 2, 0, 0];
         return [0, 0, 0]; 
+    },
+
+    evaluateWhen(when, state) {
+        if (when['OR']) {
+            return when['OR'].some(cond => this.evaluateWhen(cond, state));
+        }
+        for (let key in when) {
+            let expectedValues = when[key].split('|');
+            let currentState = state[key] !== undefined ? String(state[key]) : "false";
+            if (!expectedValues.includes(currentState)) return false;
+        }
+        return true;
     }
 };
 
@@ -469,6 +481,49 @@ const destroyMat = new THREE.MeshBasicMaterial({
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
+
+function getBlockContext(gx, gy, gz, bName) {
+    let state = {};
+    let placed = placedBlocks.get(`${gx},${gy},${gz}`);
+    if (placed && typeof placed === 'object' && placed.state) Object.assign(state, placed.state);
+
+    if (bName.includes('fence') || bName.includes('pane') || bName.includes('wall') || bName === 'iron_bars') {
+        const connects = (nx, ny, nz) => {
+            let nb = getGlobalBlock(nx, ny, nz);
+            if (!nb) return false;
+            let nn = REVERSE_TYPE[nb];
+            if (nn.includes('fence') || nn.includes('pane') || nn.includes('wall') || nn === 'iron_bars') return true;
+            return !isTransparent[nb];
+        };
+        state.north = connects(gx, gy, gz - 1) ? 'true' : 'false';
+        state.south = connects(gx, gy, gz + 1) ? 'true' : 'false';
+        state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
+        state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
+    }
+
+    if (bName === 'chorus_plant') {
+        const connects = (nx, ny, nz) => {
+            let nb = getGlobalBlock(nx, ny, nz);
+            if (!nb) return false;
+            let nn = REVERSE_TYPE[nb];
+            return nn === 'chorus_plant' || nn === 'chorus_flower' || nn === 'end_stone';
+        };
+        state.north = connects(gx, gy, gz - 1) ? 'true' : 'false';
+        state.south = connects(gx, gy, gz + 1) ? 'true' : 'false';
+        state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
+        state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
+        state.up = connects(gx, gy + 1, gz) ? 'true' : 'false';
+        state.down = connects(gx, gy - 1, gz) ? 'true' : 'false';
+    }
+    
+    if ((bName.includes('log') || bName.includes('pillar')) && !state.axis) state.axis = 'y';
+    if (bName.includes('stairs')) {
+        if (!state.facing) state.facing = 'north';
+        if (!state.half) state.half = 'bottom';
+        state.shape = 'straight';
+    }
+    return state;
+}
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const crossGeo = new THREE.BufferGeometry();
@@ -488,8 +543,9 @@ crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
 crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
 crossGeo.computeVertexNormals();
 
-async function loadCustomModel(bName) {
-    if (customGeometries[bName]) return; 
+async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
+    let key = cacheKey || bName;
+    if (customGeometries[key]) return; 
 
     // Hardcode Minecraft Conduit Model including proper geometry, UV mappings and translucent casing
     if (bName === 'conduit') {
@@ -547,8 +603,8 @@ async function loadCustomModel(bName) {
         
         geos.push(shell1, shell2, shell3);
         
-        materials[bName] = mat;
-        customGeometries[bName] = mergeBufferGeometries(geos);
+        materials[key] = mat;
+        customGeometries[key] = mergeBufferGeometries(geos);
         return;
     }
 
@@ -698,8 +754,8 @@ async function loadCustomModel(bName) {
             headGeo.translate(0, -0.25, 0); 
         }
 
-        materials[bName] = mat;
-        customGeometries[bName] = headGeo;
+        materials[key] = mat;
+        customGeometries[key] = headGeo;
         return;
     }
 
@@ -712,279 +768,192 @@ async function loadCustomModel(bName) {
         if (isOuter) baseName = bName.replace('_outer', '');
         if (isTop) baseName = bName.replace('_top', '');
 
-        let modelPath = `block/${baseName}`;
-        const state = await JSONReader.getBlockstate(baseName);
+        const stateJson = await JSONReader.getBlockstate(baseName);
+        let modelPartsToLoad = [];
+        let combinedDisplay = {};
         
-        if (state && state.variants) {
-            let variantKey = "";
-            let keys = Object.keys(state.variants);
-            let targetShape = isInner ? 'inner_left' : isOuter ? 'outer_left' : 'straight';
-            let targetHalf = isTop ? 'upper' : (baseName.includes('door') ? 'lower' : 'bottom');
-            
-            for (let k of keys) {
-                let matchHalf = k.includes(`half=${targetHalf}`);
-                if (!k.includes('half=')) matchHalf = true;
-                
-                let matchShape = k.includes(`shape=${targetShape}`);
-                if (!k.includes('shape=')) matchShape = true;
-                
-                if (matchHalf && matchShape) {
-                    variantKey = k;
-                    break;
+        if (stateJson) {
+            if (stateJson.variants) {
+                let match = "";
+                let keys = Object.keys(stateJson.variants);
+                for (let k of keys) {
+                    let kPairs = k.split(',');
+                    let matchesAll = kPairs.every(pair => {
+                        if (pair === "") return true;
+                        let [prop, val] = pair.split('=');
+                        return stateDict[prop] === val;
+                    });
+                    if (matchesAll) { match = k; break; }
+                }
+                if (!match && keys.length > 0) match = keys[0];
+                let v = stateJson.variants[match];
+                modelPartsToLoad.push(Array.isArray(v) ? v[0] : v);
+            } else if (stateJson.multipart) {
+                for (let p of stateJson.multipart) {
+                    if (!p.when || JSONReader.evaluateWhen(p.when, stateDict)) {
+                        let apply = Array.isArray(p.apply) ? p.apply[0] : p.apply;
+                        modelPartsToLoad.push(apply);
+                    }
                 }
             }
-            if (!variantKey) variantKey = keys[0]; 
-            
-            let variant = state.variants[variantKey];
-            if (Array.isArray(variant)) variant = variant[0]; 
-            if (variant.model) modelPath = variant.model.replace('minecraft:', '');
-        } else if (state && state.multipart) {
-            let part = state.multipart[0]; 
-            let variant = part.apply;
-            if (Array.isArray(variant)) variant = variant[0];
-            if (variant.model) modelPath = variant.model.replace('minecraft:', '');
         } else {
-            // Force fetch item model if blockstate doesn't exist (Swords, Food, Torches in hand, etc)
-            modelPath = `item/${baseName}`;
+            modelPartsToLoad.push({ model: `block/${baseName}` });
         }
 
-        let currentModel = await JSONReader.getModel(modelPath);
-        
-        // Fallback catch if item lookup fails, try block explicitly
-        if (!currentModel && modelPath.startsWith('item/')) {
-            modelPath = `block/${baseName}`;
-            currentModel = await JSONReader.getModel(modelPath);
-        }
-
-        let elements = currentModel ? currentModel.elements : null;
-        let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
-        let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
-
-        let depth = 0;
-        let isGenerated = false;
-
-        while (currentModel && currentModel.parent && depth < 10) {
-            let parentPath = currentModel.parent.replace('minecraft:', '');
-            
-            // Check if JSON explicitly maps this to a 2D generated flat item sprite
-            if (parentPath === 'item/generated' || parentPath === 'item/handheld' || parentPath === 'builtin/generated' || parentPath.startsWith('builtin/')) {
-                isGenerated = true;
-                break;
-            }
-            
-            currentModel = await JSONReader.getModel(parentPath);
-            if (currentModel) {
-                if (!elements && currentModel.elements) elements = currentModel.elements;
-                if (currentModel.textures) {
-                    for (let k in currentModel.textures) {
-                        if (!textures[k]) textures[k] = currentModel.textures[k];
-                    }
-                }
-                if (currentModel.display) {
-                    for (let k in currentModel.display) {
-                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
-                    }
-                }
-            }
-            depth++;
-        }
-
-        const resolveTexture = (texStr) => {
-            if (!texStr) return null;
-            let key = texStr.startsWith('#') ? texStr.substring(1) : texStr;
-            
-            if (textures[key]) {
-                let safe = 10;
-                while (textures[key] && textures[key].startsWith('#') && safe > 0) {
-                    key = textures[key].substring(1);
-                    safe--;
-                }
-                if (textures[key]) return textures[key];
-            }
-            
-            if (texStr.startsWith('#')) return null;
-            return texStr;
-        };
-
+        const allCompiledGeometries = [];
         const matArray = [];
         const texMap = {};
         let matIndexCounter = 0;
-
-        const getMaterialForTex = (texPath) => {
-            if (!texPath) texPath = resolveFallbackTexture(baseName); 
-            texPath = texPath.replace('minecraft:', '');
+        let isGenerated = false;
+        
+        for (let p of modelPartsToLoad) {
+            let modelPath = p.model.replace('minecraft:', '');
+            if (!modelPath.includes('/')) modelPath = `block/${modelPath}`;
             
-            if (texMap[texPath] !== undefined) return texMap[texPath];
-            
-            // Extract folder and file dynamically from the JSON's texture path pointer
-            let folder = `assets/minecraft/textures/`;
-            let file = texPath;
-            if (!file.includes('/')) {
-                folder = BLOCK_TEX_DIR;
-            } else {
-                let parts = file.split('/');
-                file = parts.pop();
-                folder += parts.join('/') + '/';
+            let currentModel = await JSONReader.getModel(modelPath);
+            if (!currentModel && modelPath.startsWith('item/')) {
+                modelPath = `block/${baseName}`;
+                currentModel = await JSONReader.getModel(modelPath);
             }
-            
-            let tex = loadTex(file, folder);
-            let mat;
-            let isOverlay = texPath.includes('overlay');
 
-            const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
-            const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+            let elements = currentModel ? currentModel.elements : null;
+            let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
+            let depth = 0;
 
-            if (isTranslucent || isOverlay) {
-                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
-            } else if (isCutout || isGenerated) {
-                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
-            } else {
-                mat = new THREE.MeshLambertMaterial({ map: tex });
-            }
-            
-            if (texPath === 'block/grass_block_top' || texPath === 'block/vine' || texPath === 'block/grass_block_side_overlay') {
-                mat.color.setHex(0x91bd59); 
-            } else if (texPath.includes('leaves')) {
-                mat.color.setHex(0x91bd59);
-                if (texPath.includes('spruce')) mat.color.setHex(0x619961);
-                if (texPath.includes('birch')) mat.color.setHex(0x80a755);
-            }
-            
-            matArray.push(mat);
-            texMap[texPath] = matIndexCounter;
-            return matIndexCounter++;
-        };
-
-        // Construct either a flat generated plane OR standard 3D Box Elements based entirely on the JSON file
-        if (isGenerated) {
-            let layer0 = resolveTexture(textures.layer0 || textures.cross);
-            if (!layer0) layer0 = `item/${baseName}`; 
-
-            let matIdx = getMaterialForTex(layer0);
-            
-            const geo = new THREE.PlaneGeometry(1, 1);
-            geo.clearGroups();
-            geo.addGroup(0, 6, matIdx);
-            
-            materials[bName] = matArray;
-            customGeometries[bName] = geo;
-            customGeometries[bName].userData = { display: display, is2D: true };
-            
-        } else if (elements && elements.length > 0) {
-            const elementGeometries = [];
-            for (let el of elements) {
-                const w = (el.to[0] - el.from[0]) / 16;
-                const h = (el.to[1] - el.from[1]) / 16;
-                const d = (el.to[2] - el.from[2]) / 16;
-                
-                let hasOverlay = false;
-                if (el.faces) {
-                    for (const mcFace in el.faces) {
-                        if (!el.faces[mcFace]) continue;
-                        let texRef = el.faces[mcFace].texture;
-                        let texPath = resolveTexture(texRef);
-                        if (texPath && texPath.includes('overlay')) hasOverlay = true;
+            while (currentModel && currentModel.parent && depth < 10) {
+                let parentPath = currentModel.parent.replace('minecraft:', '');
+                if (parentPath === 'item/generated' || parentPath === 'item/handheld' || parentPath === 'builtin/generated' || parentPath.startsWith('builtin/')) {
+                    isGenerated = true; break;
+                }
+                currentModel = await JSONReader.getModel(parentPath);
+                if (currentModel) {
+                    if (!elements && currentModel.elements) elements = currentModel.elements;
+                    if (currentModel.textures) {
+                        for (let k in currentModel.textures) if (!textures[k]) textures[k] = currentModel.textures[k];
+                    }
+                    if (currentModel.display) {
+                        for (let k in currentModel.display) if (!combinedDisplay[k]) combinedDisplay[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
                     }
                 }
-                
-                let expand = hasOverlay ? 0.002 : 0;
-                
-                const geo = new THREE.BoxGeometry(
-                    Math.max(0.001, w + expand), 
-                    Math.max(0.001, h + expand), 
-                    Math.max(0.001, d + expand)
-                );
-                
-                geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
-                geo.clearGroups();
+                depth++;
+            }
 
-                // OPTIMIZATION: Native proper block rotation parsing logic implemented!
-                if (el.rotation && el.rotation.origin) {
-                    let rx = 0, ry = 0, rz = 0;
-                    let pX = el.rotation.origin[0]/16 - 0.5;
-                    let pY = el.rotation.origin[1]/16 - 0.5;
-                    let pZ = el.rotation.origin[2]/16 - 0.5;
-                    let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
-
-                    geo.translate(-pX, -pY, -pZ);
-                    if (el.rotation.axis === 'x') { rx = rad; geo.rotateX(rad); }
-                    if (el.rotation.axis === 'y') { ry = rad; geo.rotateY(rad); }
-                    if (el.rotation.axis === 'z') { rz = rad; geo.rotateZ(rad); }
-                    
-                    if (el.rotation.rescale) {
-                        let scaleAmount = 1.0 / Math.cos(Math.abs(rad));
-                        if (el.rotation.axis === 'x') geo.scale(1, scaleAmount, scaleAmount);
-                        if (el.rotation.axis === 'y') geo.scale(scaleAmount, 1, scaleAmount);
-                        if (el.rotation.axis === 'z') geo.scale(scaleAmount, scaleAmount, 1);
+            const resolveTexture = (texStr) => {
+                if (!texStr) return null;
+                let tKey = texStr.startsWith('#') ? texStr.substring(1) : texStr;
+                if (textures[tKey]) {
+                    let safe = 10;
+                    while (textures[tKey] && textures[tKey].startsWith('#') && safe > 0) {
+                        tKey = textures[tKey].substring(1); safe--;
                     }
-                    geo.translate(pX, pY, pZ);
+                    if (textures[tKey]) return textures[tKey];
                 }
+                return texStr.startsWith('#') ? null : texStr;
+            };
 
-                if (el.faces) {
-                    const uvs = geo.attributes.uv;
-                    const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
+            const getMaterialForTex = (texPath) => {
+                if (!texPath) texPath = resolveFallbackTexture(baseName); 
+                texPath = texPath.replace('minecraft:', '');
+                if (texMap[texPath] !== undefined) return texMap[texPath];
+                
+                let folder = `assets/minecraft/textures/`; let file = texPath;
+                if (!file.includes('/')) folder = BLOCK_TEX_DIR;
+                else { let parts = file.split('/'); file = parts.pop(); folder += parts.join('/') + '/'; }
+                
+                let tex = loadTex(file, folder);
+                let mat;
+                let isOverlay = texPath.includes('overlay');
+                const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
+                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+
+                if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
+                else if (isCutout || isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+                else mat = new THREE.MeshLambertMaterial({ map: tex });
+                
+                if (texPath === 'block/grass_block_top' || texPath === 'block/vine' || texPath === 'block/grass_block_side_overlay') mat.color.setHex(0x91bd59); 
+                else if (texPath.includes('leaves')) { mat.color.setHex(0x91bd59); if (texPath.includes('spruce')) mat.color.setHex(0x619961); if (texPath.includes('birch')) mat.color.setHex(0x80a755); }
+                
+                matArray.push(mat); texMap[texPath] = matIndexCounter; return matIndexCounter++;
+            };
+
+            if (isGenerated) {
+                let layer0 = resolveTexture(textures.layer0 || textures.cross) || `item/${baseName}`; 
+                let matIdx = getMaterialForTex(layer0);
+                const geo = new THREE.PlaneGeometry(1, 1);
+                geo.clearGroups(); geo.addGroup(0, 6, matIdx);
+                allCompiledGeometries.push(geo);
+            } else if (elements && elements.length > 0) {
+                for (let el of elements) {
+                    const w = (el.to[0] - el.from[0]) / 16, h = (el.to[1] - el.from[1]) / 16, d = (el.to[2] - el.from[2]) / 16;
+                    let expand = 0;
+                    if (el.faces) for (const mcF in el.faces) {
+                        let tPath = resolveTexture(el.faces[mcF]?.texture);
+                        if (tPath && tPath.includes('overlay')) expand = 0.002;
+                    }
                     
-                    for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
-                        const faceData = el.faces[mcFace];
-                        if (!faceData) continue;
+                    const geo = new THREE.BoxGeometry(Math.max(0.001, w + expand), Math.max(0.001, h + expand), Math.max(0.001, d + expand));
+                    geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
+                    geo.clearGroups();
 
-                        let texRef = faceData.texture;
-                        let texPath = resolveTexture(texRef);
-                        let matIdx = getMaterialForTex(texPath);
+                    if (el.rotation && el.rotation.origin) {
+                        let pX = el.rotation.origin[0]/16 - 0.5, pY = el.rotation.origin[1]/16 - 0.5, pZ = el.rotation.origin[2]/16 - 0.5;
+                        let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
+                        geo.translate(-pX, -pY, -pZ);
+                        if (el.rotation.axis === 'x') geo.rotateX(rad);
+                        if (el.rotation.axis === 'y') geo.rotateY(rad);
+                        if (el.rotation.axis === 'z') geo.rotateZ(rad);
+                        if (el.rotation.rescale) {
+                            let sAmt = 1.0 / Math.cos(Math.abs(rad));
+                            if (el.rotation.axis === 'x') geo.scale(1, sAmt, sAmt);
+                            if (el.rotation.axis === 'y') geo.scale(sAmt, 1, sAmt);
+                            if (el.rotation.axis === 'z') geo.scale(sAmt, sAmt, 1);
+                        }
+                        geo.translate(pX, pY, pZ);
+                    }
 
-                        geo.addGroup(faceIdx * 6, 6, matIdx);
+                    if (el.faces) {
+                        const uvs = geo.attributes.uv;
+                        const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
+                        for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
+                            const faceData = el.faces[mcFace];
+                            if (!faceData) continue;
+                            let matIdx = getMaterialForTex(resolveTexture(faceData.texture));
+                            geo.addGroup(faceIdx * 6, 6, matIdx);
 
-                        let u1 = 0, v1 = 0, u2 = 1, v2 = 1;
-                        if (faceData.uv) {
-                            u1 = faceData.uv[0] / 16;
-                            v1 = faceData.uv[1] / 16;
-                            u2 = faceData.uv[2] / 16;
-                            v2 = faceData.uv[3] / 16;
-                        } else {
-                            if (mcFace === 'up' || mcFace === 'down') {
-                                u1 = el.from[0]/16; v1 = el.from[2]/16; u2 = el.to[0]/16; v2 = el.to[2]/16;
-                            } else if (mcFace === 'north' || mcFace === 'south') {
-                                u1 = el.from[0]/16; v1 = 1 - el.to[1]/16; u2 = el.to[0]/16; v2 = 1 - el.from[1]/16;
-                            } else {
-                                u1 = el.from[2]/16; v1 = 1 - el.to[1]/16; u2 = el.to[2]/16; v2 = 1 - el.from[1]/16;
+                            let u1=0, v1=0, u2=1, v2=1;
+                            if (faceData.uv) { u1=faceData.uv[0]/16; v1=faceData.uv[1]/16; u2=faceData.uv[2]/16; v2=faceData.uv[3]/16; } 
+                            else {
+                                if (mcFace === 'up' || mcFace === 'down') { u1=el.from[0]/16; v1=el.from[2]/16; u2=el.to[0]/16; v2=el.to[2]/16; } 
+                                else if (mcFace === 'north' || mcFace === 'south') { u1=el.from[0]/16; v1=1-el.to[1]/16; u2=el.to[0]/16; v2=1-el.from[1]/16; } 
+                                else { u1=el.from[2]/16; v1=1-el.to[1]/16; u2=el.to[2]/16; v2=1-el.from[1]/16; }
                             }
-                        }
-
-                        let tv1 = 1 - v1;
-                        let tv2 = 1 - v2;
-                        let vIdx = faceIdx * 4;
-                        
-                        let rot = faceData.rotation || 0;
-                        if (rot === 0) {
-                            uvs.setXY(vIdx + 0, u1, tv1); uvs.setXY(vIdx + 1, u2, tv1);
-                            uvs.setXY(vIdx + 2, u1, tv2); uvs.setXY(vIdx + 3, u2, tv2);
-                        } else if (rot === 90) {
-                            uvs.setXY(vIdx + 0, u1, tv2); uvs.setXY(vIdx + 1, u1, tv1);
-                            uvs.setXY(vIdx + 2, u2, tv2); uvs.setXY(vIdx + 3, u2, tv1);
-                        } else if (rot === 180) {
-                            uvs.setXY(vIdx + 0, u2, tv2); uvs.setXY(vIdx + 1, u1, tv2);
-                            uvs.setXY(vIdx + 2, u2, tv1); uvs.setXY(vIdx + 3, u1, tv1);
-                        } else if (rot === 270) {
-                            uvs.setXY(vIdx + 0, u2, tv1); uvs.setXY(vIdx + 1, u2, tv2);
-                            uvs.setXY(vIdx + 2, u1, tv1); uvs.setXY(vIdx + 3, u1, tv2);
+                            let tv1 = 1-v1, tv2 = 1-v2, vIdx = faceIdx * 4;
+                            let rot = faceData.rotation || 0;
+                            if (rot === 0) { uvs.setXY(vIdx, u1, tv1); uvs.setXY(vIdx+1, u2, tv1); uvs.setXY(vIdx+2, u1, tv2); uvs.setXY(vIdx+3, u2, tv2); } 
+                            else if (rot === 90) { uvs.setXY(vIdx, u1, tv2); uvs.setXY(vIdx+1, u1, tv1); uvs.setXY(vIdx+2, u2, tv2); uvs.setXY(vIdx+3, u2, tv1); } 
+                            else if (rot === 180) { uvs.setXY(vIdx, u2, tv2); uvs.setXY(vIdx+1, u1, tv2); uvs.setXY(vIdx+2, u2, tv1); uvs.setXY(vIdx+3, u1, tv1); } 
+                            else if (rot === 270) { uvs.setXY(vIdx, u2, tv1); uvs.setXY(vIdx+1, u2, tv2); uvs.setXY(vIdx+2, u1, tv1); uvs.setXY(vIdx+3, u1, tv2); }
                         }
                     }
+
+                    if (p.x || p.y) {
+                        if (p.x) geo.rotateX(THREE.MathUtils.degToRad(p.x));
+                        if (p.y) geo.rotateY(-THREE.MathUtils.degToRad(p.y)); // standard inverted Y alignment
+                    }
+
+                    allCompiledGeometries.push(geo);
                 }
-                elementGeometries.push(geo);
+            } else {
+                throw new Error("No elements found");
             }
-            
-            materials[bName] = matArray;
-            if (elementGeometries.length === 1) {
-                customGeometries[bName] = elementGeometries[0];
-            } else if (elementGeometries.length > 1) {
-                customGeometries[bName] = mergeBufferGeometries(elementGeometries);
-            }
-            
-            customGeometries[bName].userData = { display: display };
-            
-        } else {
-            throw new Error("No elements found");
         }
+        
+        materials[key] = matArray;
+        if (allCompiledGeometries.length === 1) customGeometries[key] = allCompiledGeometries[0];
+        else if (allCompiledGeometries.length > 1) customGeometries[key] = mergeBufferGeometries(allCompiledGeometries);
+        
+        if (customGeometries[key]) customGeometries[key].userData = { display: combinedDisplay, is2D: isGenerated };
+        
     } catch(e) {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
@@ -993,33 +962,22 @@ async function loadCustomModel(bName) {
         const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
         const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
-        if (isTranslucent) {
-            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
-        } else if (isCutout) {
-            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
-        } else {
-            mat = new THREE.MeshLambertMaterial({ map: tex });
-        }
+        if (isTranslucent) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
+        else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+        else mat = new THREE.MeshLambertMaterial({ map: tex });
         
-        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern') {
-            mat.color.setHex(0x91bd59);
-        } else if (fallbackName.includes('leaves')) {
-            mat.color.setHex(0x91bd59);
-            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961);
-            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755);
-        }
+        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern') mat.color.setHex(0x91bd59);
+        else if (fallbackName.includes('leaves')) { mat.color.setHex(0x91bd59); if (fallbackName.includes('spruce')) mat.color.setHex(0x619961); if (fallbackName.includes('birch')) mat.color.setHex(0x80a755); }
         
-        materials[bName] = mat;
-        
-        let customGeo = geometry.clone(); 
-        customGeometries[bName] = customGeo; 
+        materials[key] = mat;
+        customGeometries[key] = geometry.clone(); 
     }
     
     const promises = [];
-    if (Array.isArray(materials[bName])) {
-        materials[bName].forEach(mat => { if (mat.map && mat.map.loadPromise) promises.push(mat.map.loadPromise); });
-    } else if (materials[bName] && materials[bName].map && materials[bName].map.loadPromise) {
-        promises.push(materials[bName].map.loadPromise);
+    if (Array.isArray(materials[key])) {
+        materials[key].forEach(mat => { if (mat.map && mat.map.loadPromise) promises.push(mat.map.loadPromise); });
+    } else if (materials[key] && materials[key].map && materials[key].map.loadPromise) {
+        promises.push(materials[key].map.loadPromise);
     }
     await Promise.all(promises);
 }
@@ -1126,14 +1084,14 @@ async function getBlockIcon(type) {
             iconCache[type] = url;
             
             // Background pre-load the 3D world geometry so item drops and placements don't freeze
-            if (!customGeometries[type]) loadCustomModel(type).catch(()=>{});
+            if (!customGeometries[type]) loadCustomModel(type, {}, type).catch(()=>{});
             
             return url;
         }
     }
     // --- END ITEM RESOLUTION ---
 
-    if (!customGeometries[type]) await loadCustomModel(type);
+    if (!customGeometries[type]) await loadCustomModel(type, {}, type);
     const geo = customGeometries[type];
     const mat = materials[type];
     if (!geo || !mat) return 'none';
@@ -2753,34 +2711,56 @@ async function generateChunk(chunkX, chunkZ) {
 
     const lightMap = computeChunkLight(blocks);
 
-    const uniqueTypes = new Set();
-    for (let i = 0; i < blocks.length; i++) {
-        if (blocks[i] !== 0) uniqueTypes.add(blocks[i]);
+    const uniqueStates = new Set();
+    const chunkStateKeys = new Array(chunkSize * chunkSize * worldHeight);
+    
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            for (let y = 0; y < worldHeight; y++) {
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
+                if (typeId !== 0) {
+                    let bName = REVERSE_TYPE[typeId];
+                    let gx = startX + x, gy = y + minworldY, gz = startZ + z;
+                    
+                    let stateDict = getBlockContext(gx, gy, gz, bName);
+                    let stateKey = bName;
+                    let keys = Object.keys(stateDict).sort();
+                    if (keys.length > 0) stateKey += '[' + keys.map(k => `${k}=${stateDict[k]}`).join(',') + ']';
+                    
+                    let data = { key: stateKey, dict: stateDict, bName: bName, cap: getBlockCapacity(bName) };
+                    chunkStateKeys[idx] = data;
+                    
+                    let exists = false;
+                    for (let item of uniqueStates) if (item.key === stateKey) { exists = true; break; }
+                    if (!exists) uniqueStates.add(data);
+                }
+            }
+        }
     }
     
-    for (let typeId of uniqueTypes) {
-        let bName = REVERSE_TYPE[typeId];
-        if (!customGeometries[bName]) await loadCustomModel(bName);
+    for (let typeData of uniqueStates) {
+        if (!customGeometries[typeData.key]) await loadCustomModel(typeData.bName, typeData.dict, typeData.key);
     }
 
     const meshes = {};
     const indices = {};
     
-    for (let typeId of uniqueTypes) {
-        let bName = REVERSE_TYPE[typeId];
-        let geo = customGeometries[bName];
-        let mat = materials[bName];
-        let cap = getBlockCapacity(bName);
+    for (let typeData of uniqueStates) {
+        let sKey = typeData.key;
+        let geo = customGeometries[sKey];
+        let mat = materials[sKey] || materials[typeData.bName];
+        let cap = typeData.cap;
         
-        meshes[bName] = new THREE.InstancedMesh(geo, mat, cap);
-        meshes[bName].name = bName;
-        meshes[bName].chunkId = chunkId;
-        meshes[bName].maxCapacity = cap;
-        meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        meshes[sKey] = new THREE.InstancedMesh(geo, mat, cap);
+        meshes[sKey].name = sKey;
+        meshes[sKey].chunkId = chunkId;
+        meshes[sKey].maxCapacity = cap;
+        meshes[sKey].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         // OPTIMIZATION: Stop expensive continuous matrix update on dead block meshes
-        meshes[bName].matrixAutoUpdate = false;
-        meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-        indices[bName] = 0;
+        meshes[sKey].matrixAutoUpdate = false;
+        meshes[sKey].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+        indices[sKey] = 0;
     }
 
     const matrix = new THREE.Matrix4();
@@ -2789,7 +2769,8 @@ async function generateChunk(chunkX, chunkZ) {
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             for (let y = 0; y < worldHeight; y++) {
-                let typeId = blocks[getIdx(x, y, z)];
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
                 if (typeId === 0) continue;
                 let actualY = y + minworldY;
 
@@ -2809,8 +2790,10 @@ async function generateChunk(chunkX, chunkZ) {
                                 isOpen(x, y, z-1) || isOpen(x, y, z+1);
 
                 if (isVisible) {
-                    let bName = REVERSE_TYPE[typeId];
-                    if (meshes[bName] && indices[bName] < meshes[bName].maxCapacity) {
+                    let stateData = chunkStateKeys[idx];
+                    let sKey = stateData.key;
+                    let bName = stateData.bName;
+                    if (meshes[sKey] && indices[sKey] < meshes[sKey].maxCapacity) {
                         
                         let maxAdjLight = 0;
                         let selfBlock = blocks[getIdx(x, y, z)];
@@ -2866,9 +2849,9 @@ async function generateChunk(chunkX, chunkZ) {
                             matrix.setPosition(startX + x, actualY, startZ + z);
                         }
 
-                        meshes[bName].setMatrixAt(indices[bName], matrix);
-                        meshes[bName].setColorAt(indices[bName], colorObj); 
-                        indices[bName]++;
+                        meshes[sKey].setMatrixAt(indices[sKey], matrix);
+                        meshes[sKey].setColorAt(indices[sKey], colorObj); 
+                        indices[sKey]++;
                     }
                 }
             }
@@ -2900,28 +2883,51 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
 
     const lightMap = computeChunkLight(blocks);
 
-    const uniqueTypes = new Set();
-    for (let i = 0; i < blocks.length; i++) {
-        if (blocks[i] !== 0) uniqueTypes.add(blocks[i]);
+    const uniqueStates = new Set();
+    const chunkStateKeys = new Array(chunkSize * chunkSize * worldHeight);
+
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            for (let y = 0; y < worldHeight; y++) {
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
+                if (typeId !== 0) {
+                    let bName = REVERSE_TYPE[typeId];
+                    let gx = startX + x, gy = y + minworldY, gz = startZ + z;
+                    
+                    let stateDict = getBlockContext(gx, gy, gz, bName);
+                    let stateKey = bName;
+                    let keys = Object.keys(stateDict).sort();
+                    if (keys.length > 0) stateKey += '[' + keys.map(k => `${k}=${stateDict[k]}`).join(',') + ']';
+                    
+                    let data = { key: stateKey, dict: stateDict, bName: bName, cap: getBlockCapacity(bName) };
+                    chunkStateKeys[idx] = data;
+                    
+                    let exists = false;
+                    for (let item of uniqueStates) if (item.key === stateKey) { exists = true; break; }
+                    if (!exists) uniqueStates.add(data);
+                }
+            }
+        }
     }
 
-    for (let typeId of uniqueTypes) {
-        let bName = REVERSE_TYPE[typeId];
-        if (!customGeometries[bName]) await loadCustomModel(bName);
+    for (let typeData of uniqueStates) {
+        let sKey = typeData.key;
+        if (!customGeometries[sKey]) await loadCustomModel(typeData.bName, typeData.dict, sKey);
         
-        if (!meshes[bName]) {
-            let geo = customGeometries[bName];
-            let mat = materials[bName];
-            let cap = getBlockCapacity(bName);
-            meshes[bName] = new THREE.InstancedMesh(geo, mat, cap);
-            meshes[bName].name = bName;
-            meshes[bName].chunkId = chunkId;
-            meshes[bName].maxCapacity = cap;
-            meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            meshes[bName].matrixAutoUpdate = false;
-            meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-            scene.add(meshes[bName]);
-            interactableMeshes.push(meshes[bName]);
+        if (!meshes[sKey]) {
+            let geo = customGeometries[sKey];
+            let mat = materials[sKey] || materials[typeData.bName];
+            let cap = typeData.cap;
+            meshes[sKey] = new THREE.InstancedMesh(geo, mat, cap);
+            meshes[sKey].name = sKey;
+            meshes[sKey].chunkId = chunkId;
+            meshes[sKey].maxCapacity = cap;
+            meshes[sKey].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            meshes[sKey].matrixAutoUpdate = false;
+            meshes[sKey].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+            scene.add(meshes[sKey]);
+            interactableMeshes.push(meshes[sKey]);
         }
     }
 
@@ -2934,7 +2940,8 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             for (let y = 0; y < worldHeight; y++) {
-                let typeId = blocks[getIdx(x, y, z)];
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
                 if (typeId === 0) continue;
 
                 let globalX = startX + x;
@@ -2959,8 +2966,10 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                                 isOpen(x, y, z-1) || isOpen(x, y, z+1);
 
                 if (isVisible) {
-                    let bName = REVERSE_TYPE[typeId];
-                    if (meshes[bName] && indices[bName] < meshes[bName].maxCapacity) {
+                    let stateData = chunkStateKeys[idx];
+                    let sKey = stateData.key;
+                    let bName = stateData.bName;
+                    if (meshes[sKey] && indices[sKey] < meshes[sKey].maxCapacity) {
                         
                         let maxAdjLight = 0;
                         let selfBlock = blocks[getIdx(x, y, z)];
@@ -3015,9 +3024,9 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                             matrix.setPosition(globalX, actualY, globalZ);
                         }
                         
-                        meshes[bName].setMatrixAt(indices[bName], matrix);
-                        meshes[bName].setColorAt(indices[bName], colorObj);
-                        indices[bName]++;
+                        meshes[sKey].setMatrixAt(indices[sKey], matrix);
+                        meshes[sKey].setColorAt(indices[sKey], colorObj);
+                        indices[sKey]++;
                     }
                 }
             }
@@ -3250,6 +3259,20 @@ function updateMining() {
         
         let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
         setGlobalBlock(pX, pY, pZ, 0);
+
+        // Cascade plant destruction dynamically
+        if (blockName === 'twisting_vines' || blockName === 'twisting_vines_plant' || blockName === 'weeping_vines' || blockName === 'weeping_vines_plant') {
+            let offset = blockName.includes('twisting') ? 1 : -1;
+            let checkY = pY + offset;
+            while(true) {
+                let above = getGlobalBlock(pX, checkY, pZ);
+                if (above !== null && (REVERSE_TYPE[above] === blockName || REVERSE_TYPE[above] === blockName.replace('_plant', ''))) {
+                    setGlobalBlock(pX, checkY, pZ, 0);
+                    spawnDroppedItem(p.x, checkY, p.z, blockName.replace('_plant', ''));
+                    checkY += offset;
+                } else break;
+            }
+        }
         
         const heldItemType = inventory[selectedSlot].type;
         const harvestable = canHarvestBlock(blockName, heldItemType);
@@ -3315,6 +3338,21 @@ document.addEventListener('mousedown', (e) => {
             if (flatItems.has(placementType) && !explicit2DItems.has(placementType) && !placementType.includes('sign') && !placementType.includes('door')) return; 
             
             if (placementType && getGlobalBlock(placeX, placeY, placeZ) === 0) {
+
+                if (placementType === 'twisting_vines') {
+                    let below = getGlobalBlock(placeX, placeY - 1, placeZ);
+                    if (below !== null && (REVERSE_TYPE[below] === 'twisting_vines' || REVERSE_TYPE[below] === 'twisting_vines_plant')) {
+                        setGlobalBlock(placeX, placeY - 1, placeZ, { type: TYPE.twisting_vines_plant });
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
+                    }
+                } else if (placementType === 'weeping_vines') {
+                    let above = getGlobalBlock(placeX, placeY + 1, placeZ);
+                    if (above !== null && (REVERSE_TYPE[above] === 'weeping_vines' || REVERSE_TYPE[above] === 'weeping_vines_plant')) {
+                        setGlobalBlock(placeX, placeY + 1, placeZ, { type: TYPE.weeping_vines_plant });
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
+                    }
+                }
+
                 let rotation = [0, 0, 0];
                 let stairData = null;
                 let extraBlock = null; 
@@ -3323,7 +3361,7 @@ document.addEventListener('mousedown', (e) => {
                     let axis = 'y';
                     if (Math.abs(hit.normal.x) > 0.5) axis = 'x';
                     if (Math.abs(hit.normal.z) > 0.5) axis = 'z';
-                    rotation = JSONReader.getRotationForAxis(axis);
+                    stairData = { state: { axis: axis } };
                 } 
                 else if (placementType.includes('stairs')) {
                     let ry = yaw % (Math.PI * 2);
