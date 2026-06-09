@@ -177,21 +177,12 @@ const TYPE = {};
 const REVERSE_TYPE = [null];
 ALL_BLOCKS.forEach((b, i) => { let id = i + 1; TYPE[b] = id; REVERSE_TYPE.push(b); });
 
-// Spore blossom intentionally omitted so it reads the true JSON block model instead of drawing a cross.
-const CROSS_BLOCKS = new Set([
-    'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
-    'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
-    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berries', 'cobweb', 
-    'tall_grass', 'large_fern', 'grass', 'short_grass', 'hanging_roots', 'seagrass', 'kelp'
-]);
-ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
-
 const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core']);
 const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
-    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone', 'spore_blossom'].some(kw => b.includes(kw))) {
+    if (TRANSPARENT_BLOCKS.has(b) || 
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -281,78 +272,17 @@ imageLoader.setCrossOrigin('anonymous');
 function resolveTexturePath(name, isIconContext = false) {
     let folder = BLOCK_TEX_DIR;
     let filename = name;
-    let is2D = false;
 
     if (name === 'air') return { folder, filename, is2D: false };
 
-    // Explicitly 2D ONLY when building the UI Icon for these items
-    const iconOnly2D = new Set(['sea_pickle', 'sunflower', 'lily_pad']);
-
-    // Explicitly 2D filtering for items, plants, foods, etc. everywhere
-    const explicit2D = new Set([
-        'torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
-        'candle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
-        'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
-        'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
-        'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
-        'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
-        'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
-        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
-    ]);
-
-    if (flatItems.has(name) || name === 'compass_tab' || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
-        is2D = true;
-    }
-    
-    if (isIconContext && iconOnly2D.has(name)) {
-        is2D = true;
-    }
-
-    if (name.includes('door') && !name.includes('trapdoor')) {
-        if (name.includes('_top') || name.includes('_bottom')) {
-            is2D = false; 
-        } else {
-            is2D = true;
-            folder = ITEM_TEX_DIR;
-        }
-    }
-
-    if (is2D && !name.includes('door')) {
-        const itemFolderOverrides = ['kelp', 'sweet_berries', 'campfire', 'soul_campfire', 'bamboo', 'turtle_egg', 'pink_petals'];
-        if (flatItems.has(name) || name === 'compass_tab' || itemFolderOverrides.includes(name) || name.includes('sign')) {
-            folder = ITEM_TEX_DIR;
-        }
-    }
-
-    const blockFolderOverrides = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose', 'sea_pickle', 'amethyst_cluster', 'pointed_dripstone', 'candle', 'propagule'];
-    if (blockFolderOverrides.some(kw => name.includes(kw)) && !['weeping_vines', 'twisting_vines', 'pink_petals'].includes(name) && !name.includes('mangrove_roots')) {
-        if (!folder.includes('item')) folder = BLOCK_TEX_DIR;
-    }
-
-    // Exact filename Overrides
+    // With dynamic JSON model tracing, all hardcoded is2D/explicit2D lists have been eliminated.
+    // The engine now determines flattening directly by tracing the "parent" in the JSON files.
     if (name === 'compass') filename = 'compass_00';
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
-    else if (name === 'sweet_berries') { folder = ITEM_TEX_DIR; filename = 'sweet_berries'; }
-    else if (name === 'rose_bush') { folder = BLOCK_TEX_DIR; filename = 'rose_bush_top'; is2D = true; }
-    else if (name === 'large_fern') { folder = BLOCK_TEX_DIR; filename = 'large_fern_top'; }
-    else if (name === 'tall_grass') { folder = BLOCK_TEX_DIR; filename = 'tall_grass_top'; }
-    else if (name === 'grass' || name === 'short_grass') { folder = BLOCK_TEX_DIR; filename = 'short_grass'; }
     else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
-    else if (name.includes('pane')) { folder = BLOCK_TEX_DIR; filename = name.replace('_pane', ''); } 
-    else if (name === 'flowering_azalea') { folder = BLOCK_TEX_DIR; filename = 'flowering_azalea_side'; }
-    else if (name === 'peony') { folder = BLOCK_TEX_DIR; filename = 'peony_top'; }
-    else if (name === 'lilac') { folder = BLOCK_TEX_DIR; filename = 'lilac_top'; }
-    else if (name === 'pointed_dripstone') { folder = BLOCK_TEX_DIR; filename = 'pointed_dripstone_down_tip'; is2D = true; }
-    else if (name === 'twisting_vines') { folder = BLOCK_TEX_DIR; filename = 'twisting_vines_plant'; is2D = true; }
-    else if (name === 'weeping_vines') { folder = BLOCK_TEX_DIR; filename = 'weeping_vines_plant'; is2D = true; }
-    else if (name === 'hanging_roots') { folder = BLOCK_TEX_DIR; filename = 'hanging_roots'; is2D = true; }
-    else if (name === 'sea_pickle' && isIconContext) { folder = ITEM_TEX_DIR; filename = 'sea_pickle'; }
-    else if (name === 'sunflower' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; }
-    else if (name === 'lily_pad' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'lily_pad'; }
-    else if (name.includes('candle') && !name.includes('cake')) { folder = ITEM_TEX_DIR; filename = name; is2D = true; }
 
-    return { folder, filename, is2D };
+    return { folder, filename, is2D: false };
 }
 
 const loadTex = (filename, explicitFolder = null, isIconContext = false, originalTypeName = null) => {
@@ -450,7 +380,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
     if (name === 'grass_block') return 'grass_block_side';
-    if (name === 'chest') return 'oak_planks'; 
+        if (name === 'chest') return 'oak_planks'; 
     if (name === 'crafting_table') return 'crafting_table_top';
     if (name === 'furnace') return 'furnace_front';
     if (name.includes('shulker_box')) return 'shulker_box';
@@ -501,17 +431,22 @@ const JSONReader = {
 
     async getBlockstate(blockName) {
         if (this.blockstates[blockName]) return this.blockstates[blockName];
-        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'blockstates/')}${blockName}.json`;
+        const path = `assets/minecraft/blockstates/${blockName}.json`;
         const data = await this.fetchJSON(path);
         if (data) this.blockstates[blockName] = data;
         return data;
     },
 
-    async getModel(modelName) {
-        if (this.models[modelName]) return this.models[modelName];
-        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'models/block/')}${modelName}.json`;
+    async getModel(modelPath) {
+        if (this.models[modelPath]) return this.models[modelPath];
+        
+        let actualPath = modelPath;
+        // Dynamically support both block and item directory parsing
+        if (!actualPath.includes('/')) actualPath = `block/${actualPath}`;
+        
+        const path = `assets/minecraft/models/${actualPath}.json`;
         const data = await this.fetchJSON(path);
-        if (data) this.models[modelName] = data;
+        if (data) this.models[modelPath] = data;
         return data;
     },
     
@@ -768,50 +703,6 @@ async function loadCustomModel(bName) {
         return;
     }
 
-    // Custom geometry interception for Torches & Campfires
-    if (bName === 'torch' || bName === 'soul_torch') {
-        const tex = loadTex(bName);
-        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
-        let geo = new THREE.BoxGeometry(2/16, 10/16, 2/16);
-        geo.translate(0, -3/16, 0);
-        
-        const uvs = geo.attributes.uv.array;
-        const setUV = (faceIdx, u1, v1, u2, v2) => {
-            const i = faceIdx * 8;
-            uvs[i]=u1/16; uvs[i+1]=1-v2/16; uvs[i+2]=u2/16; uvs[i+3]=1-v2/16;
-            uvs[i+4]=u1/16; uvs[i+5]=1-v1/16; uvs[i+6]=u2/16; uvs[i+7]=1-v1/16;
-        };
-        for(let i=0; i<6; i++) setUV(i, 7, 6, 9, 16); 
-        setUV(2, 7, 6, 9, 8); // Top
-        setUV(3, 7, 14, 9, 16); // Bottom
-
-        materials[bName] = mat;
-        customGeometries[bName] = geo;
-        return;
-    }
-
-    if (bName === 'campfire' || bName === 'soul_campfire') {
-        const texLog = loadTex(bName === 'campfire' ? 'campfire_log_lit' : 'soul_campfire_log_lit');
-        let mat = new THREE.MeshLambertMaterial({ map: texLog });
-        let geo = new THREE.BoxGeometry(1, 7/16, 1);
-        geo.translate(0, -4.5/16, 0);
-        materials[bName] = mat;
-        customGeometries[bName] = geo;
-        return;
-    }
-
-    if (CROSS_BLOCKS.has(bName)) {
-        const fallbackTex = resolveFallbackTexture(bName);
-        const tex = loadTex(fallbackTex);
-        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true });
-        if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
-            mat.color.setHex(0x91bd59);
-        }
-        materials[bName] = mat;
-        customGeometries[bName] = crossGeo;
-        return;
-    }
-
     try {
         let isInner = bName.endsWith('_inner');
         let isOuter = bName.endsWith('_outer');
@@ -821,7 +712,7 @@ async function loadCustomModel(bName) {
         if (isOuter) baseName = bName.replace('_outer', '');
         if (isTop) baseName = bName.replace('_top', '');
 
-        let modelPath = baseName;
+        let modelPath = `block/${baseName}`;
         const state = await JSONReader.getBlockstate(baseName);
         
         if (state && state.variants) {
@@ -846,26 +737,40 @@ async function loadCustomModel(bName) {
             
             let variant = state.variants[variantKey];
             if (Array.isArray(variant)) variant = variant[0]; 
-            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+            if (variant.model) modelPath = variant.model.replace('minecraft:', '');
         } else if (state && state.multipart) {
             let part = state.multipart[0]; 
             let variant = part.apply;
             if (Array.isArray(variant)) variant = variant[0];
-            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
+            if (variant.model) modelPath = variant.model.replace('minecraft:', '');
+        } else {
+            // Force fetch item model if blockstate doesn't exist (Swords, Food, Torches in hand, etc)
+            modelPath = `item/${baseName}`;
         }
 
         let currentModel = await JSONReader.getModel(modelPath);
+        
+        // Fallback catch if item lookup fails, try block explicitly
+        if (!currentModel && modelPath.startsWith('item/')) {
+            modelPath = `block/${baseName}`;
+            currentModel = await JSONReader.getModel(modelPath);
+        }
+
         let elements = currentModel ? currentModel.elements : null;
         let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
         let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
 
         let depth = 0;
+        let isGenerated = false;
+
         while (currentModel && currentModel.parent && depth < 10) {
-            let parentPath = currentModel.parent;
-            if (parentPath.includes(':')) parentPath = parentPath.split(':')[1]; 
-            parentPath = parentPath.replace('block/', '');
+            let parentPath = currentModel.parent.replace('minecraft:', '');
             
-            if (parentPath.startsWith('builtin/')) break;
+            // Check if JSON explicitly maps this to a 2D generated flat item sprite
+            if (parentPath === 'item/generated' || parentPath === 'item/handheld' || parentPath === 'builtin/generated' || parentPath.startsWith('builtin/')) {
+                isGenerated = true;
+                break;
+            }
             
             currentModel = await JSONReader.getModel(parentPath);
             if (currentModel) {
@@ -897,7 +802,7 @@ async function loadCustomModel(bName) {
                 if (textures[key]) return textures[key];
             }
             
-            if (texStr.startsWith('#')) return resolveFallbackTexture(baseName);
+            if (texStr.startsWith('#')) return null;
             return texStr;
         };
 
@@ -907,26 +812,37 @@ async function loadCustomModel(bName) {
 
         const getMaterialForTex = (texPath) => {
             if (!texPath) texPath = resolveFallbackTexture(baseName); 
-            texPath = texPath.replace('minecraft:', '').replace('block/', '');
+            texPath = texPath.replace('minecraft:', '');
             
             if (texMap[texPath] !== undefined) return texMap[texPath];
             
-            let tex = loadTex(texPath);
+            // Extract folder and file dynamically from the JSON's texture path pointer
+            let folder = `assets/minecraft/textures/`;
+            let file = texPath;
+            if (!file.includes('/')) {
+                folder = BLOCK_TEX_DIR;
+            } else {
+                let parts = file.split('/');
+                file = parts.pop();
+                folder += parts.join('/') + '/';
+            }
+            
+            let tex = loadTex(file, folder);
             let mat;
             let isOverlay = texPath.includes('overlay');
 
             const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
-            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+            const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
             if (isTranslucent || isOverlay) {
                 mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
-            } else if (isCutout) {
+            } else if (isCutout || isGenerated) {
                 mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
             } else {
                 mat = new THREE.MeshLambertMaterial({ map: tex });
             }
             
-            if (texPath === 'grass_block_top' || texPath === 'vine' || texPath === 'grass_block_side_overlay') {
+            if (texPath === 'block/grass_block_top' || texPath === 'block/vine' || texPath === 'block/grass_block_side_overlay') {
                 mat.color.setHex(0x91bd59); 
             } else if (texPath.includes('leaves')) {
                 mat.color.setHex(0x91bd59);
@@ -939,7 +855,22 @@ async function loadCustomModel(bName) {
             return matIndexCounter++;
         };
 
-        if (elements && elements.length > 0) {
+        // Construct either a flat generated plane OR standard 3D Box Elements based entirely on the JSON file
+        if (isGenerated) {
+            let layer0 = resolveTexture(textures.layer0 || textures.cross);
+            if (!layer0) layer0 = `item/${baseName}`; 
+
+            let matIdx = getMaterialForTex(layer0);
+            
+            const geo = new THREE.PlaneGeometry(1, 1);
+            geo.clearGroups();
+            geo.addGroup(0, 6, matIdx);
+            
+            materials[bName] = matArray;
+            customGeometries[bName] = geo;
+            customGeometries[bName].userData = { display: display, is2D: true };
+            
+        } else if (elements && elements.length > 0) {
             const elementGeometries = [];
             for (let el of elements) {
                 const w = (el.to[0] - el.from[0]) / 16;
@@ -1060,7 +991,7 @@ async function loadCustomModel(bName) {
         let mat;
         
         const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
-        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
+        const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
         if (isTranslucent) {
             mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
@@ -1081,10 +1012,6 @@ async function loadCustomModel(bName) {
         materials[bName] = mat;
         
         let customGeo = geometry.clone(); 
-        if (bName === 'heavy_core') {
-            customGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            customGeo.translate(0, -0.25, 0);
-        }
         customGeometries[bName] = customGeo; 
     }
     
@@ -1101,20 +1028,15 @@ async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    let pathInfo = resolveTexturePath(type, true);
-    
-    // Explicit 2D items (Uses a pure HTMLCanvas element rendering for flawless 1:1 crisp pixels)
-    if (pathInfo.is2D) {
-        let tex = loadTex(pathInfo.filename, pathInfo.folder, true, type);
+    // Explicitly handle UI-only layout icons that don't have JSON models
+    if (type === 'compass_tab') {
+        let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
-        
         const cvs = document.createElement('canvas');
         cvs.width = 16; cvs.height = 16;
         const ctx = cvs.getContext('2d');
         ctx.imageSmoothingEnabled = false; 
-        if (tex.image) {
-            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
-        }
+        if (tex.image) ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
         const url = `url(${cvs.toDataURL('image/png')})`;
         iconCache[type] = url;
         return url;
@@ -1124,6 +1046,39 @@ async function getBlockIcon(type) {
     const geo = customGeometries[type];
     const mat = materials[type];
     if (!geo || !mat) return 'none';
+    
+    // Dynamically render 2D sprites if the JSON parent flag indicated it was a generated item
+    if (geo.userData && geo.userData.is2D) {
+        let tex = Array.isArray(mat) ? mat[0].map : mat.map;
+        if (tex && tex.loadPromise) await tex.loadPromise;
+        
+        if (tex && tex.image) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false; 
+            
+            // Apply biome foliage tinting to generated plants
+            const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            if (tintables.includes(type)) {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#79c05a';
+                ctx.fillRect(0, 0, cvs.width, cvs.height);
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
+                ctx.globalCompositeOperation = 'source-over';
+            } else {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+            }
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            return url;
+        }
+    }
     
     const mesh = new THREE.Mesh(geo, mat);
     iconScene.add(mesh);
@@ -3105,10 +3060,18 @@ const droppedItems = [];
 const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
 
 function spawnDroppedItem(x, y, z, blockName) {
-    if (!materials[blockName]) return; 
-    let mat = Array.isArray(materials[blockName]) ? materials[blockName][0] : materials[blockName];
+    let geo = customGeometries[blockName] || itemGeometry;
+    let mat = materials[blockName];
+    if (!mat) return; 
 
-    const mesh = new THREE.Mesh(itemGeometry, mat);
+    // Instantiate with actual block/item geometry instead of forcing a 0.25 box
+    const mesh = new THREE.Mesh(geo, mat);
+    
+    // Size it appropriately to look like an item drop
+    let scaleFactor = 0.25;
+    if (geo.userData && geo.userData.is2D) scaleFactor = 0.4;
+    mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    
     mesh.position.set(x, y, z);
     const velocity = new THREE.Vector3((Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4);
     scene.add(mesh);
