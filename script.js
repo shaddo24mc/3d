@@ -104,7 +104,7 @@ const baseBlocks = [
     'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
     'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
     'gold_block', 'diamond_block', 'netherite_block', 'sponge', 'wet_sponge', 'glass', 'lapis_block', 'sandstone',
-    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
+    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'short_grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
     'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
     'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'bricks', 'bookshelf',
     'mossy_cobblestone', 'obsidian', 'torch', 'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
@@ -182,7 +182,7 @@ const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry'].some(kw => b.includes(kw))) {
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -220,7 +220,7 @@ ALL_BLOCKS.forEach(b => {
         CATEGORIES.redstone.blocks.push(b);
     } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign'].some(kw => b.includes(kw))) {
         CATEGORIES.functional.blocks.push(b);
-    } else if (['dirt', 'grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
+    } else if (['dirt', 'grass_block', 'short_grass', 'tall_grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
         CATEGORIES.natural.blocks.push(b);
     } else {
         CATEGORIES.building.blocks.push(b);
@@ -1001,7 +1001,7 @@ async function loadCustomModel(bName) {
             mat = new THREE.MeshLambertMaterial({ map: tex });
         }
         
-        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'grass' || bName === 'tall_grass' || bName === 'fern') {
+        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern') {
             mat.color.setHex(0x91bd59);
         } else if (fallbackName.includes('leaves')) {
             mat.color.setHex(0x91bd59);
@@ -1107,7 +1107,7 @@ async function getBlockIcon(type) {
             ctx.imageSmoothingEnabled = false; 
             
             // Apply biome foliage tinting to generated plants
-            const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            const tintables = ['lily_pad', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
                 ctx.globalCompositeOperation = 'source-atop';
@@ -1150,7 +1150,7 @@ async function getBlockIcon(type) {
             ctx.imageSmoothingEnabled = false; 
             
             // Apply biome foliage tinting to generated plants
-            const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            const tintables = ['lily_pad', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
                 ctx.globalCompositeOperation = 'source-atop';
@@ -1940,7 +1940,7 @@ updateInventoryUI();
 // ============================================================================
 
 const REAL_MINECRAFT_HARDNESS = {
-    air: 0.0, grass: 0.0, fern: 0.0, dead_bush: 0.0, dandelion: 0.0, poppy: 0.0, blue_orchid: 0.0,
+    air: 0.0, short_grass: 0.0, fern: 0.0, dead_bush: 0.0, dandelion: 0.0, poppy: 0.0, blue_orchid: 0.0,
     allium: 0.0, azure_bluet: 0.0, red_tulip: 0.0, orange_tulip: 0.0, white_tulip: 0.0, pink_tulip: 0.0,
     oxeye_daisy: 0.0, cornflower: 0.0, lily_of_the_valley: 0.0, wither_rose: 0.0,
     dirt: 0.5, coarse_dirt: 0.5, podzol: 0.5, rooted_dirt: 0.5, mud: 0.5, grass_block: 0.6,
@@ -3307,7 +3307,7 @@ document.addEventListener('mousedown', (e) => {
                 'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
                 'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
                 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
-                'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
+                'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'short_grass',
                 'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
                 'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
             ]);
