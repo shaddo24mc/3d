@@ -1042,6 +1042,97 @@ async function getBlockIcon(type) {
         return url;
     }
 
+    // --- EXPLICIT ITEM MODEL RESOLUTION FOR INVENTORY ICONS ---
+    // Minecraft natively uses "models/item/{name}.json" exclusively for inventory slots.
+    // This explicitly checks if the item requests a 2D generated sprite before falling back to 3D.
+    let itemModel = await JSONReader.getModel(`item/${type}`);
+    let is2DItem = false;
+    let layer0Ref = null;
+    let texturesMap = {};
+    
+    if (itemModel) {
+        let curr = itemModel;
+        let depth = 0;
+        while (curr && depth < 10) {
+            if (curr.textures) {
+                for (let k in curr.textures) {
+                    if (!texturesMap[k]) texturesMap[k] = curr.textures[k];
+                }
+            }
+            if (curr.parent && (curr.parent.includes('item/generated') || curr.parent.includes('item/handheld') || curr.parent.includes('builtin/generated'))) {
+                is2DItem = true;
+                break;
+            }
+            if (!curr.parent) break;
+            curr = await JSONReader.getModel(curr.parent.replace('minecraft:', ''));
+            depth++;
+        }
+    }
+
+    if (is2DItem) {
+        layer0Ref = texturesMap.layer0 || texturesMap.cross;
+        
+        const resolveTexRef = (ref) => {
+            let resolved = ref;
+            let loops = 0;
+            while (resolved && resolved.startsWith('#') && loops < 10) {
+                resolved = texturesMap[resolved.substring(1)];
+                loops++;
+            }
+            return resolved;
+        };
+        
+        layer0Ref = resolveTexRef(layer0Ref);
+        
+        if (!layer0Ref) layer0Ref = `item/${type}`;
+        if (layer0Ref.startsWith('minecraft:')) layer0Ref = layer0Ref.replace('minecraft:', '');
+        
+        let folder = `assets/minecraft/textures/`;
+        let file = layer0Ref;
+        if (!file.includes('/')) {
+            folder = ITEM_TEX_DIR;
+        } else {
+            let parts = file.split('/');
+            file = parts.pop();
+            folder += parts.join('/') + '/';
+        }
+        
+        let tex = loadTex(file, folder, true, type);
+        await tex.loadPromise;
+        
+        if (tex && tex.image && tex.image.width > 0) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false; 
+            
+            // Apply biome foliage tinting to generated plants
+            const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            if (tintables.includes(type)) {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#79c05a';
+                ctx.fillRect(0, 0, cvs.width, cvs.height);
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
+                ctx.globalCompositeOperation = 'source-over';
+            } else {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+            }
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            
+            // Background pre-load the 3D world geometry so item drops and placements don't freeze
+            if (!customGeometries[type]) loadCustomModel(type).catch(()=>{});
+            
+            return url;
+        }
+    }
+    // --- END ITEM RESOLUTION ---
+
     if (!customGeometries[type]) await loadCustomModel(type);
     const geo = customGeometries[type];
     const mat = materials[type];
