@@ -34,7 +34,7 @@ if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else
 document.body.appendChild(renderer.domElement);
 
 const clock = new THREE.Clock();
-const moveSpeed = 2;
+const moveSpeed = 2.5;
 const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
@@ -49,11 +49,11 @@ const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 1
 iconCamera.position.set(0.008, -0.008, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.20 * Math.PI); 
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.40 * Math.PI); 
 iconScene.add(iconAmbient);
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.80 * Math.PI); 
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.70 * Math.PI); 
 iconScene.add(iconTopLight);
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20 * Math.PI); 
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.30 * Math.PI); 
 iconScene.add(iconLeftLight);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -85,8 +85,7 @@ scene.add(starsMesh);
 // 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
 // ============================================================================
 const ITEMS = [
-    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign', 'sweet_berries',
-    'angler_pottery_sherd', 'archer_pottery_sherd', 'arms_up_pottery_sherd', 'blade_pottery_sherd', 'brewer_pottery_sherd', 'burn_pottery_sherd', 'danger_pottery_sherd', 'explorer_pottery_sherd', 'friend_pottery_sherd', 'heart_pottery_sherd', 'heartbreak_pottery_sherd', 'howl_pottery_sherd', 'miner_pottery_sherd', 'mourner_pottery_sherd', 'plenty_pottery_sherd', 'prize_pottery_sherd', 'sheaf_pottery_sherd', 'shelter_pottery_sherd', 'skull_pottery_sherd', 'snort_pottery_sherd'
+    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign', 'sweet_berries'
 ];
 const STRICT_ITEMS = new Set(ITEMS);
 
@@ -112,8 +111,7 @@ const baseBlocks = [
     'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
     'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
     'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
-    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_brain_coral_block', 'dead_bubble_coral_block',
-    'dead_fire_coral_block', 'dead_horn_coral_block', 'dead_tube_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
+    'kelp', 'dried_kelp_block', 'turtle_egg', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
     'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
     'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'weeping_vines_plant',
     'twisting_vines', 'twisting_vines_plant', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
@@ -125,7 +123,7 @@ const baseBlocks = [
     'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
     'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
     'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
-    'trial_spawner', 'vault', 'heavy_core', 'cobbled_deepslate', ...ITEMS
+    'trial_spawner', 'vault', 'heavy_core', 'cobbled_deepslate', 'sweet_berry_bush', ...ITEMS
 ];
 
 const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
@@ -174,12 +172,12 @@ const TYPE = {};
 const REVERSE_TYPE = [null];
 ALL_BLOCKS.forEach((b, i) => { let id = i + 1; TYPE[b] = id; REVERSE_TYPE.push(b); });
 
-const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core']);
+const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'ladder', 'bamboo', 'turtle_egg', 'sculk_vein', 'glow_lichen']);
 const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry'].some(kw => b.includes(kw))) {
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -202,7 +200,7 @@ const CATEGORIES = {
 };
 
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b === 'air') return;
+    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b.includes('_plant') || b === 'air' || b === 'sweet_berry_bush') return;
 
     if (STRICT_ITEMS.has(b)) {
         if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
@@ -213,11 +211,11 @@ ALL_BLOCKS.forEach(b => {
         else CATEGORIES.materials.blocks.push(b);
     } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
         CATEGORIES.colored.blocks.push(b);
-    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp')) {
+    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp') || b.includes('observer') || b.includes('dispenser') || b.includes('dropper')) {
         CATEGORIES.redstone.blocks.push(b);
-    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign'].some(kw => b.includes(kw))) {
+    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign', 'crafter'].some(kw => b.includes(kw))) {
         CATEGORIES.functional.blocks.push(b);
-    } else if (['dirt', 'grass_block', 'short_grass', 'tall_grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
+    } else if (['dirt', 'grass_block', 'short_grass', 'tall_grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow', 'dripstone'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
         CATEGORIES.natural.blocks.push(b);
     } else {
         CATEGORIES.building.blocks.push(b);
@@ -237,13 +235,13 @@ const INVENTORY_SIZE = 9;
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
 inventory[0] = { type: 'netherite_shovel', count: 1 };
-inventory[1] = { type: 'dirt', count: 64 };
+inventory[1] = { type: 'snow', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
-inventory[3] = { type: 'twisting_vines', count: 64 };
-inventory[4] = { type: 'weeping_vines', count: 64 };
-inventory[5] = { type: 'acacia_stairs', count: 64 };
-inventory[6] = { type: 'magma_block', count: 64 };
-inventory[7] = { type: 'dragon_head', count: 64 };
+inventory[3] = { type: 'tall_grass', count: 64 };
+inventory[4] = { type: 'sunflower', count: 64 };
+inventory[5] = { type: 'furnace', count: 64 };
+inventory[6] = { type: 'oak_stairs', count: 64 };
+inventory[7] = { type: 'lily_pad', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
 const activeChunks = {};
@@ -272,7 +270,7 @@ function resolveTexturePath(name, isIconContext = false) {
 
     if (name === 'air') return { folder, filename, is2D: false };
 
-    if (name === 'compass') filename = 'compass_00';
+    if (name === 'compass') { folder = ITEM_TEX_DIR; filename = 'compass_16'; }
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
     else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
@@ -339,10 +337,10 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                     ctx.drawImage(image, 0, 0);
 
                     if (isIconContext && originalTypeName) {
-                        const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+                        const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
                         if (tintables.includes(originalTypeName)) {
                             ctx.globalCompositeOperation = 'source-atop';
-                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#208030' : '#79c05a';
+                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#208030' : '#91bd59';
                             ctx.fillRect(0, 0, cvs.width, cvs.height);
                             ctx.globalCompositeOperation = 'multiply';
                             ctx.drawImage(image, 0, 0);
@@ -372,7 +370,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
     if (name === 'grass_block') return 'grass_block_side';
-        if (name === 'chest') return 'oak_planks'; 
+    if (name === 'chest') return 'oak_planks'; 
     if (name === 'crafting_table') return 'crafting_table_top';
     if (name === 'furnace') return 'furnace_front';
     if (name.includes('shulker_box')) return 'shulker_box';
@@ -439,12 +437,6 @@ const JSONReader = {
         if (data) this.models[modelPath] = data;
         return data;
     },
-    
-    getRotationForAxis(axis) {
-        if (axis === 'x') return [0, 0, Math.PI / 2];
-        if (axis === 'z') return [Math.PI / 2, 0, 0];
-        return [0, 0, 0]; 
-    },
 
     evaluateWhen(when, state) {
         if (when['OR']) {
@@ -477,6 +469,33 @@ function getBlockContext(gx, gy, gz, bName) {
     let placed = placedBlocks.get(`${gx},${gy},${gz}`);
     if (placed && typeof placed === 'object' && placed.state) Object.assign(state, placed.state);
 
+    if (bName === 'grass_block' || bName === 'podzol' || bName === 'mycelium') {
+        let above = getGlobalBlock(gx, gy + 1, gz);
+        if (above !== null && (REVERSE_TYPE[above] === 'snow' || REVERSE_TYPE[above] === 'snow_block')) {
+            state.snowy = 'true';
+        } else {
+            state.snowy = 'false';
+        }
+    }
+
+    if (bName === 'snow' && !state.layers) state.layers = '1';
+    if (bName === 'sea_pickle' && !state.pickles) state.pickles = '1';
+    if (bName === 'sweet_berry_bush' && !state.age) state.age = '0';
+    if (bName === 'end_rod' && !state.facing) state.facing = 'up';
+
+    if (bName === 'chiseled_bookshelf') {
+        state.slot_0_occupied = 'false'; state.slot_1_occupied = 'false';
+        state.slot_2_occupied = 'false'; state.slot_3_occupied = 'false';
+        state.slot_4_occupied = 'false'; state.slot_5_occupied = 'false';
+        if (!state.facing) state.facing = 'north';
+    }
+
+    if (bName === 'sculk_vein' || bName === 'glow_lichen') {
+        if (Object.keys(state).length === 0) {
+            state.down = 'true'; state.up = 'false'; state.north = 'false'; state.south = 'false'; state.east = 'false'; state.west = 'false';
+        }
+    }
+
     if (bName.includes('fence') || bName.includes('pane') || bName.includes('wall') || bName === 'iron_bars') {
         const connects = (nx, ny, nz) => {
             let nb = getGlobalBlock(nx, ny, nz);
@@ -489,6 +508,7 @@ function getBlockContext(gx, gy, gz, bName) {
         state.south = connects(gx, gy, gz + 1) ? 'true' : 'false';
         state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
+        if (bName.includes('wall') && !state.up) state.up = 'true';
     }
 
     if (bName === 'chorus_plant') {
@@ -508,9 +528,9 @@ function getBlockContext(gx, gy, gz, bName) {
     
     if ((bName.includes('log') || bName.includes('pillar')) && !state.axis) state.axis = 'y';
     if (bName.includes('stairs')) {
-        if (!state.facing) state.facing = 'north';
+        if (!state.facing) state.facing = 'east';
         if (!state.half) state.half = 'bottom';
-        state.shape = 'straight';
+        if (!state.shape) state.shape = 'straight';
     }
     return state;
 }
@@ -773,16 +793,25 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 let mat;
                 let isOverlay = texPath.includes('overlay');
                 const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
-                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+                
+                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
-                // FIXED: Removed DoubleSide rendering for cutout materials, allowing Minecraft's JSON faces to render correctly back-to-back
                 if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
                 else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
                 else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
                 else mat = new THREE.MeshLambertMaterial({ map: tex });
                 
-                if (texPath === 'block/grass_block_top' || texPath === 'block/vine' || texPath === 'block/grass_block_side_overlay') mat.color.setHex(0x91bd59); 
-                else if (texPath.includes('leaves')) { mat.color.setHex(0x91bd59); if (texPath.includes('spruce')) mat.color.setHex(0x619961); if (texPath.includes('birch')) mat.color.setHex(0x80a755); }
+                if (texPath.includes('grass_block_top') || texPath.includes('vine') || texPath.includes('grass_block_side_overlay') || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || texPath.includes('tall_grass') || texPath.includes('fern') || bName === 'sugar_cane') {
+                    mat.color.setHex(0x91bd59); 
+                }
+                else if (bName === 'lily_pad' || texPath.includes('lily_pad')) {
+                    mat.color.setHex(0x208030);
+                }
+                else if (texPath.includes('leaves')) { 
+                    mat.color.setHex(0x91bd59); 
+                    if (texPath.includes('spruce')) mat.color.setHex(0x619961); 
+                    if (texPath.includes('birch')) mat.color.setHex(0x80a755); 
+                }
                 
                 matArray.push(mat); texMap[texPath] = matIndexCounter; return matIndexCounter++;
             };
@@ -871,14 +900,23 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         let mat;
         
         const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
-        const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
+        const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
         if (isTranslucent) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
         else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 }); // Removed DoubleSide here
         else mat = new THREE.MeshLambertMaterial({ map: tex });
         
-        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern') mat.color.setHex(0x91bd59);
-        else if (fallbackName.includes('leaves')) { mat.color.setHex(0x91bd59); if (fallbackName.includes('spruce')) mat.color.setHex(0x619961); if (fallbackName.includes('birch')) mat.color.setHex(0x80a755); }
+        if (fallbackName.includes('grass_block_top') || fallbackName.includes('vine') || fallbackName.includes('grass_block_side_overlay') || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || fallbackName.includes('tall_grass') || fallbackName.includes('fern') || bName === 'sugar_cane') {
+            mat.color.setHex(0x91bd59);
+        }
+        else if (bName === 'lily_pad' || fallbackName.includes('lily_pad')) {
+            mat.color.setHex(0x208030);
+        }
+        else if (fallbackName.includes('leaves')) { 
+            mat.color.setHex(0x91bd59); 
+            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961); 
+            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755); 
+        }
         
         materials[key] = mat;
         customGeometries[key] = geometry.clone(); 
@@ -971,11 +1009,11 @@ async function getBlockIcon(type) {
             const ctx = cvs.getContext('2d');
             ctx.imageSmoothingEnabled = false; 
             
-            const tintables = ['lily_pad', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
                 ctx.globalCompositeOperation = 'source-atop';
-                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#79c05a';
+                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#91bd59';
                 ctx.fillRect(0, 0, cvs.width, cvs.height);
                 ctx.globalCompositeOperation = 'multiply';
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
@@ -1010,11 +1048,11 @@ async function getBlockIcon(type) {
             const ctx = cvs.getContext('2d');
             ctx.imageSmoothingEnabled = false; 
             
-            const tintables = ['lily_pad', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
                 ctx.globalCompositeOperation = 'source-atop';
-                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#79c05a';
+                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#91bd59';
                 ctx.fillRect(0, 0, cvs.width, cvs.height);
                 ctx.globalCompositeOperation = 'multiply';
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
@@ -1036,7 +1074,7 @@ async function getBlockIcon(type) {
     
     mesh.position.set(0, 0, 0);
     
-    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    let guiConfig = { rotation: [30, 45, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
     if (geo.userData && geo.userData.display && geo.userData.display.gui) {
         guiConfig = geo.userData.display.gui;
     }
@@ -1051,16 +1089,10 @@ async function getBlockIcon(type) {
         let threeRz = THREE.MathUtils.degToRad(rz);
         
         if (ry === 225) {
-            if (type.includes('stairs')) {
-                threeRy = Math.PI / 4; 
-            } else {
-                threeRy = THREE.MathUtils.degToRad(225); 
-            }
+            threeRy = Math.PI / 4; 
         }
 
-        if (type === 'spore_blossom') {
-            threeRz += Math.PI; 
-        }
+        if (type === 'spore_blossom') threeRz += Math.PI; 
         
         mesh.rotation.set(threeRx, threeRy, threeRz, 'XYZ');
     }
@@ -1621,7 +1653,7 @@ function populateCreativeGrid() {
     if (currentCategory === 'search') {
         const query = searchInput.value.toLowerCase();
         blocksToShow = ALL_BLOCKS.filter(b => 
-            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && b !== 'air' && b.includes(query)
+            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && !b.includes('_plant') && b !== 'air' && b !== 'sweet_berry_bush' && b.includes(query)
         );
     }
 
@@ -2119,7 +2151,8 @@ function setGlobalBlock(gx, gy, gz, typeData) {
         placedBlocks.delete(blockKey);
     } else {
         brokenBlocks.delete(blockKey);
-        placedBlocks.set(blockKey, typeData);
+        let toStore = typeof typeData === 'object' ? typeData : { type: typeId };
+        placedBlocks.set(blockKey, toStore);
     }
 
     let cx = Math.floor(gx / chunkSize);
@@ -2167,7 +2200,7 @@ function doRandomTicks() {
 
                 let above = getGlobalBlock(gx, gy + 1, gz);
                 
-                if (above !== null && above !== 0 && above !== TYPE.oak_leaves && above !== TYPE.spruce_leaves && above !== TYPE.snow_block && above !== TYPE.oak_sapling && above !== TYPE.spruce_sapling) {
+                if (above !== null && above !== 0 && above !== TYPE.oak_leaves && above !== TYPE.spruce_leaves && above !== TYPE.snow_block && above !== TYPE.snow && above !== TYPE.oak_sapling && above !== TYPE.spruce_sapling) {
                     setGlobalBlock(gx, gy, gz, TYPE.dirt);
                 } 
                 else if (above === 0 || above === TYPE.oak_leaves || above === TYPE.spruce_leaves || above === TYPE.snow_block) {
@@ -3079,7 +3112,7 @@ function getTarget() {
         let bz = Math.round(current.z);
         let b = getGlobalBlock(bx, by, bz);
         
-        if (b !== null && b !== 0 && b !== TYPE.water) {
+        if (b !== null && b !== 0 && b !== TYPE.water && !REVERSE_TYPE[b].includes('sculk_vein') && !REVERSE_TYPE[b].includes('glow_lichen')) {
             let prev = current.clone().sub(dir.clone().multiplyScalar(step));
             let pbx = Math.round(prev.x);
             let pby = Math.round(prev.y);
@@ -3126,9 +3159,12 @@ function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
     if (b === null || b === 0) return;
     let blockName = REVERSE_TYPE[b];
     
+    let placed = placedBlocks.get(`${pX},${pY},${pZ}`);
+    let isUpperHalf = placed && placed.state && placed.state.half === 'upper';
+
     setGlobalBlock(pX, pY, pZ, 0);
     
-    if (dropItems) {
+    if (dropItems && !isUpperHalf) {
         let dropName = blockName;
         // Fix for weeping and twisting vines explicitly dropping their _plant base types
         if (dropName === 'weeping_vines' || dropName === 'weeping_vines_plant') dropName = 'weeping_vines_plant';
@@ -3148,12 +3184,16 @@ function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
     updateStairConnections(pX-1, pY, pZ);
     updateStairConnections(pX, pY, pZ+1);
     updateStairConnections(pX, pY, pZ-1);
+
+    // Prompt grass below to recount snowy status if needed
+    let floorBelow = getGlobalBlock(pX, pY - 1, pZ);
+    if (floorBelow) chunksToRebuild.add(`${Math.floor(pX/chunkSize)},${Math.floor(pZ/chunkSize)}`);
     
     // Check block ABOVE (If the broken block was the floor support)
     let above = getGlobalBlock(pX, pY + 1, pZ);
     if (above !== null && above !== 0) {
         let aName = REVERSE_TYPE[above];
-        const needsSupportBelow = ['grass', 'fern', 'bush', 'sapling', 'flower', 'orchid', 'allium', 'bluet', 'tulip', 'daisy', 'lily', 'rose', 'mushroom', 'fungus', 'roots', 'sugar_cane', 'cactus', 'snow', 'carpet', 'twisting_vines', 'door_top'];
+        const needsSupportBelow = ['grass', 'fern', 'bush', 'sapling', 'flower', 'orchid', 'allium', 'bluet', 'tulip', 'daisy', 'lily', 'rose', 'mushroom', 'fungus', 'roots', 'sugar_cane', 'cactus', 'snow', 'carpet', 'twisting_vines', 'door_top', 'sunflower', 'peony', 'lilac'];
         let requiresBelow = needsSupportBelow.some(kw => aName.includes(kw)) && !aName.includes('block') && !aName.includes('wall') && !aName.includes('hanging');
         if (requiresBelow) breakBlockRecursive(pX, pY + 1, pZ, true);
     }
@@ -3164,7 +3204,11 @@ function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
         let bName = REVERSE_TYPE[below];
         const needsSupportAbove = ['weeping_vines', 'spore_blossom', 'hanging_roots'];
         let requiresAbove = needsSupportAbove.some(kw => bName.includes(kw));
-        if (requiresAbove) breakBlockRecursive(pX, pY - 1, pZ, true);
+        
+        let placedBelow = placedBlocks.get(`${pX},${pY - 1},${pZ}`);
+        let isLowerHalf = placedBelow && placedBelow.state && placedBelow.state.half === 'lower';
+
+        if (requiresAbove || isLowerHalf) breakBlockRecursive(pX, pY - 1, pZ, true);
         else if (blockName.includes('door_top') && bName === blockName.replace('_top', '')) breakBlockRecursive(pX, pY - 1, pZ, true);
     }
 }
@@ -3243,7 +3287,24 @@ document.addEventListener('mousedown', (e) => {
             ]);
             
             if (flatItems.has(placementType) && !explicit2DItems.has(placementType) && !placementType.includes('sign') && !placementType.includes('door')) return; 
-            
+
+            // Special interaction: Stack snow
+            if (placementType === 'snow') {
+                let clickedBlockId = getGlobalBlock(placeX - hit.normal.x, placeY - hit.normal.y, placeZ - hit.normal.z);
+                if (clickedBlockId === TYPE['snow'] && hit.normal.y === 1) {
+                    let cx = placeX - hit.normal.x; let cy = placeY - hit.normal.y; let cz = placeZ - hit.normal.z;
+                    let currentData = placedBlocks.get(`${cx},${cy},${cz}`);
+                    let layers = currentData && currentData.state && currentData.state.layers ? parseInt(currentData.state.layers) : 1;
+                    if (layers < 8) {
+                        setGlobalBlock(cx, cy, cz, { type: TYPE['snow'], state: { layers: (layers + 1).toString() } });
+                        selectedItem.count--;
+                        if (selectedItem.count <= 0) selectedItem.type = null;
+                        updateInventoryUI();
+                        return; // Successfully layered
+                    }
+                }
+            }
+
             if (placementType && getGlobalBlock(placeX, placeY, placeZ) === 0) {
 
                 if (placementType === 'twisting_vines') {
@@ -3261,27 +3322,26 @@ document.addEventListener('mousedown', (e) => {
                 }
 
                 let rotation = [0, 0, 0];
-                let stairData = null;
+                let blockStateDict = {};
                 let extraBlock = null; 
                 
                 if (placementType.includes('log') || placementType.includes('pillar') || placementType === 'basalt' || placementType === 'polished_basalt' || placementType === 'bone_block' || placementType === 'purpur_pillar' || placementType === 'quartz_pillar' || placementType === 'hay_block') {
                     let axis = 'y';
                     if (Math.abs(hit.normal.x) > 0.5) axis = 'x';
                     if (Math.abs(hit.normal.z) > 0.5) axis = 'z';
-                    stairData = { state: { axis: axis } };
+                    blockStateDict = { axis: axis };
                 } 
                 else if (placementType.includes('stairs')) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
-                    let facing = 0;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facing = 1; 
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facing = 2; 
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facing = 3; 
-                    else facing = 0; 
-
+                    let facingStr = 'east';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north'; 
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west'; 
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south'; 
+                    
                     let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
-                    stairData = { isStair: true, facing: facing, half: isTop ? 'top' : 'bottom' };
+                    blockStateDict = { facing: facingStr, half: isTop ? 'top' : 'bottom', shape: 'straight' };
                 }
                 else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
                     let ry = yaw % (Math.PI * 2);
@@ -3296,21 +3356,29 @@ document.addEventListener('mousedown', (e) => {
                     rotation = [0, rotY, 0];
                     extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0] };
                 }
-                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper') {
+                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper' || placementType === 'crafter') {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
-                    let rotY = 0;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
-                    else rotY = Math.PI/2; 
+                    let facingStr = 'north';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
+                    else facingStr = 'east';
                     
-                    rotation = [0, rotY, 0];
+                    blockStateDict = { facing: facingStr };
+                }
+
+                // Two-tall plants parsing logic
+                const twoTallPlants = ['sunflower', 'lilac', 'rose_bush', 'peony', 'tall_grass', 'large_fern', 'pitcher_plant'];
+                if (twoTallPlants.includes(placementType)) {
+                    let topClear = getGlobalBlock(placeX, placeY + 1, placeZ);
+                    if (topClear !== 0) return; // Prevent placing if blocked
+                    blockStateDict = { half: 'lower' };
+                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType], state: { half: 'upper' } };
                 }
                 
-                let placedData = { type: TYPE[placementType], rotation: rotation };
-                if (stairData) placedData = { ...placedData, ...stairData };
+                let placedData = { type: TYPE[placementType], rotation: rotation, state: blockStateDict };
                 
                 if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
                     // Not enough room
@@ -3318,11 +3386,17 @@ document.addEventListener('mousedown', (e) => {
                     setGlobalBlock(placeX, placeY, placeZ, placedData);
                     
                     if (extraBlock) {
-                        setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation });
+                        setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation, state: extraBlock.state });
                     }
                     
-                    if (stairData) {
+                    if (placementType.includes('stairs')) {
                         updateStairConnections(placeX, placeY, placeZ);
+                    }
+                    
+                    // Update floor grass blocks to become snowy when placing blocks down
+                    let floorBelow = getGlobalBlock(placeX, placeY - 1, placeZ);
+                    if (floorBelow === TYPE.grass_block || floorBelow === TYPE.podzol || floorBelow === TYPE.mycelium) {
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
                     }
                     
                     selectedItem.count--;
