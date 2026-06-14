@@ -45,10 +45,7 @@ iconRenderer.setPixelRatio(1);
 if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
 const iconScene = new THREE.Scene();
 
-// Reverted Orthographic Camera size to standard Minecraft 14x14px bounds (-0.51 to 0.51)
 const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 10);
-// Shifted camera position by exactly 1 pixel right and 1 pixel down (0.008 units on a 128px canvas)
-// which mathematically forces the rendered 3D icon to shift exactly 1 pixel left and 1 pixel up!
 iconCamera.position.set(0.008, -0.008, 5); 
 iconCamera.lookAt(0, 0, 0);
 
@@ -242,8 +239,8 @@ const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, coun
 inventory[0] = { type: 'netherite_shovel', count: 1 };
 inventory[1] = { type: 'dirt', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
-inventory[3] = { type: 'compass', count: 1 };
-inventory[4] = { type: 'sculk_sensor', count: 64 };
+inventory[3] = { type: 'twisting_vines', count: 64 };
+inventory[4] = { type: 'weeping_vines', count: 64 };
 inventory[5] = { type: 'acacia_stairs', count: 64 };
 inventory[6] = { type: 'magma_block', count: 64 };
 inventory[7] = { type: 'dragon_head', count: 64 };
@@ -275,8 +272,6 @@ function resolveTexturePath(name, isIconContext = false) {
 
     if (name === 'air') return { folder, filename, is2D: false };
 
-    // With dynamic JSON model tracing, all hardcoded is2D/explicit2D lists have been eliminated.
-    // The engine now determines flattening directly by tracing the "parent" in the JSON files.
     if (name === 'compass') filename = 'compass_00';
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
@@ -324,7 +319,6 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                         texture: t, ctx: ctx, sourceImage: image,
                         frames: Array.from({length: totalFrames}, (_, i) => i),
                         defaultTickRate: 2, totalFrames: totalFrames,
-                        // OPTIMIZATION: Interpolation strictly turned OFF by default to save huge GPU overhead frame drops
                         currentArrayIdx: 0, timer: 0, interpolate: false, frameWidth: fw
                     };
                     animatedTextures.push(animData);
@@ -335,7 +329,6 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                         if (mcmeta && mcmeta.animation) {
                             if (mcmeta.animation.frames = mcmeta.animation.frames);
                             if (mcmeta.animation.frametime = mcmeta.animation.frametime);
-                            // Interpolation override completely ignored to protect FPS
                         }
                         resolve(t);
                     }).catch(e => { resolve(t); });
@@ -345,7 +338,6 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                     ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(image, 0, 0);
 
-                    // Grayscale Foliage HTML Canvas Math Tinting Algorithm
                     if (isIconContext && originalTypeName) {
                         const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
                         if (tintables.includes(originalTypeName)) {
@@ -388,7 +380,6 @@ function resolveFallbackTexture(name) {
     if (name === 'packed_mud') return 'mud';
     if (name === 'conduit') return 'conduit';
     
-    // Correctly map mob heads and custom model overrides to their raw layout locations
     if (name === 'creeper_head') return '../entity/creeper/creeper';
     if (name === 'zombie_head') return '../entity/zombie/zombie';
     if (name === 'skeleton_skull') return '../entity/skeleton/skeleton';
@@ -441,7 +432,6 @@ const JSONReader = {
         if (this.models[modelPath]) return this.models[modelPath];
         
         let actualPath = modelPath;
-        // Dynamically support both block and item directory parsing
         if (!actualPath.includes('/')) actualPath = `block/${actualPath}`;
         
         const path = `assets/minecraft/models/${actualPath}.json`;
@@ -526,40 +516,21 @@ function getBlockContext(gx, gy, gz, bName) {
 }
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const crossGeo = new THREE.BufferGeometry();
-const crossPositions = new Float32Array([
-    -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
-     0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
-    -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
-     0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
-]);
-const crossUVs = new Float32Array([
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1,
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1
-]);
-crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
-crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
-crossGeo.computeVertexNormals();
 
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
     let key = cacheKey || bName;
     if (customGeometries[key]) return; 
 
-    // Hardcode Minecraft Conduit Model including proper geometry, UV mappings and translucent casing
     if (bName === 'conduit') {
         const tex = loadTex('conduit');
         let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
         const px = 1/16;
         const geos = [];
         
-        // Inner Central Heart/Core (6x6x6 texels)
         const coreGeo = new THREE.BoxGeometry(6 * px, 6 * px, 6 * px);
         coreGeo.clearGroups();
         const coreUVs = coreGeo.attributes.uv.array;
         
-        // Map central heart textures on the 3D core
         const setCoreFaceUV = (faceIdx, u, v, w, h) => {
             const u1 = u / 32, u2 = (u + w) / 32;
             const v1 = 1 - (v + h) / 16, v2 = 1 - v / 16;
@@ -568,12 +539,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             coreUVs[i+4]=u1; coreUVs[i+5]=v1; coreUVs[i+6]=u2; coreUVs[i+7]=v1;
         };
         for (let i = 0; i < 6; i++) {
-            setCoreFaceUV(i, 0, 0, 6, 6); // Core Heart UV Mapping
+            setCoreFaceUV(i, 0, 0, 6, 6);
             coreGeo.addGroup(i * 6, 6, 0);
         }
         geos.push(coreGeo);
         
-        // Outer Rings / Cage shells
         const shell1 = new THREE.BoxGeometry(8 * px, 8 * px, 2 * px);
         const shell2 = new THREE.BoxGeometry(8 * px, 2 * px, 8 * px);
         const shell3 = new THREE.BoxGeometry(2 * px, 8 * px, 8 * px);
@@ -591,14 +561,9 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         };
         
         for (let i = 0; i < 6; i++) {
-            setShellUV(shellUVs1, i, 12, 0, 8, 8);
-            shell1.addGroup(i * 6, 6, 0);
-            
-            setShellUV(shellUVs2, i, 12, 0, 8, 8);
-            shell2.addGroup(i * 6, 6, 0);
-            
-            setShellUV(shellUVs3, i, 12, 0, 8, 8);
-            shell3.addGroup(i * 6, 6, 0);
+            setShellUV(shellUVs1, i, 12, 0, 8, 8); shell1.addGroup(i * 6, 6, 0);
+            setShellUV(shellUVs2, i, 12, 0, 8, 8); shell2.addGroup(i * 6, 6, 0);
+            setShellUV(shellUVs3, i, 12, 0, 8, 8); shell3.addGroup(i * 6, 6, 0);
         }
         
         geos.push(shell1, shell2, shell3);
@@ -608,7 +573,6 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    // Handle Skull Model generation overriding directly (avoid 404 fetching)
     const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head']);
     if (hardcodedModels.has(bName)) {
         const fallbackName = resolveFallbackTexture(bName);
@@ -619,28 +583,13 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             const geos = [];
             const px = 1/16;
             for (let p of parts) {
-                let w, h, d, mcX, mcY, mcZ;
+                let w = p.to ? p.to[0]-p.from[0] : p.size ? p.size[0] : p.w;
+                let h = p.to ? p.to[1]-p.from[1] : p.size ? p.size[1] : p.h;
+                let d = p.to ? p.to[2]-p.from[2] : p.size ? p.size[2] : p.d;
+                let mcX = p.to ? p.from[0] : p.pos ? p.pos[0] : p.mcX;
+                let mcY = p.to ? p.from[1] : p.pos ? p.pos[1] : p.mcY;
+                let mcZ = p.to ? p.from[2] : p.pos ? p.pos[2] : p.mcZ;
                 
-                // Automatically handle Blockbench "Java Block" format (From/To) 
-                // OR Blockbench "Entity" format (Position/Size)
-                if (p.from && p.to) {
-                    w = p.to[0] - p.from[0];
-                    h = p.to[1] - p.from[1];
-                    d = p.to[2] - p.from[2];
-                    mcX = p.from[0];
-                    mcY = p.from[1];
-                    mcZ = p.from[2];
-                } else {
-                    w = p.size ? p.size[0] : p.w;
-                    h = p.size ? p.size[1] : p.h;
-                    d = p.size ? p.size[2] : p.d;
-                    mcX = p.pos ? p.pos[0] : p.mcX;
-                    mcY = p.pos ? p.pos[1] : p.mcY;
-                    mcZ = p.pos ? p.pos[2] : p.mcZ;
-                }
-                
-                // Translate the unscaled coordinates into the proper physical size mathematically
-                // The geometry builds natively at this scaled size without double shrinking the positions
                 const physW = w * scaleFactor;
                 const physH = h * scaleFactor;
                 const physD = d * scaleFactor;
@@ -651,68 +600,40 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 const uvs = geo.attributes.uv.array;
 
                 const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
-                    if (!uvArr) return; // Skip if UV isn't defined
+                    if (!uvArr) return; 
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
-                    let u1 = u / tS;
-                    let u2 = (u + fw) / tS;
-                    let v1 = 1 - (v + fh) / tS; // bottom-left in UV space
-                    let v2 = 1 - v / tS;        // top-left in UV space
+                    let u1 = u / tS; let u2 = (u + fw) / tS;
+                    let v1 = 1 - (v + fh) / tS; let v2 = 1 - v / tS;        
                     
-                    if (mirrorU) {
-                        const tmp = u1; u1 = u2; u2 = tmp;
-                    }
+                    if (mirrorU) { const tmp = u1; u1 = u2; u2 = tmp; }
                     
                     const i = faceIdx * 8;
                     if (rot180) {
-                        // 180 degree UV rotation
-                        uvs[i]     = u2; uvs[i + 1] = v1;
-                        uvs[i + 2] = u1; uvs[i + 3] = v1;
-                        uvs[i + 4] = u2; uvs[i + 5] = v2;
-                        uvs[i + 6] = u1; uvs[i + 7] = v2;
+                        uvs[i] = u2; uvs[i+1] = v1; uvs[i+2] = u1; uvs[i+3] = v1;
+                        uvs[i+4] = u2; uvs[i+5] = v2; uvs[i+6] = u1; uvs[i+7] = v2;
                     } else {
-                        // Standard Three.js face UV layout
-                        uvs[i]     = u1; uvs[i + 1] = v2;
-                        uvs[i + 2] = u2; uvs[i + 3] = v2;
-                        uvs[i + 4] = u1; uvs[i + 5] = v1;
-                        uvs[i + 6] = u2; uvs[i + 7] = v1;
+                        uvs[i] = u1; uvs[i+1] = v2; uvs[i+2] = u2; uvs[i+3] = v2;
+                        uvs[i+4] = u1; uvs[i+5] = v1; uvs[i+6] = u2; uvs[i+7] = v1;
                     }
                 };
 
                 const m = mirror || false;
-                
-                // 1. Directly map faces normally 
-                setF(0, uvEast, d, h, m);
-                setF(1, uvWest, d, h, m);
-                setF(2, uvUp, w, d, m, true); // Rotate ONLY the Top UV by 180 degrees
-                setF(3, uvDown, w, d, m);
-                setF(4, uvSouth, w, h, m);
-                setF(5, uvNorth, w, h, m);
+                setF(0, uvEast, d, h, m); setF(1, uvWest, d, h, m);
+                setF(2, uvUp, w, d, m, true); setF(3, uvDown, w, d, m);
+                setF(4, uvSouth, w, h, m); setF(5, uvNorth, w, h, m);
 
-                // 2. ROTATE EVERY SINGLE PART 180 DEGREES BEFORE ASSEMBLING
                 geo.rotateY(Math.PI);
-
-                // 3. ASSEMBLE (Piece all the parts together at their target locations)
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
 
-                // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
                 if (pivot) {
-                    // FIX: Remove scaleFactor. The positions are absolute, so the pivot must be absolute too.
-                    const pivX = pivot[0] * px;
-                    const pivY = pivot[1] * px;
-                    const pivZ = pivot[2] * px;
-                    
+                    const pivX = pivot[0] * px; const pivY = pivot[1] * px; const pivZ = pivot[2] * px;
                     geo.translate(-pivX, -pivY, -pivZ);
-                    
-                    // Allow literal degree arrays from Blockbench (e.g. rot: [22.5, 0, 0])
                     if (rot) {
                         if (rot[0]) geo.rotateX(THREE.MathUtils.degToRad(rot[0]));
                         if (rot[1]) geo.rotateY(THREE.MathUtils.degToRad(rot[1]));
                         if (rot[2]) geo.rotateZ(THREE.MathUtils.degToRad(rot[2]));
-                    } else if (rotX) {
-                        geo.rotateX(rotX); // Backwards compatibility 
-                    }
-                    
+                    } else if (rotX) geo.rotateX(rotX);
                     geo.translate(pivX, pivY, pivZ);
                 }
 
@@ -724,29 +645,17 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
-                // Skull: 16x16x16. 
                 { size: [16, 16, 16], pos: [2, 0, 2], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
-                // Upper snout (Attaches flush to front of skull)
                 { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
-                // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
                 { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [15, 0, 0] }, 
-                // Right Horn (Mirrored)
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
-                // Left Horn
                 { size: [2, 4, 6],    pos: [10.25, 12, 5],  uvUp: [6,0], uvDown: [8,0], uvWest: [8,6], uvNorth: [6,6], uvEast: [0,6], uvSouth: [14,6] }, 
-                // Right Nostril (Mirrored)
                 { size: [2, 2, 4],    pos: [4.25, 6.75, 20], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
-                // Left Nostril
                 { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [118,4], uvNorth: [116,4], uvEast: [112,4], uvSouth: [120,4] }  
             ];
-            
-            // Pass scaleFactor = 0.75 so geometry is built correctly BEFORE positioning without ruining UVs!
             headGeo = buildMCModel(parts, 256, 0.75);
-            
-            // Shift the geometry cleanly to match physical 12x12 world dimensions
             headGeo.translate(-0.5, -0.5, -0.5);
         } else {
-            // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
             const parts = [ { size: [8, 8, 8], pos: [-4, -4, -4], 
                 uvWest: [16, 8], uvNorth: [8, 8], uvEast: [0, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
             } ];
@@ -866,8 +775,10 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
                 const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
+                // FIXED: Removed DoubleSide rendering for cutout materials, allowing Minecraft's JSON faces to render correctly back-to-back
                 if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
-                else if (isCutout || isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+                else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+                else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
                 else mat = new THREE.MeshLambertMaterial({ map: tex });
                 
                 if (texPath === 'block/grass_block_top' || texPath === 'block/vine' || texPath === 'block/grass_block_side_overlay') mat.color.setHex(0x91bd59); 
@@ -938,7 +849,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
                     if (p.x || p.y) {
                         if (p.x) geo.rotateX(THREE.MathUtils.degToRad(p.x));
-                        if (p.y) geo.rotateY(-THREE.MathUtils.degToRad(p.y)); // standard inverted Y alignment
+                        if (p.y) geo.rotateY(-THREE.MathUtils.degToRad(p.y)); 
                     }
 
                     allCompiledGeometries.push(geo);
@@ -963,7 +874,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
         if (isTranslucent) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
-        else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+        else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 }); // Removed DoubleSide here
         else mat = new THREE.MeshLambertMaterial({ map: tex });
         
         if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern') mat.color.setHex(0x91bd59);
@@ -986,7 +897,6 @@ async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    // Explicitly handle UI-only layout icons that don't have JSON models
     if (type === 'compass_tab') {
         let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
@@ -1000,9 +910,6 @@ async function getBlockIcon(type) {
         return url;
     }
 
-    // --- EXPLICIT ITEM MODEL RESOLUTION FOR INVENTORY ICONS ---
-    // Minecraft natively uses "models/item/{name}.json" exclusively for inventory slots.
-    // This explicitly checks if the item requests a 2D generated sprite before falling back to 3D.
     let itemModel = await JSONReader.getModel(`item/${type}`);
     let is2DItem = false;
     let layer0Ref = null;
@@ -1064,7 +971,6 @@ async function getBlockIcon(type) {
             const ctx = cvs.getContext('2d');
             ctx.imageSmoothingEnabled = false; 
             
-            // Apply biome foliage tinting to generated plants
             const tintables = ['lily_pad', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
@@ -1083,20 +989,17 @@ async function getBlockIcon(type) {
             const url = `url(${cvs.toDataURL('image/png')})`;
             iconCache[type] = url;
             
-            // Background pre-load the 3D world geometry so item drops and placements don't freeze
             if (!customGeometries[type]) loadCustomModel(type, {}, type).catch(()=>{});
             
             return url;
         }
     }
-    // --- END ITEM RESOLUTION ---
 
     if (!customGeometries[type]) await loadCustomModel(type, {}, type);
     const geo = customGeometries[type];
     const mat = materials[type];
     if (!geo || !mat) return 'none';
     
-    // Dynamically render 2D sprites if the JSON parent flag indicated it was a generated item
     if (geo.userData && geo.userData.is2D) {
         let tex = Array.isArray(mat) ? mat[0].map : mat.map;
         if (tex && tex.loadPromise) await tex.loadPromise;
@@ -1107,7 +1010,6 @@ async function getBlockIcon(type) {
             const ctx = cvs.getContext('2d');
             ctx.imageSmoothingEnabled = false; 
             
-            // Apply biome foliage tinting to generated plants
             const tintables = ['lily_pad', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
@@ -1156,7 +1058,6 @@ async function getBlockIcon(type) {
             }
         }
 
-        // Fix the Spore Blossom rotation to hang perfectly
         if (type === 'spore_blossom') {
             threeRz += Math.PI; 
         }
@@ -1289,7 +1190,6 @@ for (let i = 0; i < 9; i++) {
 
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
-    // Shifted inventory icons 1px left and 1px up inside slot
     itemSprite.style.position = 'absolute';
     itemSprite.style.left = '0px'; 
     itemSprite.style.top = '0px'; 
@@ -1426,7 +1326,7 @@ invBody.appendChild(creativeGridContainer);
 
 const scrollTrack = document.createElement('div');
 scrollTrack.style.position = 'absolute';
-scrollTrack.style.right = '6px'; // Perfected right alignment groove
+scrollTrack.style.right = '6px'; 
 scrollTrack.style.top = '18px';
 scrollTrack.style.width = '14px'; 
 scrollTrack.style.height = '112px'; 
@@ -1473,8 +1373,8 @@ const heldItemUI = document.createElement('div');
 heldItemUI.id = 'held-item-ui';
 heldItemUI.className = 'pixelated';
 heldItemUI.style.position = 'absolute';
-heldItemUI.style.left = '-9px'; // Shifted 1px left
-heldItemUI.style.top = '-9px';  // Shifted 1px up
+heldItemUI.style.left = '-9px'; 
+heldItemUI.style.top = '-9px';  
 heldItemUI.style.width = '16px';
 heldItemUI.style.height = '16px';
 heldItemUI.style.transformOrigin = 'center';
@@ -1638,7 +1538,6 @@ function createItemSlot(bName, i, sourceArray) {
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
     itemSprite.style.position = 'absolute';
-    // Shifted grid icons 1px left and 1px up inside creative slots to fix alignment issues
     itemSprite.style.left = '0px'; 
     itemSprite.style.top = '0px'; 
     itemSprite.style.width = '16px';
@@ -1853,7 +1752,6 @@ document.addEventListener('mousemove', (e) => {
         tooltip.style.top = (e.clientY / currentGuiScale - 12) + 'px';
     }
     
-    // Smooth scroll thumb drag logic that snaps the grid mathematically to rows
     if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
         let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
         let maxRow = Math.max(0, totalRows - 5);
@@ -1873,7 +1771,6 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', () => { isDraggingScroll = false; });
 
-// Row by Row Discrete Menu Wheel Scrolling
 invBody.addEventListener('wheel', (e) => {
     if (currentCategory === 'inventory') return;
     let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
@@ -2207,7 +2104,6 @@ function getGlobalBlock(gx, gy, gz) {
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     
-    // OPTIMIZATION: Removed redundant multiplication operations here by directly parsing flat index
     let idx = lx + (lz * 16) + (ly * 256);
     return chunk.blocks[idx];
 }
@@ -2306,7 +2202,6 @@ function getBiome(temp, moist, depth) {
     return closestBiome;
 }
 
-// OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
 function getInterpolatedHeightScale(x, z) {
     const range = 8; 
     const step = 4; 
@@ -2409,8 +2304,6 @@ function mergeBufferGeometries(geos) {
     return mergedGeo;
 }
 
-// OPTIMIZATION: Pre-allocated Global Arrays for Light Processing!
-// Stops JavaScript from destroying memory and dropping frames on Garbage Collection every chunk!
 const sharedLightMap = new Uint8Array(16 * 16 * 256);
 const sharedLightQueue = new Int32Array(16 * 16 * 256 * 2);
 
@@ -2757,7 +2650,6 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[sKey].chunkId = chunkId;
         meshes[sKey].maxCapacity = cap;
         meshes[sKey].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        // OPTIMIZATION: Stop expensive continuous matrix update on dead block meshes
         meshes[sKey].matrixAutoUpdate = false;
         meshes[sKey].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
         indices[sKey] = 0;
@@ -2841,7 +2733,6 @@ async function generateChunk(chunkX, chunkZ) {
                             }
                         }
 
-                        // OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
                         if (rot[0] === 0 && rot[1] === 0 && rot[2] === 0) {
                             matrix.makeTranslation(startX + x, actualY, startZ + z);
                         } else {
@@ -2862,7 +2753,6 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        // OPTIMIZATION: Hardcoded bounding spheres instead of forcing the CPU to scan all instances
         meshes[key].boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + 8, 128 + minworldY, startZ + 8), 140); 
         scene.add(meshes[key]);
         interactableMeshes.push(meshes[key]);
@@ -3153,7 +3043,6 @@ camera.add(playerHand); scene.add(camera);
 let yaw = 0, pitch = 0, keys = {};
 let isLeftMouseDown = false; 
 
-// OPTIMIZATION: Removed slow Three.js Raycaster, replacing it with ultra-fast Digital Differential Analyzer loop!
 let mining = { active: false, startTime: 0, blockPosition: null, blockName: null, requiredTime: 500 };
 
 const droppedItems = [];
@@ -3164,10 +3053,8 @@ function spawnDroppedItem(x, y, z, blockName) {
     let mat = materials[blockName];
     if (!mat) return; 
 
-    // Instantiate with actual block/item geometry instead of forcing a 0.25 box
     const mesh = new THREE.Mesh(geo, mat);
     
-    // Size it appropriately to look like an item drop
     let scaleFactor = 0.25;
     if (geo.userData && geo.userData.is2D) scaleFactor = 0.4;
     mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
@@ -3178,7 +3065,6 @@ function spawnDroppedItem(x, y, z, blockName) {
     droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
 }
 
-// OPTIMIZATION: Custom Fast Voxel Raycaster (Massive FPS fix!)
 function getTarget() {
     let start = camera.position.clone();
     let dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -3232,6 +3118,57 @@ function startMining(hit) {
     destroyMesh.visible = true; 
 }
 
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// DEPENDENCY & BREAKING LOGIC (Cascades breaks to anchored plants/blocks)
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
+    let b = getGlobalBlock(pX, pY, pZ);
+    if (b === null || b === 0) return;
+    let blockName = REVERSE_TYPE[b];
+    
+    setGlobalBlock(pX, pY, pZ, 0);
+    
+    if (dropItems) {
+        let dropName = blockName;
+        // Fix for weeping and twisting vines explicitly dropping their _plant base types
+        if (dropName === 'weeping_vines' || dropName === 'weeping_vines_plant') dropName = 'weeping_vines_plant';
+        if (dropName === 'twisting_vines' || dropName === 'twisting_vines_plant') dropName = 'twisting_vines_plant';
+
+        const dropData = BLOCK_DROPS[blockName];
+        const item = (dropData && dropData.item) ? dropData.item : dropName;
+        let count = (dropData && dropData.count) ? dropData.count : 1;
+        if (typeof count === 'function') count = count();
+        
+        for (let i = 0; i < count; i++) {
+            spawnDroppedItem(pX + 0.5, pY + 0.5, pZ + 0.5, item); // Centered slightly
+        }
+    }
+
+    updateStairConnections(pX+1, pY, pZ);
+    updateStairConnections(pX-1, pY, pZ);
+    updateStairConnections(pX, pY, pZ+1);
+    updateStairConnections(pX, pY, pZ-1);
+    
+    // Check block ABOVE (If the broken block was the floor support)
+    let above = getGlobalBlock(pX, pY + 1, pZ);
+    if (above !== null && above !== 0) {
+        let aName = REVERSE_TYPE[above];
+        const needsSupportBelow = ['grass', 'fern', 'bush', 'sapling', 'flower', 'orchid', 'allium', 'bluet', 'tulip', 'daisy', 'lily', 'rose', 'mushroom', 'fungus', 'roots', 'sugar_cane', 'cactus', 'snow', 'carpet', 'twisting_vines', 'door_top'];
+        let requiresBelow = needsSupportBelow.some(kw => aName.includes(kw)) && !aName.includes('block') && !aName.includes('wall') && !aName.includes('hanging');
+        if (requiresBelow) breakBlockRecursive(pX, pY + 1, pZ, true);
+    }
+    
+    // Check block BELOW (If the broken block was the ceiling support)
+    let below = getGlobalBlock(pX, pY - 1, pZ);
+    if (below !== null && below !== 0) {
+        let bName = REVERSE_TYPE[below];
+        const needsSupportAbove = ['weeping_vines', 'spore_blossom', 'hanging_roots'];
+        let requiresAbove = needsSupportAbove.some(kw => bName.includes(kw));
+        if (requiresAbove) breakBlockRecursive(pX, pY - 1, pZ, true);
+        else if (blockName.includes('door_top') && bName === blockName.replace('_top', '')) breakBlockRecursive(pX, pY - 1, pZ, true);
+    }
+}
+
 function updateMining() {
     if (!mining.active) { 
         destroyMesh.visible = false; 
@@ -3258,42 +3195,12 @@ function updateMining() {
         const blockName = mining.blockName; 
         
         let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
-        setGlobalBlock(pX, pY, pZ, 0);
-
-        // Cascade plant destruction dynamically
-        if (blockName === 'twisting_vines' || blockName === 'twisting_vines_plant' || blockName === 'weeping_vines' || blockName === 'weeping_vines_plant') {
-            let offset = blockName.includes('twisting') ? 1 : -1;
-            let checkY = pY + offset;
-            while(true) {
-                let above = getGlobalBlock(pX, checkY, pZ);
-                if (above !== null && (REVERSE_TYPE[above] === blockName || REVERSE_TYPE[above] === blockName.replace('_plant', ''))) {
-                    setGlobalBlock(pX, checkY, pZ, 0);
-                    spawnDroppedItem(p.x, checkY, p.z, blockName.replace('_plant', ''));
-                    checkY += offset;
-                } else break;
-            }
-        }
         
         const heldItemType = inventory[selectedSlot].type;
         const harvestable = canHarvestBlock(blockName, heldItemType);
 
-        if (harvestable) {
-            const dropData = BLOCK_DROPS[blockName];
-
-            if (dropData !== null) {
-                const item = dropData?.item || blockName;
-                let count = dropData?.count || 1;
-                if (typeof count === 'function') count = count();
-                for (let i = 0; i < count; i++) {
-                    spawnDroppedItem(p.x, p.y, p.z, item);
-                }
-            }
-        }
-        
-        updateStairConnections(pX+1, pY, pZ);
-        updateStairConnections(pX-1, pY, pZ);
-        updateStairConnections(pX, pY, pZ+1);
-        updateStairConnections(pX, pY, pZ-1);
+        // Initiate the recursive breaking loop starting at the targeted block
+        breakBlockRecursive(pX, pY, pZ, harvestable);
 
         mining.active = false;
         destroyMesh.visible = false;
@@ -3406,7 +3313,7 @@ document.addEventListener('mousedown', (e) => {
                 if (stairData) placedData = { ...placedData, ...stairData };
                 
                 if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
-                    // Not enough room to place the double block
+                    // Not enough room
                 } else {
                     setGlobalBlock(placeX, placeY, placeZ, placedData);
                     
@@ -3550,7 +3457,6 @@ function animate() {
     if (relAngle < 0) relAngle += Math.PI * 2;
     let compassFrame = Math.floor((relAngle / (Math.PI * 2)) * 32) % 32;
     
-    // OPTIMIZATION: Only parse the DOM string queries when the compass orientation actually changes
     if (compassFrame !== lastCompassFrame) {
         lastCompassFrame = compassFrame;
         let frameStr = compassFrame.toString().padStart(2, '0');
