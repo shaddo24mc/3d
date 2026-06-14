@@ -317,7 +317,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                         texture: t, ctx: ctx, sourceImage: image,
                         frames: Array.from({length: totalFrames}, (_, i) => i),
                         defaultTickRate: 2, totalFrames: totalFrames,
-                        currentArrayIdx: 0, timer: 0, interpolate: false, frameWidth: fw
+                        currentArrayIdx: 0, timer: 0, interpolate: true, frameWidth: fw
                     };
                     animatedTextures.push(animData);
                     ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
@@ -340,7 +340,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                         const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
                         if (tintables.includes(originalTypeName)) {
                             ctx.globalCompositeOperation = 'source-atop';
-                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#208030' : '#91bd59';
+                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#4aa850' : '#91bd59';
                             ctx.fillRect(0, 0, cvs.width, cvs.height);
                             ctx.globalCompositeOperation = 'multiply';
                             ctx.drawImage(image, 0, 0);
@@ -482,6 +482,26 @@ function getBlockContext(gx, gy, gz, bName) {
     if (bName === 'sea_pickle' && !state.pickles) state.pickles = '1';
     if (bName === 'sweet_berry_bush' && !state.age) state.age = '0';
     if (bName === 'end_rod' && !state.facing) state.facing = 'up';
+
+    if (bName === 'pointed_dripstone') {
+        if (!state.vertical_direction) state.vertical_direction = 'up';
+        if (!state.thickness) state.thickness = 'tip';
+        let dir = state.vertical_direction === 'up' ? 1 : -1;
+        let adjacent = getGlobalBlock(gx, gy - dir, gz);
+        if (adjacent && REVERSE_TYPE[adjacent] === 'pointed_dripstone') {
+            state.thickness = 'frustum';
+        }
+    }
+
+    if (bName === 'kelp') {
+        if (!state.age) state.age = '0';
+    }
+
+    if (bName.endsWith('_top')) {
+        state.half = 'upper';
+    } else if (bName.includes('door') && !bName.includes('trapdoor')) {
+        if (!state.half) state.half = 'lower';
+    }
 
     if (bName === 'chiseled_bookshelf') {
         state.slot_0_occupied = 'false'; state.slot_1_occupied = 'false';
@@ -695,7 +715,12 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         let baseName = bName;
         if (isInner) baseName = bName.replace('_inner', '');
         if (isOuter) baseName = bName.replace('_outer', '');
-        if (isTop) baseName = bName.replace('_top', '');
+        if (isTop) {
+            baseName = bName.replace('_top', '');
+            stateDict.half = 'upper';
+        } else if (bName.includes('door') && !bName.includes('trapdoor')) {
+            if (!stateDict.half) stateDict.half = 'lower';
+        }
 
         const stateJson = await JSONReader.getBlockstate(baseName);
         let modelPartsToLoad = [];
@@ -723,6 +748,10 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                         let apply = Array.isArray(p.apply) ? p.apply[0] : p.apply;
                         modelPartsToLoad.push(apply);
                     }
+                }
+                if (modelPartsToLoad.length === 0 && stateJson.multipart.length > 0) {
+                    let apply = Array.isArray(stateJson.multipart[0].apply) ? stateJson.multipart[0].apply[0] : stateJson.multipart[0].apply;
+                    modelPartsToLoad.push(apply);
                 }
             }
         } else {
@@ -805,7 +834,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     mat.color.setHex(0x91bd59); 
                 }
                 else if (bName === 'lily_pad' || texPath.includes('lily_pad')) {
-                    mat.color.setHex(0x208030);
+                    mat.color.setHex(0x4aa850);
                 }
                 else if (texPath.includes('leaves')) { 
                     mat.color.setHex(0x91bd59); 
@@ -935,6 +964,13 @@ async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
     
+    let defaultState = {};
+    if (type.includes('stairs')) defaultState = { shape: 'straight', half: 'bottom', facing: 'east' };
+    if (type.includes('fence')) defaultState = { north: 'false', south: 'false', east: 'false', west: 'false' };
+    if (type.includes('wall')) defaultState = { up: 'true', north: 'false', south: 'false', east: 'false', west: 'false' };
+    if (type.includes('log') || type.includes('pillar') || type === 'basalt') defaultState.axis = 'y';
+    if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
+    
     if (type === 'compass_tab') {
         let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
@@ -1013,7 +1049,7 @@ async function getBlockIcon(type) {
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
                 ctx.globalCompositeOperation = 'source-atop';
-                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#91bd59';
+                ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
                 ctx.fillRect(0, 0, cvs.width, cvs.height);
                 ctx.globalCompositeOperation = 'multiply';
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
@@ -1027,13 +1063,13 @@ async function getBlockIcon(type) {
             const url = `url(${cvs.toDataURL('image/png')})`;
             iconCache[type] = url;
             
-            if (!customGeometries[type]) loadCustomModel(type, {}, type).catch(()=>{});
+            if (!customGeometries[type]) loadCustomModel(type, defaultState, type).catch(()=>{});
             
             return url;
         }
     }
 
-    if (!customGeometries[type]) await loadCustomModel(type, {}, type);
+    if (!customGeometries[type]) await loadCustomModel(type, defaultState, type);
     const geo = customGeometries[type];
     const mat = materials[type];
     if (!geo || !mat) return 'none';
@@ -1052,7 +1088,7 @@ async function getBlockIcon(type) {
             if (tintables.includes(type)) {
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
                 ctx.globalCompositeOperation = 'source-atop';
-                ctx.fillStyle = type === 'lily_pad' ? '#208030' : '#91bd59';
+                ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
                 ctx.fillRect(0, 0, cvs.width, cvs.height);
                 ctx.globalCompositeOperation = 'multiply';
                 ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
@@ -1085,16 +1121,13 @@ async function getBlockIcon(type) {
         let rz = guiConfig.rotation[2];
         
         let threeRx = THREE.MathUtils.degToRad(rx);
-        let threeRy = THREE.MathUtils.degToRad(ry);
+        let threeRy = THREE.MathUtils.degToRad(ry - 90);
         let threeRz = THREE.MathUtils.degToRad(rz);
         
-        if (ry === 225) {
-            threeRy = Math.PI / 4; 
-        }
-
+        if (type === 'end_rod') threeRz += Math.PI;
         if (type === 'spore_blossom') threeRz += Math.PI; 
         
-        mesh.rotation.set(threeRx, threeRy, threeRz, 'XYZ');
+        mesh.rotation.set(threeRx, threeRy, threeRz, 'YXZ');
     }
     
     const normals = [
@@ -1148,7 +1181,10 @@ function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
     if (!type) { element.style.backgroundImage = 'none'; return; }
     
-    if (type === 'compass') return;
+    if (type === 'compass') {
+        element.style.backgroundImage = `url(${ITEM_TEX_DIR}compass_00.png)`;
+        return;
+    }
     
     getBlockIcon(type).then(url => {
         if (element.dataset.iconType === type) element.style.backgroundImage = url;
@@ -3319,6 +3355,12 @@ document.addEventListener('mousedown', (e) => {
                         setGlobalBlock(placeX, placeY + 1, placeZ, { type: TYPE.weeping_vines_plant });
                         chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
                     }
+                } else if (placementType === 'kelp') {
+                    let below = getGlobalBlock(placeX, placeY - 1, placeZ);
+                    if (below !== null && (REVERSE_TYPE[below] === 'kelp' || REVERSE_TYPE[below] === 'kelp_plant')) {
+                        setGlobalBlock(placeX, placeY - 1, placeZ, { type: TYPE.kelp_plant });
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
+                    }
                 }
 
                 let rotation = [0, 0, 0];
@@ -3343,18 +3385,24 @@ document.addEventListener('mousedown', (e) => {
                     let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
                     blockStateDict = { facing: facingStr, half: isTop ? 'top' : 'bottom', shape: 'straight' };
                 }
+                else if (placementType === 'pointed_dripstone') {
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
+                    blockStateDict = { vertical_direction: isTop ? 'down' : 'up', thickness: 'tip' };
+                }
                 else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
                     let rotY = 0;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
-                    else rotY = Math.PI/2; 
+                    let facingStr = 'east';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) { rotY = Math.PI; facingStr = 'north'; } 
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) { rotY = -Math.PI/2; facingStr = 'west'; } 
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) { rotY = 0; facingStr = 'south'; } 
+                    else { rotY = Math.PI/2; facingStr = 'east'; }
 
                     rotation = [0, rotY, 0];
-                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0] };
+                    blockStateDict = { half: 'lower', facing: facingStr, open: 'false', hinge: 'left' };
+                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0], state: { half: 'upper', facing: facingStr, open: 'false', hinge: 'left' } };
                 }
                 else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper' || placementType === 'crafter') {
                     let ry = yaw % (Math.PI * 2);
