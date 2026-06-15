@@ -1121,7 +1121,7 @@ async function getBlockIcon(type) {
         let rz = guiConfig.rotation[2];
         
         let threeRx = THREE.MathUtils.degToRad(rx);
-        let threeRy = THREE.MathUtils.degToRad(ry - 90);
+        let threeRy = THREE.MathUtils.degToRad(ry);
         let threeRz = THREE.MathUtils.degToRad(rz);
         
         if (type === 'end_rod') threeRz += Math.PI;
