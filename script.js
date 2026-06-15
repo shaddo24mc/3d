@@ -1110,7 +1110,7 @@ async function getBlockIcon(type) {
     
     mesh.position.set(0, 0, 0);
     
-    let guiConfig = { rotation: [30, 45, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
     if (geo.userData && geo.userData.display && geo.userData.display.gui) {
         guiConfig = geo.userData.display.gui;
     }
@@ -2073,12 +2073,15 @@ function getStairData(x, y, z) {
     let k = `${x},${y},${z}`;
     if (placedBlocks.has(k)) {
         let data = placedBlocks.get(k);
-        if (data && data.isStair) {
-            let typeId = data.type;
-            let bName = REVERSE_TYPE[typeId];
-            if (bName.includes('_inner')) bName = bName.replace('_inner', '');
-            if (bName.includes('_outer')) bName = bName.replace('_outer', '');
-            return { ...data, baseName: bName };
+        if (data && data.type) {
+            let bName = REVERSE_TYPE[data.type];
+            if (bName && bName.includes('stairs')) {
+                let baseName = bName.replace('_inner', '').replace('_outer', '');
+                let facingStr = data.state && data.state.facing ? data.state.facing : 'east';
+                let halfStr = data.state && data.state.half ? data.state.half : 'bottom';
+                let fMap = { 'east': 0, 'north': 1, 'west': 2, 'south': 3 };
+                return { baseName: baseName, facing: fMap[facingStr] || 0, half: halfStr };
+            }
         }
     }
     return null;
@@ -2148,7 +2151,9 @@ function evaluateStair(x, y, z) {
     let targetTypeId = TYPE[finalType];
     
     if (!existing || existing.type !== targetTypeId || !existing.rotation || existing.rotation[0] !== rx || existing.rotation[1] !== finalRotY) {
-        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0] });
+        let newState = existing && existing.state ? { ...existing.state } : {};
+        newState.shape = shape;
+        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0], state: newState });
     }
 }
 
