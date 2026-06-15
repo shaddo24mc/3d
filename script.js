@@ -1110,7 +1110,7 @@ async function getBlockIcon(type) {
     
     mesh.position.set(0, 0, 0);
     
-    let guiConfig = { rotation: [120, 275, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    let guiConfig = { rotation: [120, 320, 45], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
     if (geo.userData && geo.userData.display && geo.userData.display.gui) {
         guiConfig = geo.userData.display.gui;
     }
