@@ -3127,14 +3127,117 @@ for (let y = 127; y >= 0; y--) {
 }
 
 camera.position.set(spawnX, safeSpawnY + 2, spawnZ);
+scene.add(camera);
 
-const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); handGeo.translate(0, 0.4, 0); 
-const playerHand = new THREE.Mesh(handGeo, new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 }));
-playerHand.position.set(0.4, -0.4, -0.1);
-playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
-camera.add(playerHand); scene.add(camera);
+const PLAYER_SKIN_PATH = 'assets/minecraft/textures/entity/player/wide/steve.png';
+const playerTexture = new THREE.TextureLoader().load(PLAYER_SKIN_PATH);
+playerTexture.magFilter = THREE.NearestFilter;
+playerTexture.minFilter = THREE.NearestFilter;
+if (THREE.SRGBColorSpace) playerTexture.colorSpace = THREE.SRGBColorSpace; else playerTexture.encoding = 3001;
 
+function applySkinUVs(geometry, faceUVs) {
+    const uv = geometry.attributes.uv;
+    const order = ['right', 'left', 'top', 'bottom', 'front', 'back'];
+    order.forEach((faceName, faceIdx) => {
+        const r = faceUVs[faceName];
+        if (!r) return;
+        const u1 = r[0] / 64;
+        const v1 = 1 - (r[1] + r[3]) / 64;
+        const u2 = (r[0] + r[2]) / 64;
+        const v2 = 1 - r[1] / 64;
+        const i = faceIdx * 4;
+        uv.setXY(i, u1, v2);
+        uv.setXY(i + 1, u2, v2);
+        uv.setXY(i + 2, u1, v1);
+        uv.setXY(i + 3, u2, v1);
+    });
+    uv.needsUpdate = true;
+}
+
+function makePlayerPart(widthPx, heightPx, depthPx, faceUVs) {
+    const geo = new THREE.BoxGeometry(widthPx / 16, heightPx / 16, depthPx / 16);
+    applySkinUVs(geo, faceUVs);
+    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: playerTexture }));
+}
+function makePlayerArm() {
+    return makePlayerPart(4, 12, 4, {
+        right: [40, 20, 4, 12], left: [48, 20, 4, 12], top: [44, 16, 4, 4],
+        bottom: [48, 16, 4, 4], front: [44, 20, 4, 12], back: [52, 20, 4, 12]
+    });
+}
+
+function buildPlayerModel() {
+    const group = new THREE.Group();
+
+    const head = makePlayerPart(8, 8, 8, {
+        right: [0, 8, 8, 8], left: [16, 8, 8, 8], top: [8, 0, 8, 8],
+        bottom: [16, 0, 8, 8], front: [8, 8, 8, 8], back: [24, 8, 8, 8]
+    });
+    head.position.y = 1.5 + 4 / 16;
+
+    const body = makePlayerPart(8, 12, 4, {
+        right: [16, 20, 4, 12], left: [28, 20, 4, 12], top: [20, 16, 8, 4],
+        bottom: [28, 16, 8, 4], front: [20, 20, 8, 12], back: [32, 20, 8, 12]
+    });
+    body.position.y = 0.75 + 6 / 16;
+
+    const rightArmPivot = new THREE.Group();
+    rightArmPivot.position.set(-6 / 16, 1.5, 0);
+    const rightArm = makePlayerArm();
+    rightArm.position.y = -6 / 16;
+    rightArmPivot.add(rightArm);
+
+    const leftArmPivot = new THREE.Group();
+    leftArmPivot.position.set(6 / 16, 1.5, 0);
+    const leftArm = makePlayerPart(4, 12, 4, {
+        right: [32, 52, 4, 12], left: [40, 52, 4, 12], top: [36, 48, 4, 4],
+        bottom: [40, 48, 4, 4], front: [36, 52, 4, 12], back: [44, 52, 4, 12]
+    });
+    leftArm.position.y = -6 / 16;
+    leftArmPivot.add(leftArm);
+
+    const rightLegPivot = new THREE.Group();
+    rightLegPivot.position.set(-2 / 16, 0.75, 0);
+    const rightLeg = makePlayerPart(4, 12, 4, {
+        right: [0, 20, 4, 12], left: [8, 20, 4, 12], top: [4, 16, 4, 4],
+        bottom: [8, 16, 4, 4], front: [4, 20, 4, 12], back: [12, 20, 4, 12]
+    });
+    rightLeg.position.y = -6 / 16;
+    rightLegPivot.add(rightLeg);
+
+    const leftLegPivot = new THREE.Group();
+    leftLegPivot.position.set(2 / 16, 0.75, 0);
+    const leftLeg = makePlayerPart(4, 12, 4, {
+        right: [16, 52, 4, 12], left: [24, 52, 4, 12], top: [20, 48, 4, 4],
+        bottom: [24, 48, 4, 4], front: [20, 52, 4, 12], back: [28, 52, 4, 12]
+    });
+    leftLeg.position.y = -6 / 16;
+    leftLegPivot.add(leftLeg);
+
+    group.add(head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot);
+    group.userData = { head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot };
+    return group;
+}
+
+const playerModel = buildPlayerModel();
+scene.add(playerModel);
+
+const viewModelScene = new THREE.Scene();
+const viewModelCamera = new THREE.PerspectiveCamera(camera.fov, camera.aspect, 0.01, 10);
+const viewModelLight = new THREE.AmbientLight(0xffffff, 1.25);
+viewModelScene.add(viewModelLight);
+const firstPersonArmPivot = new THREE.Group();
+const firstPersonArm = makePlayerArm();
+firstPersonArm.position.y = -6 / 16;
+firstPersonArmPivot.add(firstPersonArm);
+viewModelScene.add(firstPersonArmPivot);
+
+const CAMERA_VIEWS = { FIRST: 0, THIRD_BACK: 1, THIRD_FRONT: 2 };
+let cameraView = CAMERA_VIEWS.FIRST;
 let yaw = 0, pitch = 0, keys = {};
+let walkCycle = 0;
+const playerEyePosition = camera.position.clone();
+const PLAYER_EYE_HEIGHT = 1.62;
 let isLeftMouseDown = false; 
 
 let mining = { active: false, startTime: 0, blockPosition: null, blockName: null, requiredTime: 500 };
@@ -3431,11 +3534,11 @@ document.addEventListener('mousedown', (e) => {
                     else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west'; 
                     else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south'; 
                     
-                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
                     blockStateDict = { facing: facingStr, half: isTop ? 'top' : 'bottom', shape: 'straight' };
                 }
                 else if (placementType === 'pointed_dripstone') {
-                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
                     blockStateDict = { vertical_direction: isTop ? 'down' : 'up', thickness: 'tip' };
                 }
                 else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
@@ -3545,6 +3648,9 @@ window.addEventListener('keydown', (e) => {
             renderer.domElement.requestPointerLock();
         }
     }
+    if (e.key.toLowerCase() === 'c' && creativeScaleCenter.style.display === 'none' && !e.repeat) {
+        cameraView = (cameraView + 1) % 3;
+    }
 
     if (e.key >= '1' && e.key <= '9' && creativeScaleCenter.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
@@ -3572,6 +3678,83 @@ window.addEventListener('wheel', (e) => {
         updateInventoryUI();
     }
 });
+function getCameraForwardVector(includePitch = true) {
+    const cp = includePitch ? Math.cos(pitch) : 1;
+    return new THREE.Vector3(
+        -Math.sin(yaw) * cp,
+        includePitch ? Math.sin(pitch) : 0,
+        -Math.cos(yaw) * cp
+    ).normalize();
+}
+
+function getThirdPersonCameraPosition(targetOffset) {
+    const eye = playerEyePosition.clone();
+    const desired = eye.clone().add(targetOffset);
+    const steps = Math.ceil(targetOffset.length() / 0.1);
+    const probe = eye.clone();
+
+    for (let i = 1; i <= steps; i++) {
+        probe.lerpVectors(eye, desired, i / steps);
+        const b = getGlobalBlock(Math.round(probe.x), Math.round(probe.y), Math.round(probe.z));
+        if (b !== null && b !== 0 && !isTransparent[b]) {
+            return eye.clone().add(targetOffset.clone().multiplyScalar(Math.max(0, (i - 2) / steps)));
+        }
+    }
+    return desired;
+}
+
+function updateCameraView() {
+    const lookTarget = playerEyePosition.clone().add(getCameraForwardVector(true).multiplyScalar(8));
+
+    if (cameraView === CAMERA_VIEWS.FIRST) {
+        camera.position.copy(playerEyePosition);
+        camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    } else {
+        const flatForward = getCameraForwardVector(false);
+        const distance = cameraView === CAMERA_VIEWS.THIRD_FRONT ? -4 : 4;
+        const offset = flatForward.multiplyScalar(distance).add(new THREE.Vector3(0, 0.35, 0));
+        camera.position.copy(getThirdPersonCameraPosition(offset));
+        camera.lookAt(cameraView === CAMERA_VIEWS.THIRD_FRONT ? playerEyePosition : lookTarget);
+    }
+
+    playerModel.visible = cameraView !== CAMERA_VIEWS.FIRST;
+}
+
+function updatePlayerModel(delta, moving) {
+    const feetY = playerEyePosition.y - PLAYER_EYE_HEIGHT;
+    playerModel.position.set(playerEyePosition.x, feetY, playerEyePosition.z);
+    playerModel.rotation.y = yaw + Math.PI;
+
+    const parts = playerModel.userData;
+    const walkSpeed = moving ? 1 : 0;
+    if (moving) walkCycle += delta * 12;
+
+    const swing = Math.cos(walkCycle * 0.6662) * 1.4 * walkSpeed;
+    const oppositeSwing = Math.cos(walkCycle * 0.6662 + Math.PI) * 1.4 * walkSpeed;
+    parts.rightLegPivot.rotation.x = swing;
+    parts.leftLegPivot.rotation.x = oppositeSwing;
+    parts.rightArmPivot.rotation.x = oppositeSwing;
+    parts.leftArmPivot.rotation.x = swing;
+    parts.head.rotation.x = pitch * 0.5;
+
+    firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
+    const armBaseX = 0.52;
+    const armBaseY = -0.36;
+    const armBaseZ = -0.72;
+    const walkBob = moving ? Math.sin(walkCycle) : 0;
+    const mineSwing = mining.active ? Math.sin(Date.now() * 0.025) : 0;
+
+    firstPersonArmPivot.position.set(
+        armBaseX + Math.sin(walkCycle * 0.5) * 0.03 * walkSpeed,
+        armBaseY + Math.abs(walkBob) * 0.035 * walkSpeed + mineSwing * 0.035,
+        armBaseZ + Math.cos(walkCycle) * 0.04 * walkSpeed + Math.cos(Date.now() * 0.025) * 0.08 * (mining.active ? 1 : 0)
+    );
+    firstPersonArmPivot.rotation.set(
+        -1.05 + Math.abs(walkBob) * 0.12 * walkSpeed + mineSwing * 0.28,
+        -0.28,
+        0.12 + Math.sin(walkCycle) * 0.08 * walkSpeed
+    );
+}
 
 let isGeneratingChunk = false;
 let isRebuildingChunk = false;
@@ -3621,8 +3804,10 @@ function animate() {
         }
     }
 
-    const dx = -camera.position.x;
-    const dz = -camera.position.z;
+    updateCameraView();
+
+    const dx = -playerEyePosition.x;
+    const dz = -playerEyePosition.z;
     const targetAngle = Math.atan2(dx, dz);
     let relAngle = (targetAngle - yaw) % (Math.PI * 2);
     if (relAngle < 0) relAngle += Math.PI * 2;
@@ -3692,7 +3877,7 @@ function animate() {
         item.group.rotation.y += delta * 2;
         if (item.velocity.y === 0) item.group.position.y += Math.sin(item.lifeTime * 4) * 0.002;
         
-        const dist = camera.position.distanceTo(item.group.position);
+        const dist = playerEyePosition.distanceTo(item.group.position);
         if (dist < 1.5) {
             scene.remove(item.group); 
             if (item.mesh.geometry !== itemGeometry) item.mesh.geometry.dispose();
@@ -3704,29 +3889,25 @@ function animate() {
         }
     }
 
-    if (mining.active) {
-        const t = Date.now() * 0.025; 
-        playerHand.rotation.x = (-Math.PI / 3) + Math.sin(t) * 0.25;
-        playerHand.position.z = -0.2 + Math.cos(t) * 0.15;
-        playerHand.position.y = -0.25 + Math.sin(t) * 0.04;
-    } else {
-        playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, -Math.PI / 3, 0.2);
-        playerHand.position.z = THREE.MathUtils.lerp(playerHand.position.z, -0.1, 0.2);
-        playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.4, 0.2);
-    }
-
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
-    
-    if (keys.w) camera.position.addScaledVector(fwd, -moveSpeed * delta);
-    if (keys.s) camera.position.addScaledVector(fwd, moveSpeed * delta);
-    if (keys.a) camera.position.addScaledVector(rgt, moveSpeed * delta);
-    if (keys.d) camera.position.addScaledVector(rgt, -moveSpeed * delta);
-    if (keys[' ']) camera.position.y += moveSpeed * delta;
-    if (keys.shift) camera.position.y -= moveSpeed * delta;
+    const moving = !!(keys.w || keys.s || keys.a || keys.d);
+    if (keys.w) playerEyePosition.addScaledVector(fwd, -moveSpeed * delta);
+    if (keys.s) playerEyePosition.addScaledVector(fwd, moveSpeed * delta);
+    if (keys.a) playerEyePosition.addScaledVector(rgt, moveSpeed * delta);
+    if (keys.d) playerEyePosition.addScaledVector(rgt, -moveSpeed * delta);
+    if (keys[' ']) playerEyePosition.y += moveSpeed * delta;
+    if (keys.shift) playerEyePosition.y -= moveSpeed * delta;
 
-    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    updatePlayerModel(delta, moving);
+    updateCameraView();
     renderer.render(scene, camera);
+    if (cameraView === CAMERA_VIEWS.FIRST) {
+        renderer.clearDepth();
+        viewModelCamera.aspect = camera.aspect;
+        viewModelCamera.updateProjectionMatrix();
+        renderer.render(viewModelScene, viewModelCamera);
+    }
     stats.update();
 }
 
