@@ -725,6 +725,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         const stateJson = await JSONReader.getBlockstate(baseName);
         let modelPartsToLoad = [];
         let combinedDisplay = {};
+        let parsedGuiLight = null;
         
         if (stateJson) {
             if (stateJson.variants) {
@@ -774,6 +775,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 currentModel = await JSONReader.getModel(modelPath);
             }
 
+            if (currentModel && currentModel.gui_light && !parsedGuiLight) parsedGuiLight = currentModel.gui_light;
+
             let elements = currentModel ? currentModel.elements : null;
             let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
             let depth = 0;
@@ -785,6 +788,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 }
                 currentModel = await JSONReader.getModel(parentPath);
                 if (currentModel) {
+                    if (currentModel.gui_light && !parsedGuiLight) parsedGuiLight = currentModel.gui_light;
                     if (!elements && currentModel.elements) elements = currentModel.elements;
                     if (currentModel.textures) {
                         for (let k in currentModel.textures) if (!textures[k]) textures[k] = currentModel.textures[k];
@@ -925,7 +929,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         if (allCompiledGeometries.length === 1) customGeometries[key] = allCompiledGeometries[0];
         else if (allCompiledGeometries.length > 1) customGeometries[key] = mergeBufferGeometries(allCompiledGeometries);
         
-        if (customGeometries[key]) customGeometries[key].userData = { display: combinedDisplay, is2D: isGenerated };
+        if (customGeometries[key]) customGeometries[key].userData = { display: combinedDisplay, is2D: isGenerated, guiLight: parsedGuiLight || 'side' };
         
     } catch(e) {
         const fallbackName = resolveFallbackTexture(bName);
@@ -1131,31 +1135,38 @@ async function getBlockIcon(type) {
         mesh.rotation.set(threeRx, threeRy, threeRz, 'YXZ');
     }
     
-    const normals = [
-        new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
-        new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
-        new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
-    ];
+    let guiLight = geo.userData && geo.userData.guiLight ? geo.userData.guiLight : 'side';
 
-    let bestTop = new THREE.Vector3(0, 1, 0);
-    let bestLeft = new THREE.Vector3(-1, 0, 0);
-    let maxY = -Infinity;
-    let minX = Infinity;
+    if (guiLight === 'front') {
+        iconTopLight.position.set(0, 0, 1);
+        iconLeftLight.position.set(0, 0, 1);
+    } else {
+        const normals = [
+            new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
+            new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
+            new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
+        ];
 
-    for (let n of normals) {
-        let globalN = n.clone().applyEuler(mesh.rotation);
-        if (globalN.y > maxY) {
-            maxY = globalN.y;
-            bestTop.copy(n);
+        let bestTop = new THREE.Vector3(0, 1, 0);
+        let bestLeft = new THREE.Vector3(-1, 0, 0);
+        let maxY = -Infinity;
+        let minX = Infinity;
+
+        for (let n of normals) {
+            let globalN = n.clone().applyEuler(mesh.rotation);
+            if (globalN.y > maxY) {
+                maxY = globalN.y;
+                bestTop.copy(n);
+            }
+            if (globalN.z > 0.01 && globalN.x < minX) {
+                minX = globalN.x;
+                bestLeft.copy(n);
+            }
         }
-        if (globalN.z > 0.01 && globalN.x < minX) {
-            minX = globalN.x;
-            bestLeft.copy(n);
-        }
+
+        iconTopLight.position.copy(bestTop.applyEuler(mesh.rotation));
+        iconLeftLight.position.copy(bestLeft.applyEuler(mesh.rotation));
     }
-
-    iconTopLight.position.copy(bestTop.applyEuler(mesh.rotation));
-    iconLeftLight.position.copy(bestLeft.applyEuler(mesh.rotation));
     
     if (guiConfig.scale) {
         mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
