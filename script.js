@@ -790,7 +790,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                         for (let k in currentModel.textures) if (!textures[k]) textures[k] = currentModel.textures[k];
                     }
                     if (currentModel.display) {
-                        for (let k in currentModel.display) if (!combinedDisplay[k]) combinedDisplay[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
+                        for (let k in currentModel.display) {
+                            if (k === 'gui' || k === 'ground') {
+                                if (!combinedDisplay[k]) combinedDisplay[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
+                            }
+                        }
                     }
                 }
                 depth++;
@@ -1110,7 +1114,7 @@ async function getBlockIcon(type) {
     
     mesh.position.set(0, 0, 0);
     
-    let guiConfig = { rotation: [120, 320, 45], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
+    let guiConfig = { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] };
     if (geo.userData && geo.userData.display && geo.userData.display.gui) {
         guiConfig = geo.userData.display.gui;
     }
@@ -1123,9 +1127,6 @@ async function getBlockIcon(type) {
         let threeRx = THREE.MathUtils.degToRad(rx);
         let threeRy = THREE.MathUtils.degToRad(ry);
         let threeRz = THREE.MathUtils.degToRad(rz);
-        
-        if (type === 'end_rod') threeRz += Math.PI;
-        if (type === 'spore_blossom') threeRz += Math.PI; 
         
         mesh.rotation.set(threeRx, threeRy, threeRz, 'YXZ');
     }
@@ -3127,16 +3128,40 @@ function spawnDroppedItem(x, y, z, blockName) {
     let mat = materials[blockName];
     if (!mat) return; 
 
+    const itemGroup = new THREE.Group();
     const mesh = new THREE.Mesh(geo, mat);
     
-    let scaleFactor = 0.25;
-    if (geo.userData && geo.userData.is2D) scaleFactor = 0.4;
-    mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    let groundConfig = { rotation: [0, 0, 0], translation: [0, 3, 0], scale: [0.25, 0.25, 0.25] };
+    if (geo.userData && geo.userData.display && geo.userData.display.ground) {
+        groundConfig = geo.userData.display.ground;
+    } else if (geo.userData && geo.userData.is2D) {
+        groundConfig.scale = [0.4, 0.4, 0.4];
+    }
+
+    if (groundConfig.scale) {
+        mesh.scale.set(groundConfig.scale[0], groundConfig.scale[1], groundConfig.scale[2]);
+    }
+    if (groundConfig.rotation) {
+        mesh.rotation.set(
+            THREE.MathUtils.degToRad(groundConfig.rotation[0]),
+            THREE.MathUtils.degToRad(groundConfig.rotation[1]),
+            THREE.MathUtils.degToRad(groundConfig.rotation[2]),
+            'YXZ'
+        );
+    }
+    if (groundConfig.translation) {
+        mesh.position.set(
+            groundConfig.translation[0] / 16,
+            groundConfig.translation[1] / 16,
+            groundConfig.translation[2] / 16
+        );
+    }
     
-    mesh.position.set(x, y, z);
+    itemGroup.add(mesh);
+    itemGroup.position.set(x, y, z);
     const velocity = new THREE.Vector3((Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4);
-    scene.add(mesh);
-    droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
+    scene.add(itemGroup);
+    droppedItems.push({ group: itemGroup, mesh: mesh, velocity, blockName, lifeTime: 0 });
 }
 
 function getTarget() {
@@ -3621,16 +3646,16 @@ function animate() {
         item.lifeTime += delta;
         item.velocity.y -= 15 * delta; 
         
-        let nx = item.mesh.position.x + item.velocity.x * delta;
-        let ny = item.mesh.position.y + item.velocity.y * delta;
-        let nz = item.mesh.position.z + item.velocity.z * delta;
+        let nx = item.group.position.x + item.velocity.x * delta;
+        let ny = item.group.position.y + item.velocity.y * delta;
+        let nz = item.group.position.z + item.velocity.z * delta;
 
         let bX = Math.round(nx); let bY = Math.round(ny - 0.25); let bZ = Math.round(nz);
         let blockBelow = getGlobalBlock(bX, bY, bZ);
 
         if (blockBelow === null) {
             item.velocity.set(0, 0, 0);
-            nx = item.mesh.position.x; ny = item.mesh.position.y; nz = item.mesh.position.z;
+            nx = item.group.position.x; ny = item.group.position.y; nz = item.group.position.z;
         } 
         else if (blockBelow !== 0) {
             ny = bY + 0.5 + 0.125; 
@@ -3640,20 +3665,23 @@ function animate() {
             let wallBlock = getGlobalBlock(bX, Math.round(ny), bZ);
             if (wallBlock !== 0 && wallBlock !== null) {
                 item.velocity.x *= -0.5; item.velocity.z *= -0.5;
-                nx = item.mesh.position.x; nz = item.mesh.position.z;
+                nx = item.group.position.x; nz = item.group.position.z;
             }
         }
 
-        item.mesh.position.set(nx, ny, nz);
-        item.mesh.rotation.y += delta * 2;
-        if (item.velocity.y === 0) item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
+        item.group.position.set(nx, ny, nz);
+        item.group.rotation.y += delta * 2;
+        if (item.velocity.y === 0) item.group.position.y += Math.sin(item.lifeTime * 4) * 0.002;
         
-        const dist = camera.position.distanceTo(item.mesh.position);
+        const dist = camera.position.distanceTo(item.group.position);
         if (dist < 1.5) {
-            scene.remove(item.mesh); item.mesh.geometry.dispose();
+            scene.remove(item.group); 
+            if (item.mesh.geometry !== itemGeometry) item.mesh.geometry.dispose();
             droppedItems.splice(i, 1); addItemToInventory(item.blockName, 1);
-        } else if (item.mesh.position.y < minworldY - 20) {
-            scene.remove(item.mesh); item.mesh.geometry.dispose(); droppedItems.splice(i, 1);
+        } else if (item.group.position.y < minworldY - 20) {
+            scene.remove(item.group); 
+            if (item.mesh.geometry !== itemGeometry) item.mesh.geometry.dispose();
+            droppedItems.splice(i, 1);
         }
     }
 
