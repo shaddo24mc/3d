@@ -776,6 +776,17 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             }
 
             if (currentModel && currentModel.gui_light && !parsedGuiLight) parsedGuiLight = currentModel.gui_light;
+            const captureDisplayTransforms = (model) => {
+                if (!model || !model.display) return;
+                for (let k in model.display) {
+                    if (k === 'gui' || k === 'ground') {
+                        if (!combinedDisplay[k]) combinedDisplay[k] = JSON.parse(JSON.stringify(model.display[k]));
+                    }
+                }
+            };
+
+            captureDisplayTransforms(currentModel);
+
 
             let elements = currentModel ? currentModel.elements : null;
             let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
@@ -793,13 +804,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     if (currentModel.textures) {
                         for (let k in currentModel.textures) if (!textures[k]) textures[k] = currentModel.textures[k];
                     }
-                    if (currentModel.display) {
-                        for (let k in currentModel.display) {
-                            if (k === 'gui' || k === 'ground') {
-                                if (!combinedDisplay[k]) combinedDisplay[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
-                            }
-                        }
-                    }
+                    captureDisplayTransforms(currentModel);
                 }
                 depth++;
             }
@@ -1132,7 +1137,10 @@ async function getBlockIcon(type) {
         let threeRy = THREE.MathUtils.degToRad(ry);
         let threeRz = THREE.MathUtils.degToRad(rz);
         
-        mesh.rotation.set(threeRx, threeRy, threeRz, 'YXZ');
+        // Minecraft display transforms are authored as XYZ Euler rotations.
+        // Using a different order makes block icons look rotated even when the
+        // correct display.gui values were read from the model JSON.
+        mesh.rotation.set(threeRx, threeRy, threeRz, 'XYZ');
     }
     
     let guiLight = geo.userData && geo.userData.guiLight ? geo.userData.guiLight : 'side';
