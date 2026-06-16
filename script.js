@@ -3233,6 +3233,7 @@ viewModelScene.add(viewModelLight);
 const firstPersonArmPivot = new THREE.Group();
 const firstPersonArm = makePlayerArm();
 firstPersonArm.position.y = -6 / 16;
+firstPersonArm.rotation.z = Math.PI;
 firstPersonArmPivot.add(firstPersonArm);
 viewModelScene.add(firstPersonArmPivot);
 
@@ -3240,7 +3241,10 @@ const CAMERA_VIEWS = { FIRST: 0, THIRD_BACK: 1, THIRD_FRONT: 2 };
 let cameraView = CAMERA_VIEWS.FIRST;
 let yaw = 0, pitch = 0, keys = {};
 let walkCycle = 0;
+let walkAnimationAmount = 0;
 let bodyYaw = 0;
+let actionSwing = 0;
+let actionType = null;
 const playerEyePosition = camera.position.clone();
 const PLAYER_EYE_HEIGHT = 1.62;
 let isLeftMouseDown = false; 
@@ -3292,8 +3296,8 @@ function spawnDroppedItem(x, y, z, blockName) {
 }
 
 function getTarget() {
-    let start = camera.position.clone();
-    let dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    let start = playerEyePosition.clone();
+    let dir = getCameraForwardVector(true);
     let maxDist = 6;
     let step = 0.05;
     let current = start.clone();
@@ -3446,6 +3450,11 @@ function updateMining() {
 
 document.addEventListener('contextmenu', e => e.preventDefault());
 
+function triggerPlayerAction(type) {
+    actionType = type;
+    actionSwing = 1;
+}
+
 document.addEventListener('mousedown', (e) => {
     if (e.target.closest('#creative-inventory-screen') || e.target.closest('#hotbar')) return; 
     
@@ -3453,10 +3462,12 @@ document.addEventListener('mousedown', (e) => {
         renderer.domElement.requestPointerLock();
     } else if (document.pointerLockElement) {
         if (e.button === 0) {
-            isLeftMouseDown = true; 
+            isLeftMouseDown = true;
+            triggerPlayerAction('mine');
         } else if (e.button === 2) { 
             const hit = getTarget(); 
             if (!hit) return;
+            triggerPlayerAction('place');
             
             const p = hit.position;
             const placeX = Math.round(p.x + hit.normal.x);
@@ -3714,17 +3725,20 @@ function getThirdPersonCameraPosition(targetOffset) {
     }
     return desired;
 }
-
+function getPlayerHeadTarget() {
+    return playerEyePosition.clone().add(new THREE.Vector3(0, -0.12, 0));
+}
 function updateCameraView() {
     if (cameraView === CAMERA_VIEWS.FIRST) {
         camera.position.copy(playerEyePosition);
         camera.rotation.set(pitch, yaw, 0, 'YXZ');
     } else {
+        const headTarget = getPlayerHeadTarget();
         const forward = getCameraForwardVector(true);
         const distance = cameraView === CAMERA_VIEWS.THIRD_FRONT ? 4 : -4;
         const offset = forward.multiplyScalar(distance);
         camera.position.copy(getThirdPersonCameraPosition(offset));
-        camera.lookAt(playerEyePosition);
+        camera.lookAt(headTarget);
     }
 
     playerModel.visible = cameraView !== CAMERA_VIEWS.FIRST;
@@ -3733,40 +3747,59 @@ function updateCameraView() {
 function updatePlayerModel(delta, moving) {
     const feetY = playerEyePosition.y - PLAYER_EYE_HEIGHT;
     playerModel.position.set(playerEyePosition.x, feetY, playerEyePosition.z);
-    bodyYaw = stepAngleToward(bodyYaw, yaw, moving ? 0.22 : 0.14);
-    const neckYaw = THREE.MathUtils.clamp(getWrappedAngleDifference(yaw, bodyYaw), -0.65, 0.65);
+
+    const neckLimit = 0.65;
+    const yawDiff = getWrappedAngleDifference(yaw, bodyYaw);
+    if (moving) {
+        bodyYaw = stepAngleToward(bodyYaw, yaw, 0.34);
+    } else if (Math.abs(yawDiff) > neckLimit) {
+        bodyYaw += yawDiff - Math.sign(yawDiff) * neckLimit;
+    }
+    const neckYaw = THREE.MathUtils.clamp(getWrappedAngleDifference(yaw, bodyYaw), -neckLimit, neckLimit);
     playerModel.rotation.y = bodyYaw + Math.PI;
 
     const parts = playerModel.userData;
-    const walkSpeed = moving ? 1 : 0;
-    if (moving) walkCycle += delta * 12;
+    walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, moving ? 1 : 0, moving ? 0.35 : 0.12);
+    if (walkAnimationAmount > 0.001) walkCycle += delta * 17.2;
 
-    const swing = Math.cos(walkCycle * 0.6662) * 1.4 * walkSpeed;
-    const oppositeSwing = Math.cos(walkCycle * 0.6662 + Math.PI) * 1.4 * walkSpeed;
+    const walkPhase = walkCycle * 0.6662;
+    const swing = Math.cos(walkPhase) * 1.4 * walkAnimationAmount;
+    const oppositeSwing = Math.cos(walkPhase + Math.PI) * 1.4 * walkAnimationAmount;
+    const swingProgress = 1 - actionSwing;
+    const actionRoot = Math.sqrt(Math.max(0, swingProgress));
+    const actionSin = Math.sin(actionRoot * Math.PI);
+    const actionSin2 = Math.sin(swingProgress * swingProgress * Math.PI);
+
     parts.rightLegPivot.rotation.x = swing;
     parts.leftLegPivot.rotation.x = oppositeSwing;
-    parts.rightArmPivot.rotation.x = oppositeSwing;
+    parts.rightArmPivot.rotation.x = oppositeSwing - actionSin * 1.2;
+    parts.rightArmPivot.rotation.y = actionSin2 * 0.25;
+    parts.rightArmPivot.rotation.z = actionType === 'place' ? -actionSin * 0.35 : 0;
     parts.leftArmPivot.rotation.x = swing;
     parts.headPivot.rotation.x = pitch * 0.5;
     parts.headPivot.rotation.y = neckYaw;
 
     firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
-    const armBaseX = 0.52;
-    const armBaseY = -0.36;
-    const armBaseZ = -0.72;
-    const walkBob = moving ? Math.sin(walkCycle) : 0;
-    const mineSwing = mining.active ? Math.sin(Date.now() * 0.025) : 0;
+    const armBaseX = 0.58;
+    const armBaseY = -0.58;
+    const armBaseZ = -0.82;
+    const walkU = Math.sin(walkPhase);
+    const walkU2 = Math.cos(walkPhase);
+    const useDrop = Math.sin(actionRoot * Math.PI * 2);
 
     firstPersonArmPivot.position.set(
-        armBaseX + Math.sin(walkCycle * 0.5) * 0.03 * walkSpeed,
-        armBaseY + Math.abs(walkBob) * 0.035 * walkSpeed + mineSwing * 0.035,
-        armBaseZ + Math.cos(walkCycle) * 0.04 * walkSpeed + Math.cos(Date.now() * 0.025) * 0.08 * (mining.active ? 1 : 0)
+        armBaseX - actionSin * 0.42 + walkU * 0.035 * walkAnimationAmount,
+        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount - useDrop * 0.16,
+        armBaseZ - actionSin2 * 0.24 + walkU2 * 0.035 * walkAnimationAmount
     );
     firstPersonArmPivot.rotation.set(
-        -1.05 + Math.abs(walkBob) * 0.12 * walkSpeed + mineSwing * 0.28,
-        -0.28,
-        0.12 + Math.sin(walkCycle) * 0.08 * walkSpeed
+        -1.22 - actionSin * 0.55 + Math.abs(walkU) * 0.08 * walkAnimationAmount,
+        -0.38 + actionSin2 * 0.35,
+        0.28 + walkU * 0.08 * walkAnimationAmount - actionSin * 0.25
     );
+
+    actionSwing = Math.max(0, actionSwing - delta * (actionType === 'place' ? 5.5 : 4.0));
+    if (actionSwing === 0) actionType = null;
 }
 
 let isGeneratingChunk = false;
