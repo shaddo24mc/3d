@@ -30,6 +30,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 renderer.shadowMap.enabled = false; 
+renderer.autoClear = false;
 if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = 3001;
 document.body.appendChild(renderer.domElement);
 
@@ -3169,11 +3170,14 @@ function makePlayerArm() {
 function buildPlayerModel() {
     const group = new THREE.Group();
 
+    const headPivot = new THREE.Group();
+    headPivot.position.y = 1.5;
     const head = makePlayerPart(8, 8, 8, {
         right: [0, 8, 8, 8], left: [16, 8, 8, 8], top: [8, 0, 8, 8],
         bottom: [16, 0, 8, 8], front: [8, 8, 8, 8], back: [24, 8, 8, 8]
     });
-    head.position.y = 1.5 + 4 / 16;
+    head.position.y = 4 / 16;
+    headPivot.add(head);
 
     const body = makePlayerPart(8, 12, 4, {
         right: [16, 20, 4, 12], left: [28, 20, 4, 12], top: [20, 16, 8, 4],
@@ -3214,8 +3218,8 @@ function buildPlayerModel() {
     leftLeg.position.y = -6 / 16;
     leftLegPivot.add(leftLeg);
 
-    group.add(head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot);
-    group.userData = { head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot };
+    group.add(headPivot, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot);
+    group.userData = { headPivot, head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot };
     return group;
 }
 
@@ -3236,6 +3240,7 @@ const CAMERA_VIEWS = { FIRST: 0, THIRD_BACK: 1, THIRD_FRONT: 2 };
 let cameraView = CAMERA_VIEWS.FIRST;
 let yaw = 0, pitch = 0, keys = {};
 let walkCycle = 0;
+let bodyYaw = 0;
 const playerEyePosition = camera.position.clone();
 const PLAYER_EYE_HEIGHT = 1.62;
 let isLeftMouseDown = false; 
@@ -3678,6 +3683,13 @@ window.addEventListener('wheel', (e) => {
         updateInventoryUI();
     }
 });
+function getWrappedAngleDifference(target, current) {
+    return Math.atan2(Math.sin(target - current), Math.cos(target - current));
+}
+
+function stepAngleToward(current, target, amount) {
+    return current + getWrappedAngleDifference(target, current) * amount;
+}
 function getCameraForwardVector(includePitch = true) {
     const cp = includePitch ? Math.cos(pitch) : 1;
     return new THREE.Vector3(
@@ -3704,17 +3716,15 @@ function getThirdPersonCameraPosition(targetOffset) {
 }
 
 function updateCameraView() {
-    const lookTarget = playerEyePosition.clone().add(getCameraForwardVector(true).multiplyScalar(8));
-
     if (cameraView === CAMERA_VIEWS.FIRST) {
         camera.position.copy(playerEyePosition);
         camera.rotation.set(pitch, yaw, 0, 'YXZ');
     } else {
-        const flatForward = getCameraForwardVector(false);
-        const distance = cameraView === CAMERA_VIEWS.THIRD_FRONT ? -4 : 4;
-        const offset = flatForward.multiplyScalar(distance).add(new THREE.Vector3(0, 0.35, 0));
+        const forward = getCameraForwardVector(true);
+        const distance = cameraView === CAMERA_VIEWS.THIRD_FRONT ? 4 : -4;
+        const offset = forward.multiplyScalar(distance);
         camera.position.copy(getThirdPersonCameraPosition(offset));
-        camera.lookAt(cameraView === CAMERA_VIEWS.THIRD_FRONT ? playerEyePosition : lookTarget);
+        camera.lookAt(playerEyePosition);
     }
 
     playerModel.visible = cameraView !== CAMERA_VIEWS.FIRST;
@@ -3723,7 +3733,9 @@ function updateCameraView() {
 function updatePlayerModel(delta, moving) {
     const feetY = playerEyePosition.y - PLAYER_EYE_HEIGHT;
     playerModel.position.set(playerEyePosition.x, feetY, playerEyePosition.z);
-    playerModel.rotation.y = yaw + Math.PI;
+    bodyYaw = stepAngleToward(bodyYaw, yaw, moving ? 0.22 : 0.14);
+    const neckYaw = THREE.MathUtils.clamp(getWrappedAngleDifference(yaw, bodyYaw), -0.65, 0.65);
+    playerModel.rotation.y = bodyYaw + Math.PI;
 
     const parts = playerModel.userData;
     const walkSpeed = moving ? 1 : 0;
@@ -3735,7 +3747,8 @@ function updatePlayerModel(delta, moving) {
     parts.leftLegPivot.rotation.x = oppositeSwing;
     parts.rightArmPivot.rotation.x = oppositeSwing;
     parts.leftArmPivot.rotation.x = swing;
-    parts.head.rotation.x = pitch * 0.5;
+    parts.headPivot.rotation.x = pitch * 0.5;
+    parts.headPivot.rotation.y = neckYaw;
 
     firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
     const armBaseX = 0.52;
@@ -3901,6 +3914,7 @@ function animate() {
 
     updatePlayerModel(delta, moving);
     updateCameraView();
+    renderer.clear();
     renderer.render(scene, camera);
     if (cameraView === CAMERA_VIEWS.FIRST) {
         renderer.clearDepth();
