@@ -3270,14 +3270,6 @@ let isOnGround = false;
 let isFlying = false;
 let tickAccumulator = 0; 
 
-const PLAYER_HALF_WIDTH = 0.3;
-const PLAYER_HEIGHT = 1.8;
-const GRAVITY = 28;
-const JUMP_VELOCITY = 8.4;
-let playerVelocityY = 0;
-let isOnGround = false;
-let isFlying = false; 
-
 let mining = { active: false, startTime: 0, blockPosition: null, blockName: null, requiredTime: 500 };
 
 const droppedItems = [];
@@ -3698,7 +3690,7 @@ window.addEventListener('keydown', (e) => {
     }
     if (e.key.toLowerCase() === 'f' && creativeScaleCenter.style.display === 'none' && !e.repeat) {
         isFlying = !isFlying;
-        playerVelocityY = 0;
+        playerVelX = 0; playerVelY = 0; playerVelZ = 0;
     }
 
     if (e.key >= '1' && e.key <= '9' && creativeScaleCenter.style.display === 'none') {
@@ -3861,70 +3853,6 @@ function physicsTick(fwd, rgt) {
             isOnGround = false;
         } else {
             isOnGround = boxCollidesAt(posX, feetY - 0.001, posZ);
-        }
-    }
-
-    playerEyePosition.x = posX;
-    playerEyePosition.z = posZ;
-    playerEyePosition.y = feetY + PLAYER_EYE_HEIGHT;
-}
-
-function updateCameraView() {
-
-function moveWithCollision(delta, fwd, rgt) {
-    let feetY = playerEyePosition.y - PLAYER_EYE_HEIGHT;
-    let posX = playerEyePosition.x;
-    let posZ = playerEyePosition.z;
-
-    let moveX = 0, moveZ = 0;
-    if (keys.w) { moveX -= fwd.x; moveZ -= fwd.z; }
-    if (keys.s) { moveX += fwd.x; moveZ += fwd.z; }
-    if (keys.a) { moveX += rgt.x; moveZ += rgt.z; }
-    if (keys.d) { moveX -= rgt.x; moveZ -= rgt.z; }
-
-    const moveLen = Math.hypot(moveX, moveZ);
-    if (moveLen > 0) {
-        moveX = (moveX / moveLen) * moveSpeed * delta;
-        moveZ = (moveZ / moveLen) * moveSpeed * delta;
-    }
-
-    if (!boxCollidesAt(posX + moveX, feetY, posZ)) {
-        posX += moveX;
-    }
-    if (!boxCollidesAt(posX, feetY, posZ + moveZ)) {
-        posZ += moveZ;
-    }
-
-    if (isFlying) {
-        if (keys[' ']) feetY += moveSpeed * delta;
-        if (keys.shift) feetY -= moveSpeed * delta;
-        playerVelocityY = 0;
-        isOnGround = false;
-    } else {
-        playerVelocityY -= GRAVITY * delta;
-        if (playerVelocityY < -50) playerVelocityY = -50;
-
-        let deltaY = playerVelocityY * delta;
-        if (deltaY < 0) {
-            if (!boxCollidesAt(posX, feetY + deltaY, posZ)) {
-                feetY += deltaY;
-                isOnGround = false;
-            } else {
-                playerVelocityY = 0;
-                isOnGround = true;
-            }
-        } else if (deltaY > 0) {
-            if (!boxCollidesAt(posX, feetY + deltaY, posZ)) {
-                feetY += deltaY;
-            } else {
-                playerVelocityY = 0;
-            }
-            isOnGround = false;
-        }
-
-        if (keys[' '] && isOnGround) {
-            playerVelocityY = JUMP_VELOCITY;
-            isOnGround = false;
         }
     }
 
