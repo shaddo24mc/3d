@@ -3739,20 +3739,20 @@ function updateCameraView() {
     } else {
         const isFront = cameraView === CAMERA_VIEWS.THIRD_FRONT;
         const distance = 4;
-        
+
         const offsetDir = getCameraForwardVector(true);
-        if (!isFront) offsetDir.negate();
-        
+        if (isFront) offsetDir.negate();
+
         const offset = offsetDir.multiplyScalar(distance);
         const headCenter = playerEyePosition.clone();
         headCenter.y += 0.13;
-        
+
         camera.position.copy(getThirdPersonCameraPosition(headCenter, offset));
-        
+        camera.up.set(0, 1, 0);
+        camera.lookAt(headCenter);
+
         if (isFront) {
-            camera.rotation.set(-pitch, yaw + Math.PI, 0, 'YXZ');
-        } else {
-            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            camera.rotation.y += Math.PI;
         }
     }
 
