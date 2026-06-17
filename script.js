@@ -3235,6 +3235,11 @@ const firstPersonArm = makePlayerArm();
 firstPersonArm.position.y = -6 / 16;
 firstPersonArm.rotation.z = Math.PI;
 firstPersonArmPivot.add(firstPersonArm);
+firstPersonArmPivot.rotation.set(
+    THREE.MathUtils.degToRad(-10),
+    THREE.MathUtils.degToRad(6),
+    THREE.MathUtils.degToRad(-2)
+);
 viewModelScene.add(firstPersonArmPivot);
 
 const CAMERA_VIEWS = { FIRST: 0, THIRD_BACK: 1, THIRD_FRONT: 2 };
@@ -3802,9 +3807,9 @@ function updatePlayerModel(delta, moving) {
 
     firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
     
-    const armBaseX = 0.5;
-    const armBaseY = -0.55;
-    const armBaseZ = -0.6;
+    const armBaseX = 0.56;
+    const armBaseY = -0.52;
+    const armBaseZ = -0.72;
     
     const walkU = Math.sin(walkPhase);
     const walkU2 = Math.cos(walkPhase);
@@ -3816,10 +3821,12 @@ function updatePlayerModel(delta, moving) {
         armBaseZ - actionSin2 * 0.2
     );
     firstPersonArmPivot.rotation.set(
-        -0.1 - actionSin * 0.5 + Math.abs(walkU) * 0.05 * walkAnimationAmount,
-        0.1 + actionSin2 * 0.2,
-        0.0 + walkU * 0.05 * walkAnimationAmount - actionSin * 0.1
+        -actionSin * 0.5 + Math.abs(walkU) * 0.05 * walkAnimationAmount,
+        actionSin2 * 0.2,
+        walkU * 0.05 * walkAnimationAmount - actionSin * 0.1
     );
+
+    viewModelCamera.rotation.set(pitch * 0.2, 0, 0, 'YXZ');
 
     actionSwing = Math.max(0, actionSwing - delta * (actionType === 'place' ? 5.5 : 4.0));
     if (actionSwing === 0) actionType = null;
