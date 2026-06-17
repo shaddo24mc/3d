@@ -3254,6 +3254,30 @@ const playerEyePosition = camera.position.clone();
 const PLAYER_EYE_HEIGHT = 1.62;
 let isLeftMouseDown = false; 
 
+// --- Minecraft-accurate movement constants (blocks/tick, 20 ticks/second) ---
+const TICK_DT = 1 / 20;
+const PLAYER_HALF_WIDTH = 0.3;
+const PLAYER_HEIGHT = 1.8;
+const GROUND_SLIPPERINESS = 0.6;
+const AIR_SLIPPERINESS = 1.0;
+const GRAVITY_PER_TICK = 0.08;
+const VERTICAL_DRAG = 0.98;
+const JUMP_MOTION = 0.42;
+const BASE_ACCEL = 0.1;
+
+let playerVelX = 0, playerVelY = 0, playerVelZ = 0;
+let isOnGround = false;
+let isFlying = false;
+let tickAccumulator = 0; 
+
+const PLAYER_HALF_WIDTH = 0.3;
+const PLAYER_HEIGHT = 1.8;
+const GRAVITY = 28;
+const JUMP_VELOCITY = 8.4;
+let playerVelocityY = 0;
+let isOnGround = false;
+let isFlying = false; 
+
 let mining = { active: false, startTime: 0, blockPosition: null, blockName: null, requiredTime: 500 };
 
 const droppedItems = [];
@@ -3672,6 +3696,10 @@ window.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'c' && creativeScaleCenter.style.display === 'none' && !e.repeat) {
         cameraView = (cameraView + 1) % 3;
     }
+    if (e.key.toLowerCase() === 'f' && creativeScaleCenter.style.display === 'none' && !e.repeat) {
+        isFlying = !isFlying;
+        playerVelocityY = 0;
+    }
 
     if (e.key >= '1' && e.key <= '9' && creativeScaleCenter.style.display === 'none') {
         selectedSlot = parseInt(e.key) - 1;
@@ -3732,6 +3760,179 @@ function getThirdPersonCameraPosition(startPos, targetOffset) {
 function getPlayerHeadTarget() {
     return playerEyePosition.clone().add(new THREE.Vector3(0, -0.12, 0));
 }
+
+function isSolidBlock(bx, by, bz) {
+    const b = getGlobalBlock(bx, by, bz);
+    if (b === null || b === 0) return false;
+    return !isTransparent[b];
+}
+
+function boxCollidesAt(centerX, feetY, centerZ) {
+    const minX = Math.floor(centerX - PLAYER_HALF_WIDTH);
+    const maxX = Math.floor(centerX + PLAYER_HALF_WIDTH - 1e-7);
+    const minY = Math.floor(feetY + 1e-7);
+    const maxY = Math.floor(feetY + PLAYER_HEIGHT - 1e-7);
+    const minZ = Math.floor(centerZ - PLAYER_HALF_WIDTH);
+    const maxZ = Math.floor(centerZ + PLAYER_HALF_WIDTH - 1e-7);
+
+    for (let bx = minX; bx <= maxX; bx++) {
+        for (let by = minY; by <= maxY; by++) {
+            for (let bz = minZ; bz <= maxZ; bz++) {
+                if (isSolidBlock(bx, by, bz)) return true;
+            }
+        }
+    }
+    return false;
+}
+
+// One Minecraft-accurate physics tick (1/20 second), matching the decompiled
+// vanilla formulas: acceleration toward input direction, then momentum decay
+// via slipperiness * 0.91 (ground) or 1.0 * 0.91 (air), gravity -0.08/tick
+// with 0.98 drag on motionY, and jump impulse of 0.42.
+function physicsTick(fwd, rgt) {
+    let feetY = playerEyePosition.y - PLAYER_EYE_HEIGHT;
+    let posX = playerEyePosition.x;
+    let posZ = playerEyePosition.z;
+
+    let inputX = 0, inputZ = 0;
+    if (keys.w) { inputX -= fwd.x; inputZ -= fwd.z; }
+    if (keys.s) { inputX += fwd.x; inputZ += fwd.z; }
+    if (keys.a) { inputX += rgt.x; inputZ += rgt.z; }
+    if (keys.d) { inputX -= rgt.x; inputZ -= rgt.z; }
+    const inputLen = Math.hypot(inputX, inputZ);
+    if (inputLen > 0) { inputX /= inputLen; inputZ /= inputLen; }
+
+    if (isFlying) {
+        const flySpeed = 0.6;
+        posX += inputX * flySpeed;
+        posZ += inputZ * flySpeed;
+        if (keys[' ']) feetY += flySpeed;
+        if (keys.shift) feetY -= flySpeed;
+        playerVelX = 0; playerVelY = 0; playerVelZ = 0;
+        isOnGround = false;
+    } else {
+        const slip = isOnGround ? GROUND_SLIPPERINESS : AIR_SLIPPERINESS;
+        const accel = BASE_ACCEL * Math.pow(0.6 / slip, 3) * (isOnGround ? 1 : 0.2);
+
+        playerVelX += inputX * accel;
+        playerVelZ += inputZ * accel;
+
+        playerVelY -= GRAVITY_PER_TICK;
+        playerVelY *= VERTICAL_DRAG;
+
+        if (keys[' '] && isOnGround) {
+            playerVelY = JUMP_MOTION;
+        }
+
+        const friction = slip * 0.91;
+        playerVelX *= friction;
+        playerVelZ *= friction;
+        if (Math.abs(playerVelX) < 0.003) playerVelX = 0;
+        if (Math.abs(playerVelZ) < 0.003) playerVelZ = 0;
+
+        // Resolve X and Z separately so the player slides along walls
+        // instead of getting fully stopped by diagonal collisions.
+        if (!boxCollidesAt(posX + playerVelX, feetY, posZ)) {
+            posX += playerVelX;
+        } else {
+            playerVelX = 0;
+        }
+        if (!boxCollidesAt(posX, feetY, posZ + playerVelZ)) {
+            posZ += playerVelZ;
+        } else {
+            playerVelZ = 0;
+        }
+
+        // Resolve Y, detecting ground/ceiling contact.
+        if (playerVelY < 0) {
+            if (!boxCollidesAt(posX, feetY + playerVelY, posZ)) {
+                feetY += playerVelY;
+                isOnGround = false;
+            } else {
+                playerVelY = 0;
+                isOnGround = true;
+            }
+        } else if (playerVelY > 0) {
+            if (!boxCollidesAt(posX, feetY + playerVelY, posZ)) {
+                feetY += playerVelY;
+            } else {
+                playerVelY = 0;
+            }
+            isOnGround = false;
+        } else {
+            isOnGround = boxCollidesAt(posX, feetY - 0.001, posZ);
+        }
+    }
+
+    playerEyePosition.x = posX;
+    playerEyePosition.z = posZ;
+    playerEyePosition.y = feetY + PLAYER_EYE_HEIGHT;
+}
+
+function updateCameraView() {
+
+function moveWithCollision(delta, fwd, rgt) {
+    let feetY = playerEyePosition.y - PLAYER_EYE_HEIGHT;
+    let posX = playerEyePosition.x;
+    let posZ = playerEyePosition.z;
+
+    let moveX = 0, moveZ = 0;
+    if (keys.w) { moveX -= fwd.x; moveZ -= fwd.z; }
+    if (keys.s) { moveX += fwd.x; moveZ += fwd.z; }
+    if (keys.a) { moveX += rgt.x; moveZ += rgt.z; }
+    if (keys.d) { moveX -= rgt.x; moveZ -= rgt.z; }
+
+    const moveLen = Math.hypot(moveX, moveZ);
+    if (moveLen > 0) {
+        moveX = (moveX / moveLen) * moveSpeed * delta;
+        moveZ = (moveZ / moveLen) * moveSpeed * delta;
+    }
+
+    if (!boxCollidesAt(posX + moveX, feetY, posZ)) {
+        posX += moveX;
+    }
+    if (!boxCollidesAt(posX, feetY, posZ + moveZ)) {
+        posZ += moveZ;
+    }
+
+    if (isFlying) {
+        if (keys[' ']) feetY += moveSpeed * delta;
+        if (keys.shift) feetY -= moveSpeed * delta;
+        playerVelocityY = 0;
+        isOnGround = false;
+    } else {
+        playerVelocityY -= GRAVITY * delta;
+        if (playerVelocityY < -50) playerVelocityY = -50;
+
+        let deltaY = playerVelocityY * delta;
+        if (deltaY < 0) {
+            if (!boxCollidesAt(posX, feetY + deltaY, posZ)) {
+                feetY += deltaY;
+                isOnGround = false;
+            } else {
+                playerVelocityY = 0;
+                isOnGround = true;
+            }
+        } else if (deltaY > 0) {
+            if (!boxCollidesAt(posX, feetY + deltaY, posZ)) {
+                feetY += deltaY;
+            } else {
+                playerVelocityY = 0;
+            }
+            isOnGround = false;
+        }
+
+        if (keys[' '] && isOnGround) {
+            playerVelocityY = JUMP_VELOCITY;
+            isOnGround = false;
+        }
+    }
+
+    playerEyePosition.x = posX;
+    playerEyePosition.z = posZ;
+    playerEyePosition.y = feetY + PLAYER_EYE_HEIGHT;
+}
+
 function updateCameraView() {
     if (cameraView === CAMERA_VIEWS.FIRST) {
         camera.position.copy(playerEyePosition);
@@ -3970,15 +4171,16 @@ function animate() {
         }
     }
 
-    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
     const moving = !!(keys.w || keys.s || keys.a || keys.d);
-    if (keys.w) playerEyePosition.addScaledVector(fwd, -moveSpeed * delta);
-    if (keys.s) playerEyePosition.addScaledVector(fwd, moveSpeed * delta);
-    if (keys.a) playerEyePosition.addScaledVector(rgt, moveSpeed * delta);
-    if (keys.d) playerEyePosition.addScaledVector(rgt, -moveSpeed * delta);
-    if (keys[' ']) playerEyePosition.y += moveSpeed * delta;
-    if (keys.shift) playerEyePosition.y -= moveSpeed * delta;
+
+    tickAccumulator += delta;
+    tickAccumulator = Math.min(tickAccumulator, TICK_DT * 5);
+    while (tickAccumulator >= TICK_DT) {
+        physicsTick(fwd, rgt);
+        tickAccumulator -= TICK_DT;
+    }
 
     updatePlayerModel(delta, moving);
     updateCameraView();
