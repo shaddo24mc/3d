@@ -3730,7 +3730,9 @@ function getThirdPersonCameraPosition(startPos, targetOffset) {
     return desired;
 }
 function getPlayerHeadTarget() {
-    return playerEyePosition.clone().add(new THREE.Vector3(0, -0.12, 0));
+    const headPivot = playerModel.userData.headPivot;
+    headPivot.updateWorldMatrix(true, false);
+    return headPivot.getWorldPosition(new THREE.Vector3());
 }
 function updateCameraView() {
     if (cameraView === CAMERA_VIEWS.FIRST) {
@@ -3749,7 +3751,7 @@ function updateCameraView() {
 
         camera.position.copy(getThirdPersonCameraPosition(headCenter, offset));
         camera.up.set(0, 1, 0);
-        camera.lookAt(headCenter);
+        camera.lookAt(getPlayerHeadTarget());
 
         if (isFront) {
             camera.rotation.y += Math.PI;
