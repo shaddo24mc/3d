@@ -3710,17 +3710,16 @@ function getCameraForwardVector(includePitch = true) {
     ).normalize();
 }
 
-function getThirdPersonCameraPosition(targetOffset) {
-    const eye = playerEyePosition.clone();
-    const desired = eye.clone().add(targetOffset);
+function getThirdPersonCameraPosition(startPos, targetOffset) {
+    const desired = startPos.clone().add(targetOffset);
     const steps = Math.ceil(targetOffset.length() / 0.1);
-    const probe = eye.clone();
+    const probe = startPos.clone();
 
     for (let i = 1; i <= steps; i++) {
-        probe.lerpVectors(eye, desired, i / steps);
+        probe.lerpVectors(startPos, desired, i / steps);
         const b = getGlobalBlock(Math.round(probe.x), Math.round(probe.y), Math.round(probe.z));
         if (b !== null && b !== 0 && !isTransparent[b]) {
-            return eye.clone().add(targetOffset.clone().multiplyScalar(Math.max(0, (i - 2) / steps)));
+            return startPos.clone().add(targetOffset.clone().multiplyScalar(Math.max(0, (i - 2) / steps)));
         }
     }
     return desired;
@@ -3740,7 +3739,10 @@ function updateCameraView() {
         if (!isFront) offsetDir.negate();
         
         const offset = offsetDir.multiplyScalar(distance);
-        camera.position.copy(getThirdPersonCameraPosition(offset));
+        const headCenter = playerEyePosition.clone();
+        headCenter.y += 0.13;
+        
+        camera.position.copy(getThirdPersonCameraPosition(headCenter, offset));
         
         if (isFront) {
             camera.rotation.set(-pitch, yaw + Math.PI, 0, 'YXZ');
@@ -3783,39 +3785,40 @@ function updatePlayerModel(delta, moving) {
     const actionSin = Math.sin(actionRoot * Math.PI);
     const actionSin2 = Math.sin(swingProgress * swingProgress * Math.PI);
 
+    const time = performance.now() / 1000;
+    const idleBobX = Math.sin(time * 1.2) * 0.03;
+    const idleBobZ = Math.sin(time * 1.2) * 0.03;
+    const idleAmount = 1.0 - walkAnimationAmount;
+
     parts.rightLegPivot.rotation.x = swing;
     parts.leftLegPivot.rotation.x = oppositeSwing;
-    parts.rightArmPivot.rotation.x = oppositeSwing - actionSin * 1.2;
+    parts.rightArmPivot.rotation.x = oppositeSwing - actionSin * 1.2 + idleBobX * idleAmount;
     parts.rightArmPivot.rotation.y = actionSin2 * 0.25;
-    parts.rightArmPivot.rotation.z = actionType === 'place' ? -actionSin * 0.35 : 0;
-    parts.leftArmPivot.rotation.x = swing;
+    parts.rightArmPivot.rotation.z = (actionType === 'place' ? -actionSin * 0.35 : 0) + idleBobZ * idleAmount;
+    parts.leftArmPivot.rotation.x = swing + idleBobX * idleAmount;
+    parts.leftArmPivot.rotation.z = -idleBobZ * idleAmount;
     parts.headPivot.rotation.x = -pitch;
     parts.headPivot.rotation.y = neckYaw;
 
     firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
     
-    const armBaseX = 0.55;
-    const armBaseY = -0.52;
-    const armBaseZ = -0.68;
+    const armBaseX = 0.5;
+    const armBaseY = -0.55;
+    const armBaseZ = -0.6;
     
     const walkU = Math.sin(walkPhase);
     const walkU2 = Math.cos(walkPhase);
     const useDrop = Math.sin(actionRoot * Math.PI * 2);
 
-    const time = performance.now() / 1000;
-    const idleBobX = Math.sin(time * 1.2) * 0.015;
-    const idleBobY = Math.cos(time * 1.5) * 0.02;
-    const idleBobRot = Math.sin(time * 1.2) * 0.02;
-
     firstPersonArmPivot.position.set(
-        armBaseX - actionSin * 0.42 + walkU * 0.035 * walkAnimationAmount + idleBobX,
-        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount - useDrop * 0.16 + idleBobY,
-        armBaseZ - actionSin2 * 0.24 + walkU2 * 0.035 * walkAnimationAmount
+        armBaseX - actionSin * 0.3 + walkU * 0.035 * walkAnimationAmount,
+        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount - useDrop * 0.16,
+        armBaseZ - actionSin2 * 0.2
     );
     firstPersonArmPivot.rotation.set(
-        -0.8 - actionSin * 0.55 + Math.abs(walkU) * 0.08 * walkAnimationAmount + idleBobRot,
-        -0.2 + actionSin2 * 0.35,
-        0.2 + walkU * 0.08 * walkAnimationAmount - actionSin * 0.25
+        -0.1 - actionSin * 0.5 + Math.abs(walkU) * 0.05 * walkAnimationAmount,
+        0.1 + actionSin2 * 0.2,
+        0.0 + walkU * 0.05 * walkAnimationAmount - actionSin * 0.1
     );
 
     actionSwing = Math.max(0, actionSwing - delta * (actionType === 'place' ? 5.5 : 4.0));
