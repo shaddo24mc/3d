@@ -3733,12 +3733,20 @@ function updateCameraView() {
         camera.position.copy(playerEyePosition);
         camera.rotation.set(pitch, yaw, 0, 'YXZ');
     } else {
-        const headTarget = getPlayerHeadTarget();
-        const forward = getCameraForwardVector(true);
-        const distance = cameraView === CAMERA_VIEWS.THIRD_FRONT ? 4 : -4;
-        const offset = forward.multiplyScalar(distance);
+        const isFront = cameraView === CAMERA_VIEWS.THIRD_FRONT;
+        const distance = 4;
+        
+        const offsetDir = getCameraForwardVector(true);
+        if (!isFront) offsetDir.negate();
+        
+        const offset = offsetDir.multiplyScalar(distance);
         camera.position.copy(getThirdPersonCameraPosition(offset));
-        camera.lookAt(headTarget);
+        
+        if (isFront) {
+            camera.rotation.set(-pitch, yaw + Math.PI, 0, 'YXZ');
+        } else {
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+        }
     }
 
     playerModel.visible = cameraView !== CAMERA_VIEWS.FIRST;
@@ -3759,8 +3767,13 @@ function updatePlayerModel(delta, moving) {
     playerModel.rotation.y = bodyYaw + Math.PI;
 
     const parts = playerModel.userData;
-    walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, moving ? 1 : 0, moving ? 0.35 : 0.12);
-    if (walkAnimationAmount > 0.001) walkCycle += delta * 17.2;
+    
+    if (moving) {
+        walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, 1, 0.35);
+        walkCycle += delta * 17.2;
+    } else {
+        walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, 0, 0.2);
+    }
 
     const walkPhase = walkCycle * 0.6662;
     const swing = Math.cos(walkPhase) * 1.4 * walkAnimationAmount;
@@ -3776,26 +3789,33 @@ function updatePlayerModel(delta, moving) {
     parts.rightArmPivot.rotation.y = actionSin2 * 0.25;
     parts.rightArmPivot.rotation.z = actionType === 'place' ? -actionSin * 0.35 : 0;
     parts.leftArmPivot.rotation.x = swing;
-    parts.headPivot.rotation.x = pitch * 0.5;
+    parts.headPivot.rotation.x = -pitch;
     parts.headPivot.rotation.y = neckYaw;
 
     firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
-    const armBaseX = 0.58;
-    const armBaseY = -0.58;
-    const armBaseZ = -0.82;
+    
+    const armBaseX = 0.55;
+    const armBaseY = -0.52;
+    const armBaseZ = -0.68;
+    
     const walkU = Math.sin(walkPhase);
     const walkU2 = Math.cos(walkPhase);
     const useDrop = Math.sin(actionRoot * Math.PI * 2);
 
+    const time = performance.now() / 1000;
+    const idleBobX = Math.sin(time * 1.2) * 0.015;
+    const idleBobY = Math.cos(time * 1.5) * 0.02;
+    const idleBobRot = Math.sin(time * 1.2) * 0.02;
+
     firstPersonArmPivot.position.set(
-        armBaseX - actionSin * 0.42 + walkU * 0.035 * walkAnimationAmount,
-        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount - useDrop * 0.16,
+        armBaseX - actionSin * 0.42 + walkU * 0.035 * walkAnimationAmount + idleBobX,
+        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount - useDrop * 0.16 + idleBobY,
         armBaseZ - actionSin2 * 0.24 + walkU2 * 0.035 * walkAnimationAmount
     );
     firstPersonArmPivot.rotation.set(
-        -1.22 - actionSin * 0.55 + Math.abs(walkU) * 0.08 * walkAnimationAmount,
-        -0.38 + actionSin2 * 0.35,
-        0.28 + walkU * 0.08 * walkAnimationAmount - actionSin * 0.25
+        -0.8 - actionSin * 0.55 + Math.abs(walkU) * 0.08 * walkAnimationAmount + idleBobRot,
+        -0.2 + actionSin2 * 0.35,
+        0.2 + walkU * 0.08 * walkAnimationAmount - actionSin * 0.25
     );
 
     actionSwing = Math.max(0, actionSwing - delta * (actionType === 'place' ? 5.5 : 4.0));
@@ -3875,9 +3895,14 @@ function animate() {
         generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
     }
 
-    if (isLeftMouseDown && !mining.active && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
-        const hit = getTarget();
-        if (hit) startMining(hit);
+    if (isLeftMouseDown && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
+        if (!mining.active) {
+            const hit = getTarget();
+            if (hit) startMining(hit);
+        }
+        if (actionSwing < 0.1) {
+            triggerPlayerAction('mine');
+        }
     }
 
     updateMining();
