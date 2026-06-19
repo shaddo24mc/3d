@@ -3172,12 +3172,14 @@ function buildPlayerModel() {
 
     const headPivot = new THREE.Group();
     headPivot.position.y = 1.5;
+    const headBone = new THREE.Group();
+    headPivot.add(headBone);
     const head = makePlayerPart(8, 8, 8, {
         right: [0, 8, 8, 8], left: [16, 8, 8, 8], top: [8, 0, 8, 8],
         bottom: [16, 0, 8, 8], front: [8, 8, 8, 8], back: [24, 8, 8, 8]
     });
     head.position.y = 4 / 16;
-    headPivot.add(head);
+    headBone.add(head);
 
     const body = makePlayerPart(8, 12, 4, {
         right: [16, 20, 4, 12], left: [28, 20, 4, 12], top: [20, 16, 8, 4],
@@ -3219,7 +3221,7 @@ function buildPlayerModel() {
     leftLegPivot.add(leftLeg);
 
     group.add(headPivot, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot);
-    group.userData = { headPivot, head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot };
+    group.userData = { headPivot, headBone, head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot };
     return group;
 }
 
@@ -3643,7 +3645,8 @@ document.addEventListener('mouseup', (e) => {
 document.addEventListener('mousemove', (e) => {
     if (document.pointerLockElement) {
         yaw -= e.movementX * 0.002;
-        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - e.movementY * 0.002));
+        const PITCH_LIMIT = THREE.MathUtils.degToRad(89.5);
+        pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch - e.movementY * 0.002));
     }
 });
 
@@ -3804,8 +3807,8 @@ function updatePlayerModel(delta, moving) {
     parts.rightArmPivot.rotation.z = (actionType === 'place' ? -actionSin * 0.35 : 0) + idleBobZ * idleAmount;
     parts.leftArmPivot.rotation.x = swing + idleBobX * idleAmount;
     parts.leftArmPivot.rotation.z = -idleBobZ * idleAmount;
-    parts.headPivot.rotation.x = -pitch;
-    parts.headPivot.rotation.y = neckYaw;
+    parts.headBone.rotation.x = -pitch;
+    parts.headBone.rotation.y = neckYaw;
 
     firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
     
