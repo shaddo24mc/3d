@@ -3138,21 +3138,27 @@ if (THREE.SRGBColorSpace) playerTexture.colorSpace = THREE.SRGBColorSpace; else 
 
 function applySkinUVs(geometry, faceUVs) {
     const uv = geometry.attributes.uv;
-    const order = ['right', 'left', 'top', 'bottom', 'front', 'back'];
-    const mirroredFaces = new Set(['right', 'left', 'bottom']);
+    // Three.js +X/-X faces are wound opposite to Minecraft skin convention so swap left/right
+    const order = ['left', 'right', 'top', 'bottom', 'front', 'back'];
     order.forEach((faceName, faceIdx) => {
         const r = faceUVs[faceName];
         if (!r) return;
-        let u1 = r[0] / 64;
+        const u1 = r[0] / 64;
         const v1 = 1 - (r[1] + r[3]) / 64;
-        let u2 = (r[0] + r[2]) / 64;
+        const u2 = (r[0] + r[2]) / 64;
         const v2 = 1 - r[1] / 64;
-        if (mirroredFaces.has(faceName)) { const tmp = u1; u1 = u2; u2 = tmp; }
         const i = faceIdx * 4;
-        uv.setXY(i, u1, v2);
-        uv.setXY(i + 1, u2, v2);
-        uv.setXY(i + 2, u1, v1);
-        uv.setXY(i + 3, u2, v1);
+        if (faceName === 'bottom') {
+            uv.setXY(i,   u2, v1);
+            uv.setXY(i+1, u1, v1);
+            uv.setXY(i+2, u2, v2);
+            uv.setXY(i+3, u1, v2);
+        } else {
+            uv.setXY(i,   u1, v2);
+            uv.setXY(i+1, u2, v2);
+            uv.setXY(i+2, u1, v1);
+            uv.setXY(i+3, u2, v1);
+        }
     });
     uv.needsUpdate = true;
 }
@@ -3237,13 +3243,8 @@ viewModelScene.add(viewModelLight);
 const firstPersonArmPivot = new THREE.Group();
 const firstPersonArm = makePlayerArm();
 firstPersonArm.position.y = -6 / 16;
-firstPersonArm.rotation.z = Math.PI;
 firstPersonArmPivot.add(firstPersonArm);
-firstPersonArmPivot.rotation.set(
-    THREE.MathUtils.degToRad(-10),
-    THREE.MathUtils.degToRad(6),
-    THREE.MathUtils.degToRad(-2)
-);
+firstPersonArmPivot.rotation.order = 'YXZ';
 viewModelScene.add(firstPersonArmPivot);
 
 const CAMERA_VIEWS = { FIRST: 0, THIRD_BACK: 1, THIRD_FRONT: 2 };
@@ -3744,11 +3745,11 @@ function updateCameraView() {
         camera.position.copy(playerEyePosition);
         camera.rotation.set(pitch, yaw, 0, 'YXZ');
     } else {
-        const isFront = cameraView === CAMERA_VIEWS.THIRD_FRONT;
+        const isBack = cameraView === CAMERA_VIEWS.THIRD_BACK;
         const distance = 4;
 
         const offsetDir = getCameraForwardVector(true);
-        if (isFront) offsetDir.negate();
+        if (isBack) offsetDir.negate();
 
         const offset = offsetDir.multiplyScalar(distance);
         const headCenter = playerEyePosition.clone();
@@ -3757,10 +3758,6 @@ function updateCameraView() {
         camera.position.copy(getThirdPersonCameraPosition(headCenter, offset));
         camera.up.set(0, 1, 0);
         camera.lookAt(getPlayerHeadTarget());
-
-        if (isFront) {
-            camera.rotation.y += Math.PI;
-        }
     }
 
     playerModel.visible = cameraView !== CAMERA_VIEWS.FIRST;
@@ -3822,14 +3819,15 @@ function updatePlayerModel(delta, moving) {
     const useDrop = Math.sin(actionRoot * Math.PI * 2);
 
     firstPersonArmPivot.position.set(
-        armBaseX - actionSin * 0.3 + walkU * 0.035 * walkAnimationAmount,
-        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount - useDrop * 0.16,
-        armBaseZ - actionSin2 * 0.2
+        armBaseX - actionSin * 0.25 + walkU * 0.035 * walkAnimationAmount,
+        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount + useDrop * 0.05,
+        armBaseZ - actionSin2 * 0.15
     );
     firstPersonArmPivot.rotation.set(
-        -actionSin * 0.5 + Math.abs(walkU) * 0.05 * walkAnimationAmount,
-        actionSin2 * 0.2,
-        walkU * 0.05 * walkAnimationAmount - actionSin * 0.1
+        THREE.MathUtils.degToRad(-10) + (-actionSin * 1.2 + Math.abs(walkU) * 0.05 * walkAnimationAmount),
+        THREE.MathUtils.degToRad(70) + actionSin2 * 0.3,
+        walkU * 0.05 * walkAnimationAmount - actionSin * 0.1,
+        'YXZ'
     );
 
     viewModelCamera.rotation.set(pitch * 0.2, 0, 0, 'YXZ');
