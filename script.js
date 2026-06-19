@@ -3139,13 +3139,15 @@ if (THREE.SRGBColorSpace) playerTexture.colorSpace = THREE.SRGBColorSpace; else 
 function applySkinUVs(geometry, faceUVs) {
     const uv = geometry.attributes.uv;
     const order = ['right', 'left', 'top', 'bottom', 'front', 'back'];
+    const mirroredFaces = new Set(['right', 'left', 'bottom']);
     order.forEach((faceName, faceIdx) => {
         const r = faceUVs[faceName];
         if (!r) return;
-        const u1 = r[0] / 64;
+        let u1 = r[0] / 64;
         const v1 = 1 - (r[1] + r[3]) / 64;
-        const u2 = (r[0] + r[2]) / 64;
+        let u2 = (r[0] + r[2]) / 64;
         const v2 = 1 - r[1] / 64;
+        if (mirroredFaces.has(faceName)) { const tmp = u1; u1 = u2; u2 = tmp; }
         const i = faceIdx * 4;
         uv.setXY(i, u1, v2);
         uv.setXY(i + 1, u2, v2);
@@ -3807,8 +3809,7 @@ function updatePlayerModel(delta, moving) {
     parts.rightArmPivot.rotation.z = (actionType === 'place' ? -actionSin * 0.35 : 0) + idleBobZ * idleAmount;
     parts.leftArmPivot.rotation.x = swing + idleBobX * idleAmount;
     parts.leftArmPivot.rotation.z = -idleBobZ * idleAmount;
-    parts.headBone.rotation.x = -pitch;
-    parts.headBone.rotation.y = neckYaw;
+    parts.headBone.rotation.set(-pitch, neckYaw, 0, 'YXZ');
 
     firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
     
