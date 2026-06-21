@@ -3170,7 +3170,7 @@ function makePlayerPart(widthPx, heightPx, depthPx, faceUVs) {
 }
 function makePlayerArm() {
     return makePlayerPart(4, 12, 4, {
-        right: [40, 20, 4, 12], left: [48, 20, 4, 12], top: [44, 16, 4, 4],
+        left: [40, 20, 4, 12], right: [48, 20, 4, 12], top: [44, 16, 4, 4],
         bottom: [48, 16, 4, 4], front: [44, 20, 4, 12], back: [52, 20, 4, 12]
     });
 }
@@ -3204,7 +3204,7 @@ function buildPlayerModel() {
     const leftArmPivot = new THREE.Group();
     leftArmPivot.position.set(6 / 16, 1.5, 0);
     const leftArm = makePlayerPart(4, 12, 4, {
-        right: [32, 52, 4, 12], left: [40, 52, 4, 12], top: [36, 48, 4, 4],
+        left: [32, 52, 4, 12], right: [40, 52, 4, 12], top: [36, 48, 4, 4],
         bottom: [40, 48, 4, 4], front: [36, 52, 4, 12], back: [44, 52, 4, 12]
     });
     leftArm.position.y = -6 / 16;
@@ -3255,6 +3255,7 @@ let walkAnimationAmount = 0;
 let bodyYaw = 0;
 let actionSwing = 0;
 let actionType = null;
+let strafeTilt = 0;
 const playerEyePosition = camera.position.clone();
 const PLAYER_EYE_HEIGHT = 1.62;
 let isLeftMouseDown = false; 
@@ -3776,6 +3777,9 @@ function updatePlayerModel(delta, moving) {
     }
     const neckYaw = THREE.MathUtils.clamp(getWrappedAngleDifference(yaw, bodyYaw), -neckLimit, neckLimit);
     playerModel.rotation.y = bodyYaw + Math.PI;
+    const targetTilt = (keys.a ? 0.07 : 0) - (keys.d ? 0.07 : 0);
+    strafeTilt = THREE.MathUtils.lerp(strafeTilt, targetTilt, 0.1);
+    playerModel.rotation.z = strafeTilt;
 
     const parts = playerModel.userData;
     
@@ -3826,7 +3830,7 @@ function updatePlayerModel(delta, moving) {
     );
     firstPersonArmPivot.rotation.set(
         THREE.MathUtils.degToRad(-10) + (-actionSin * 1.2 + Math.abs(walkU) * 0.05 * walkAnimationAmount),
-        THREE.MathUtils.degToRad(70) + actionSin2 * 0.3,
+        THREE.MathUtils.degToRad(-45) + actionSin2 * 0.3,
         walkU * 0.05 * walkAnimationAmount - actionSin * 0.1,
         'YXZ'
     );
