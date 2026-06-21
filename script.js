@@ -3781,14 +3781,14 @@ function updatePlayerModel(delta, moving) {
     
     if (moving) {
         walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, 1, 0.35);
-        walkCycle += delta * 17.2;
+        walkCycle += delta * 9.0;
     } else {
         walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, 0, 0.2);
     }
 
     const walkPhase = walkCycle * 0.6662;
-    const swing = Math.cos(walkPhase) * 1.4 * walkAnimationAmount;
-    const oppositeSwing = Math.cos(walkPhase + Math.PI) * 1.4 * walkAnimationAmount;
+    const swing = Math.cos(walkPhase) * 0.6 * walkAnimationAmount;
+    const oppositeSwing = Math.cos(walkPhase + Math.PI) * 0.6 * walkAnimationAmount;
     const swingProgress = 1 - actionSwing;
     const actionRoot = Math.sqrt(Math.max(0, swingProgress));
     const actionSin = Math.sin(actionRoot * Math.PI);
@@ -3801,9 +3801,10 @@ function updatePlayerModel(delta, moving) {
 
     parts.rightLegPivot.rotation.x = swing;
     parts.leftLegPivot.rotation.x = oppositeSwing;
-    parts.rightArmPivot.rotation.x = oppositeSwing - actionSin * 1.2 + idleBobX * idleAmount;
-    parts.rightArmPivot.rotation.y = actionSin2 * 0.25;
-    parts.rightArmPivot.rotation.z = (actionType === 'place' ? -actionSin * 0.35 : 0) + idleBobZ * idleAmount;
+    const rightArmWalkBlend = Math.max(0.0, 1.0 - actionSwing * 4.0);
+    parts.rightArmPivot.rotation.x = oppositeSwing * rightArmWalkBlend - actionSin * 1.4 + idleBobX * idleAmount;
+    parts.rightArmPivot.rotation.y = actionSin2 * 0.3;
+    parts.rightArmPivot.rotation.z = (actionType === 'place' ? -actionSin * 0.4 : -actionSin * 0.7) + idleBobZ * idleAmount;
     parts.leftArmPivot.rotation.x = swing + idleBobX * idleAmount;
     parts.leftArmPivot.rotation.z = -idleBobZ * idleAmount;
     parts.headBone.rotation.set(-pitch, neckYaw, 0, 'YXZ');
@@ -3914,7 +3915,7 @@ function animate() {
             const hit = getTarget();
             if (hit) startMining(hit);
         }
-        if (actionSwing < 0.1) {
+        if (mining.active && actionSwing < 0.1) {
             triggerPlayerAction('mine');
         }
     }
