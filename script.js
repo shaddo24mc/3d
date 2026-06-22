@@ -485,12 +485,65 @@ function getBlockContext(gx, gy, gz, bName) {
     if (bName === 'end_rod' && !state.facing) state.facing = 'up';
 
     if (bName === 'pointed_dripstone') {
-        if (!state.vertical_direction) state.vertical_direction = 'up';
-        if (!state.thickness) state.thickness = 'tip';
+        if (!state.vertical_direction)
+            state.vertical_direction = 'up';
+
         let dir = state.vertical_direction === 'up' ? 1 : -1;
-        let adjacent = getGlobalBlock(gx, gy - dir, gz);
-        if (adjacent && REVERSE_TYPE[adjacent] === 'pointed_dripstone') {
-            state.thickness = 'frustum';
+
+        let baseBlock = getGlobalBlock(gx, gy - dir, gz);
+        let tipBlock  = getGlobalBlock(gx, gy + dir, gz);
+
+        let baseIsDripstone =
+            baseBlock &&
+            REVERSE_TYPE[baseBlock] === 'pointed_dripstone';
+
+        let tipIsDripstone =
+            tipBlock &&
+            REVERSE_TYPE[tipBlock] === 'pointed_dripstone';
+        if (tipIsDripstone) {
+            let tipContext = getBlockContext(
+                gx,
+                gy + dir,
+                gz,
+                'pointed_dripstone'
+            );
+
+            if (
+                tipContext &&
+                tipContext.vertical_direction !==
+                    state.vertical_direction
+            ) {
+                state.thickness = 'tip_merge';
+            }
+        }
+        if (!state.thickness) {
+
+            if (!baseIsDripstone) {
+                state.thickness = 'tip';
+            }
+            else if (baseIsDripstone && !tipIsDripstone) {
+                state.thickness = 'frustum';
+            }
+            else {
+
+                let blockBeyondBase =
+                    getGlobalBlock(
+                        gx,
+                        gy - (dir * 2),
+                        gz
+                    );
+
+                let beyondBaseIsDripstone =
+                    blockBeyondBase &&
+                    REVERSE_TYPE[blockBeyondBase] ===
+                        'pointed_dripstone';
+
+                if (beyondBaseIsDripstone) {
+                    state.thickness = 'middle';
+                } else {
+                    state.thickness = 'base';
+                }
+            }
         }
     }
 
