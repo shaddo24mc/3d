@@ -464,7 +464,19 @@ const destroyMat = new THREE.MeshBasicMaterial({
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
+function getStoredBlockState(x, y, z) {
+    let placed = placedBlocks.get(`${x},${y},${z}`);
 
+    if (
+        placed &&
+        typeof placed === 'object' &&
+        placed.state
+    ) {
+        return placed.state;
+    }
+
+    return null;
+}
 function getBlockContext(gx, gy, gz, bName) {
     let state = {};
     let placed = placedBlocks.get(`${gx},${gy},${gz}`);
@@ -521,20 +533,17 @@ function getBlockContext(gx, gy, gz, bName) {
             blockBeyondTip &&
             REVERSE_TYPE[blockBeyondTip] === 'pointed_dripstone';
         if (tipIsDripstone) {
-            let tipContext = getBlockContext(
+            let neighborstate = getStoredBlockState (
                 gx,
-                gy + dir,
-                gz,
-                'pointed_dripstone'
+                gy+dir,
+                gz
             );
-
             if (
-                tipContext &&
-                tipContext.vertical_direction !==
+                neighborstate &&
+                neighborstate.vertical_direction &&
+                neighborstate.vertical_direction !==
                     state.vertical_direction
-            ) {
-                state.thickness = 'tip_merge';
-            }
+            ) {state.thickness = 'tip_merge'}
         }
         if (!state.thickness) {
 
