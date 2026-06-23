@@ -500,6 +500,26 @@ function getBlockContext(gx, gy, gz, bName) {
         let tipIsDripstone =
             tipBlock &&
             REVERSE_TYPE[tipBlock] === 'pointed_dripstone';
+        let blockBeyondBase =
+            getGlobalBlock(
+                gx,
+                gy - (dir * 2),
+                gz
+            );
+
+        let beyondBaseIsDripstone =
+            blockBeyondBase &&
+            REVERSE_TYPE[blockBeyondBase] ===
+                'pointed_dripstone';
+        let blockBeyondTip =
+            getGlobalBlock(
+                gx,
+                gy + (dir * 2),
+                gz
+            )
+        let beyondTipIsDripstone = 
+            blockBeyondTip &&
+            REVERSE_TYPE[blockBeyondTip] === 'pointed_dripstone';
         if (tipIsDripstone) {
             let tipContext = getBlockContext(
                 gx,
@@ -518,30 +538,19 @@ function getBlockContext(gx, gy, gz, bName) {
         }
         if (!state.thickness) {
 
-            if (!baseIsDripstone) {
+            if (!tipIsDripstone) {
                 state.thickness = 'tip';
             }
-            else if (baseIsDripstone && !tipIsDripstone) {
+            else if (tipIsDripstone && !beyondTipIsDripstone) {
                 state.thickness = 'frustum';
             }
             else {
-
-                let blockBeyondBase =
-                    getGlobalBlock(
-                        gx,
-                        gy - (dir * 2),
-                        gz
-                    );
-
-                let beyondBaseIsDripstone =
-                    blockBeyondBase &&
-                    REVERSE_TYPE[blockBeyondBase] ===
-                        'pointed_dripstone';
-
-                if (beyondBaseIsDripstone) {
+                if (beyondTipIsDripstone && tipIsDripstone && baseIsDripstone) {
                     state.thickness = 'middle';
-                } else {
+                } else if (!baseIsDripstone){
                     state.thickness = 'base';
+                } else{
+                    state.thickness = 'tip'
                 }
             }
         }
