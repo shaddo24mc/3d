@@ -3627,7 +3627,7 @@ document.addEventListener('mousedown', (e) => {
                 }
                 else if (placementType === 'pointed_dripstone') {
                     let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
-                    blockStateDict = { vertical_direction: isTop ? 'down' : 'up', thickness: 'tip' };
+                    blockStateDict = { vertical_direction: isTop ? 'down' : 'up'};
                 }
                 else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
                     let ry = yaw % (Math.PI * 2);
