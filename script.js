@@ -628,9 +628,92 @@ function getBlockContext(gx, gy, gz, bName) {
     
     if ((bName.includes('log') || bName.includes('pillar')) && !state.axis) state.axis = 'y';
     if (bName.includes('stairs')) {
-        if (!state.facing) state.facing = 'east';
-        if (!state.half) state.half = 'bottom';
-        if (!state.shape) state.shape = 'straight';
+        northblock = getGlobalBlock (
+            gx,
+            gy,
+            gz - 1
+        );
+        eastblock = getGlobalBlock (
+            gx + 1,
+            gy,
+            gz
+        );
+        westblock = getGlobalBlock (
+            gx - 1,
+            gy,
+            gz
+        );
+        southblock = getGlobalBlock (
+            gx,
+            gy,
+            gz + 1
+        );
+        let northstate = getStoredBlockState(
+            gx,
+            gy,
+            gz - 1
+        );
+
+        let eaststate = getStoredBlockState(
+            gx + 1,
+            gy,
+            gz
+        );
+
+        let weststate = getStoredBlockState(
+            gx - 1,
+            gy,
+            gz
+        );
+
+        let southstate = getStoredBlockState(
+            gx,
+            gy,
+            gz + 1
+        );
+        let northIsStair =
+            northblock &&
+            REVERSE_TYPE[northblock].includes('stairs');
+        let eastIsStair =
+            eastblock &&
+            REVERSE_TYPE[eastblock].includes('stairs');
+        let westIsStair =
+            westblock &&
+            REVERSE_TYPE[westblock].includes('stairs');
+        let southIsStair =
+            southblock &&
+            REVERSE_TYPE[southblock].includes('stairs');
+        if (!state.shape) {
+            if (state.facing === 'north') {
+                if (southIsStair && southstate.facing === 'east') state.shape = 'inner_left';
+                else if (southIsStair && southstate.facing === 'west') state.shape = 'inner_right';
+                else if (northIsStair && northstate.facing === 'east') state.shape = 'outer_left';
+                else if (northIsStair && northstate.facing === 'west') state.shape = 'outer_right';
+                else state.shape = 'straight';
+            }
+            else if (state.facing === 'south') {
+                if (northIsStair && northstate.facing === 'east') state.shape = 'inner_right';
+                else if (northIsStair && northstate.facing === 'west') state.shape = 'inner_left';
+                else if (southIsStair && southstate.facing === 'east') state.shape = 'outer_right';
+                else if (southIsStair && southstate.facing === 'west') state.shape = 'outer_left';
+                else state.shape = 'straight';
+            }
+            else if (state.facing === 'west') {
+                if (eastIsStair && eaststate.facing === 'north') state.shape = 'inner_right';
+                else if (eastIsStair && eaststate.facing === 'south') state.shape = 'inner_left';
+                else if (westIsStair && weststate.facing === 'north') state.shape = 'outer_left';
+                else if (westIsStair && weststate.facing === 'south') state.shape = 'outer_right';
+                else state.shape = 'straight';
+            }
+            else if (state.facing === 'east') {
+                if (westIsStair && weststate.facing === 'north') state.shape = 'inner_left';
+                else if (westIsStair && weststate.facing === 'south') state.shape = 'inner_right';
+                else if (eastIsStair && eaststate.facing === 'north') state.shape = 'outer_right';
+                else if (eastIsStair && eaststate.facing === 'south') state.shape = 'outer_left';
+                else state.shape = 'straight';
+            }
+        }
+
     }
     return state;
 }
