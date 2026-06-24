@@ -683,6 +683,7 @@ function getBlockContext(gx, gy, gz, bName) {
         let southIsStair =
             southblock &&
             REVERSE_TYPE[southblock].includes('stairs');
+        console.log(hit);
         if (!state.shape) {
             if (state.facing === 'north') {
                 if (southIsStair && southstate.facing === 'east') state.shape = 'inner_left';
