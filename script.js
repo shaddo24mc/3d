@@ -3502,6 +3502,7 @@ function getTarget() {
                 position: new THREE.Vector3(bx, by, bz),
                 normal: normal,
                 blockName: blockName
+                point: current.clone()
             };
         }
     }
@@ -3723,8 +3724,16 @@ document.addEventListener('mousedown', (e) => {
                     else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west'; 
                     else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south'; 
                     
-                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
-                    blockStateDict = { facing: facingStr, half: isTop ? 'top' : 'bottom', shape: 'straight' };
+                    let localY =
+                        hit.point.y -
+                        Math.floor(hit.point.y);
+
+                    let isTop =
+                        hit.normal.y === -1 ||
+                        (
+                            hit.normal.y !== 1 &&
+                            localY > 0.5
+                        );
                 }
                 else if (placementType === 'pointed_dripstone') {
                     let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
