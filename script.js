@@ -3501,7 +3501,7 @@ function getTarget() {
             return {
                 position: new THREE.Vector3(bx, by, bz),
                 normal: normal,
-                blockName: blockName
+                blockName: blockName,
                 point: current.clone()
             };
         }
