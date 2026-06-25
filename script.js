@@ -2328,7 +2328,7 @@ function evaluateStair(x, y, z) {
     else if (shape === 'outer_left') { finalType += '_outer'; finalRotY = rotY + Math.PI/2; }
     else if (shape === 'outer_right') { finalType += '_outer'; finalRotY = rotY; }
 
-    let rx = s.half === 'top' ? Math.PI : 0;
+    let rx = 0;
     
     let existing = placedBlocks.get(`${x},${y},${z}`);
     let targetTypeId = TYPE[finalType];
