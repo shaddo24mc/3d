@@ -2336,7 +2336,7 @@ function evaluateStair(x, y, z) {
     if (!existing || existing.type !== targetTypeId || !existing.rotation || existing.rotation[0] !== rx || existing.rotation[1] !== finalRotY) {
         let newState = existing && existing.state ? { ...existing.state } : {};
         newState.shape = shape;
-        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0], state: newState });
+        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, 0, 0], state: newState });
     }
 }
 
