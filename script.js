@@ -3718,12 +3718,12 @@ document.addEventListener('mousedown', (e) => {
                 else if (placementType.includes('stairs')) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
-                    
+
                     let facingStr = 'east';
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north'; 
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west'; 
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south'; 
-                    
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
+
                     let localY =
                         hit.point.y -
                         Math.floor(hit.point.y);
@@ -3734,6 +3734,18 @@ document.addEventListener('mousedown', (e) => {
                             hit.normal.y !== 1 &&
                             localY > 0.5
                         );
+
+                    blockStateDict = {
+                        facing: facingStr,
+                        half: isTop ? 'top' : 'bottom',
+                        shape: 'straight'
+                    };
+
+                    rotation = [
+                        isTop ? Math.PI : 0,
+                        0,
+                        0
+                    ];
                 }
                 else if (placementType === 'pointed_dripstone') {
                     let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
