@@ -3765,17 +3765,15 @@ document.addEventListener('mousedown', (e) => {
                     if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
                     else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
                     else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
-
-                    let localY =
-                        hit.point.y -
-                        Math.floor(hit.point.y);
-
-                    let isTop =
-                        hit.normal.y === -1 ||
-                        (
-                            hit.normal.y !== 1 &&
-                            localY > 0.5
-                        );
+                    let isTop;
+                    if (hit.normal.y === -1) {
+                        isTop = true;
+                    } else if (hit.normal.y === 1) {
+                        isTop = false;
+                    } else {
+                        const blockCentreY = hit.position.y;
+                        isTop = (hit.point.y - blockCentreY) > 0.0;
+                    }
 
                     blockStateDict = {
                         facing: facingStr,
