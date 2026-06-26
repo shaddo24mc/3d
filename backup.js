@@ -30,11 +30,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87ceeb);
 renderer.setPixelRatio(1);
 renderer.shadowMap.enabled = false; 
+renderer.autoClear = false;
 if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = 3001;
 document.body.appendChild(renderer.domElement);
 
 const clock = new THREE.Clock();
-const moveSpeed = 2;
+const moveSpeed = 2.5;
 const stats = new Stats();
 stats.showPanel(0);
 document.body.appendChild(stats.dom);
@@ -45,18 +46,15 @@ iconRenderer.setPixelRatio(1);
 if (THREE.SRGBColorSpace) iconRenderer.outputColorSpace = THREE.SRGBColorSpace; else iconRenderer.outputEncoding = 3001;
 const iconScene = new THREE.Scene();
 
-// Reverted Orthographic Camera size to standard Minecraft 14x14px bounds (-0.51 to 0.51)
 const iconCamera = new THREE.OrthographicCamera(-0.51, 0.51, 0.51, -0.51, 0.1, 10);
-// Shifted camera position by exactly 1 pixel right and 1 pixel down (0.008 units on a 128px canvas)
-// which mathematically forces the rendered 3D icon to shift exactly 1 pixel left and 1 pixel up!
 iconCamera.position.set(0.008, -0.008, 5); 
 iconCamera.lookAt(0, 0, 0);
 
-const iconAmbient = new THREE.AmbientLight(0xffffff, 0.20 * Math.PI); 
+const iconAmbient = new THREE.AmbientLight(0xffffff, 0.40 * Math.PI); 
 iconScene.add(iconAmbient);
-const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.80 * Math.PI); 
+const iconTopLight = new THREE.DirectionalLight(0xffffff, 0.70 * Math.PI); 
 iconScene.add(iconTopLight);
-const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.20 * Math.PI); 
+const iconLeftLight = new THREE.DirectionalLight(0xffffff, 0.30 * Math.PI); 
 iconScene.add(iconLeftLight);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -88,8 +86,7 @@ scene.add(starsMesh);
 // 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
 // ============================================================================
 const ITEMS = [
-    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign', 'sweet_berries',
-    'angler_pottery_sherd', 'archer_pottery_sherd', 'arms_up_pottery_sherd', 'blade_pottery_sherd', 'brewer_pottery_sherd', 'burn_pottery_sherd', 'danger_pottery_sherd', 'explorer_pottery_sherd', 'friend_pottery_sherd', 'heart_pottery_sherd', 'heartbreak_pottery_sherd', 'howl_pottery_sherd', 'miner_pottery_sherd', 'mourner_pottery_sherd', 'plenty_pottery_sherd', 'prize_pottery_sherd', 'sheaf_pottery_sherd', 'shelter_pottery_sherd', 'skull_pottery_sherd', 'snort_pottery_sherd'
+    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign', 'sweet_berries'
 ];
 const STRICT_ITEMS = new Set(ITEMS);
 
@@ -104,7 +101,7 @@ const baseBlocks = [
     'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
     'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
     'gold_block', 'diamond_block', 'netherite_block', 'sponge', 'wet_sponge', 'glass', 'lapis_block', 'sandstone',
-    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
+    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'short_grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
     'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
     'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'bricks', 'bookshelf',
     'mossy_cobblestone', 'obsidian', 'torch', 'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
@@ -115,11 +112,10 @@ const baseBlocks = [
     'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
     'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
     'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
-    'kelp', 'dried_kelp_block', 'turtle_egg', 'dead_brain_coral_block', 'dead_bubble_coral_block',
-    'dead_fire_coral_block', 'dead_horn_coral_block', 'dead_tube_coral_block', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
+    'kelp', 'dried_kelp_block', 'turtle_egg', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
     'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
-    'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines',
-    'twisting_vines', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
+    'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'weeping_vines_plant',
+    'twisting_vines', 'twisting_vines_plant', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
     'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
     'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
     'tinted_glass', 'powder_snow', 'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor',
@@ -128,7 +124,7 @@ const baseBlocks = [
     'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
     'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
     'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
-    'trial_spawner', 'vault', 'heavy_core', 'cobbled_deepslate', ...ITEMS
+    'trial_spawner', 'vault', 'heavy_core', 'cobbled_deepslate', 'sweet_berry_bush', ...ITEMS
 ];
 
 const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
@@ -177,21 +173,12 @@ const TYPE = {};
 const REVERSE_TYPE = [null];
 ALL_BLOCKS.forEach((b, i) => { let id = i + 1; TYPE[b] = id; REVERSE_TYPE.push(b); });
 
-// Spore blossom intentionally omitted so it reads the true JSON block model instead of drawing a cross.
-const CROSS_BLOCKS = new Set([
-    'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 
-    'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 
-    'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'twisting_vines', 'sweet_berries', 'cobweb', 
-    'tall_grass', 'large_fern', 'grass', 'short_grass', 'hanging_roots', 'seagrass', 'kelp'
-]);
-ALL_BLOCKS.forEach(b => { if (b.includes('sapling') || b.includes('propagule') || b.includes('shoot') || b.includes('fungus')) CROSS_BLOCKS.add(b); });
-
-const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core']);
+const TRANSPARENT_BLOCKS = new Set(['glass', 'ice', 'slime_block', 'beacon', 'sculk_shrieker', 'sculk_sensor', 'snow', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'ladder', 'bamboo', 'turtle_egg', 'sculk_vein', 'glow_lichen']);
 const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
-    if (CROSS_BLOCKS.has(b) || TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'snow', 'cake', 'end_rod', 'bush', 'fern', 'grass', 'sprout', 'dripstone', 'spore_blossom'].some(kw => b.includes(kw))) {
+    if (TRANSPARENT_BLOCKS.has(b) || 
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg'].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -214,7 +201,7 @@ const CATEGORIES = {
 };
 
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b === 'air') return;
+    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b.includes('_plant') || b === 'air' || b === 'sweet_berry_bush') return;
 
     if (STRICT_ITEMS.has(b)) {
         if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
@@ -225,11 +212,11 @@ ALL_BLOCKS.forEach(b => {
         else CATEGORIES.materials.blocks.push(b);
     } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
         CATEGORIES.colored.blocks.push(b);
-    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp')) {
+    } else if (b.includes('redstone') || b.includes('piston') || b.includes('door') || b.includes('trapdoor') || b.includes('sensor') || b.includes('lamp') || b.includes('observer') || b.includes('dispenser') || b.includes('dropper')) {
         CATEGORIES.redstone.blocks.push(b);
-    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign'].some(kw => b.includes(kw))) {
+    } else if (['chest', 'crafting_table', 'furnace', 'spawner', 'beacon', 'anvil', 'loom', 'shulker_box', 'sign', 'crafter'].some(kw => b.includes(kw))) {
         CATEGORIES.functional.blocks.push(b);
-    } else if (['dirt', 'grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
+    } else if (['dirt', 'grass_block', 'short_grass', 'tall_grass', 'sand', 'gravel', 'ore', 'log', 'leaves', 'sapling', 'coral', 'plant', 'flower', 'mushroom', 'sponge', 'bedrock', 'stone', 'granite', 'diorite', 'andesite', 'tuff', 'deepslate', 'ice', 'snow', 'dripstone'].some(kw => b.includes(kw)) && !b.includes('bricks') && !b.includes('stairs') && !b.includes('slab')) {
         CATEGORIES.natural.blocks.push(b);
     } else {
         CATEGORIES.building.blocks.push(b);
@@ -249,13 +236,13 @@ const INVENTORY_SIZE = 9;
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
 inventory[0] = { type: 'netherite_shovel', count: 1 };
-inventory[1] = { type: 'dirt', count: 64 };
+inventory[1] = { type: 'snow', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
-inventory[3] = { type: 'compass', count: 1 };
-inventory[4] = { type: 'sculk_sensor', count: 64 };
-inventory[5] = { type: 'acacia_stairs', count: 64 };
-inventory[6] = { type: 'magma_block', count: 64 };
-inventory[7] = { type: 'dragon_head', count: 64 };
+inventory[3] = { type: 'tall_grass', count: 64 };
+inventory[4] = { type: 'sunflower', count: 64 };
+inventory[5] = { type: 'furnace', count: 64 };
+inventory[6] = { type: 'oak_stairs', count: 64 };
+inventory[7] = { type: 'lily_pad', count: 64 };
 inventory[8] = { type: 'diamond_pickaxe', count: 1 };
 
 const activeChunks = {};
@@ -281,78 +268,15 @@ imageLoader.setCrossOrigin('anonymous');
 function resolveTexturePath(name, isIconContext = false) {
     let folder = BLOCK_TEX_DIR;
     let filename = name;
-    let is2D = false;
 
     if (name === 'air') return { folder, filename, is2D: false };
 
-    // Explicitly 2D ONLY when building the UI Icon for these items
-    const iconOnly2D = new Set(['sea_pickle', 'sunflower', 'lily_pad']);
-
-    // Explicitly 2D filtering for items, plants, foods, etc. everywhere
-    const explicit2D = new Set([
-        'torch', 'soul_torch', 'kelp', 'sweet_berries', 'ladder', 'glow_lichen', 'sculk_vein', 'seagrass',
-        'candle', 'bamboo', 'lilac', 'peony', 'turtle_egg', 'pink_petals', 'soul_campfire', 'campfire',
-        'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
-        'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
-        'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
-        'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
-        'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
-        'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
-    ]);
-
-    if (flatItems.has(name) || name === 'compass_tab' || explicit2D.has(name) || name.includes('sign') || name.includes('pane')) {
-        is2D = true;
-    }
-    
-    if (isIconContext && iconOnly2D.has(name)) {
-        is2D = true;
-    }
-
-    if (name.includes('door') && !name.includes('trapdoor')) {
-        if (name.includes('_top') || name.includes('_bottom')) {
-            is2D = false; 
-        } else {
-            is2D = true;
-            folder = ITEM_TEX_DIR;
-        }
-    }
-
-    if (is2D && !name.includes('door')) {
-        const itemFolderOverrides = ['kelp', 'sweet_berries', 'campfire', 'soul_campfire', 'bamboo', 'turtle_egg', 'pink_petals'];
-        if (flatItems.has(name) || name === 'compass_tab' || itemFolderOverrides.includes(name) || name.includes('sign')) {
-            folder = ITEM_TEX_DIR;
-        }
-    }
-
-    const blockFolderOverrides = ['ladder', 'glow_lichen', 'sculk_vein', 'seagrass', 'lily_pad', 'cobweb', 'vine', 'sprouts', 'chain', 'iron_bars', 'torch', 'soul_torch', 'poppy', 'dandelion', 'lily_of_the_valley', 'fungus', 'roots', 'fern', 'mushroom', 'sapling', 'allium', 'orchid', 'tulip', 'daisy', 'bluet', 'rose', 'sea_pickle', 'amethyst_cluster', 'pointed_dripstone', 'candle', 'propagule'];
-    if (blockFolderOverrides.some(kw => name.includes(kw)) && !['weeping_vines', 'twisting_vines', 'pink_petals'].includes(name) && !name.includes('mangrove_roots')) {
-        if (!folder.includes('item')) folder = BLOCK_TEX_DIR;
-    }
-
-    // Exact filename Overrides
-    if (name === 'compass') filename = 'compass_00';
+    if (name === 'compass') { folder = ITEM_TEX_DIR; filename = 'compass_16'; }
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
-    else if (name === 'sweet_berries') { folder = ITEM_TEX_DIR; filename = 'sweet_berries'; }
-    else if (name === 'rose_bush') { folder = BLOCK_TEX_DIR; filename = 'rose_bush_top'; is2D = true; }
-    else if (name === 'large_fern') { folder = BLOCK_TEX_DIR; filename = 'large_fern_top'; }
-    else if (name === 'tall_grass') { folder = BLOCK_TEX_DIR; filename = 'tall_grass_top'; }
-    else if (name === 'grass' || name === 'short_grass') { folder = BLOCK_TEX_DIR; filename = 'short_grass'; }
     else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
-    else if (name.includes('pane')) { folder = BLOCK_TEX_DIR; filename = name.replace('_pane', ''); } 
-    else if (name === 'flowering_azalea') { folder = BLOCK_TEX_DIR; filename = 'flowering_azalea_side'; }
-    else if (name === 'peony') { folder = BLOCK_TEX_DIR; filename = 'peony_top'; }
-    else if (name === 'lilac') { folder = BLOCK_TEX_DIR; filename = 'lilac_top'; }
-    else if (name === 'pointed_dripstone') { folder = BLOCK_TEX_DIR; filename = 'pointed_dripstone_down_tip'; is2D = true; }
-    else if (name === 'twisting_vines') { folder = BLOCK_TEX_DIR; filename = 'twisting_vines_plant'; is2D = true; }
-    else if (name === 'weeping_vines') { folder = BLOCK_TEX_DIR; filename = 'weeping_vines_plant'; is2D = true; }
-    else if (name === 'hanging_roots') { folder = BLOCK_TEX_DIR; filename = 'hanging_roots'; is2D = true; }
-    else if (name === 'sea_pickle' && isIconContext) { folder = ITEM_TEX_DIR; filename = 'sea_pickle'; }
-    else if (name === 'sunflower' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'sunflower_front'; }
-    else if (name === 'lily_pad' && isIconContext) { folder = BLOCK_TEX_DIR; filename = 'lily_pad'; }
-    else if (name.includes('candle') && !name.includes('cake')) { folder = ITEM_TEX_DIR; filename = name; is2D = true; }
 
-    return { folder, filename, is2D };
+    return { folder, filename, is2D: false };
 }
 
 const loadTex = (filename, explicitFolder = null, isIconContext = false, originalTypeName = null) => {
@@ -394,8 +318,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                         texture: t, ctx: ctx, sourceImage: image,
                         frames: Array.from({length: totalFrames}, (_, i) => i),
                         defaultTickRate: 2, totalFrames: totalFrames,
-                        // OPTIMIZATION: Interpolation strictly turned OFF by default to save huge GPU overhead frame drops
-                        currentArrayIdx: 0, timer: 0, interpolate: false, frameWidth: fw
+                        currentArrayIdx: 0, timer: 0, interpolate: true, frameWidth: fw
                     };
                     animatedTextures.push(animData);
                     ctx.drawImage(image, 0, 0, fw, fw, 0, 0, fw, fw);
@@ -405,7 +328,6 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                         if (mcmeta && mcmeta.animation) {
                             if (mcmeta.animation.frames = mcmeta.animation.frames);
                             if (mcmeta.animation.frametime = mcmeta.animation.frametime);
-                            // Interpolation override completely ignored to protect FPS
                         }
                         resolve(t);
                     }).catch(e => { resolve(t); });
@@ -415,12 +337,11 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                     ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(image, 0, 0);
 
-                    // Grayscale Foliage HTML Canvas Math Tinting Algorithm
                     if (isIconContext && originalTypeName) {
-                        const tintables = ['lily_pad', 'grass', 'short_grass', 'fern', 'tall_grass', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+                        const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
                         if (tintables.includes(originalTypeName)) {
                             ctx.globalCompositeOperation = 'source-atop';
-                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#208030' : '#79c05a';
+                            ctx.fillStyle = originalTypeName === 'lily_pad' ? '#4aa850' : '#91bd59';
                             ctx.fillRect(0, 0, cvs.width, cvs.height);
                             ctx.globalCompositeOperation = 'multiply';
                             ctx.drawImage(image, 0, 0);
@@ -458,7 +379,6 @@ function resolveFallbackTexture(name) {
     if (name === 'packed_mud') return 'mud';
     if (name === 'conduit') return 'conduit';
     
-    // Correctly map mob heads and custom model overrides to their raw layout locations
     if (name === 'creeper_head') return '../entity/creeper/creeper';
     if (name === 'zombie_head') return '../entity/zombie/zombie';
     if (name === 'skeleton_skull') return '../entity/skeleton/skeleton';
@@ -501,24 +421,34 @@ const JSONReader = {
 
     async getBlockstate(blockName) {
         if (this.blockstates[blockName]) return this.blockstates[blockName];
-        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'blockstates/')}${blockName}.json`;
+        const path = `assets/minecraft/blockstates/${blockName}.json`;
         const data = await this.fetchJSON(path);
         if (data) this.blockstates[blockName] = data;
         return data;
     },
 
-    async getModel(modelName) {
-        if (this.models[modelName]) return this.models[modelName];
-        const path = `${BLOCK_TEX_DIR.replace('textures/block/', 'models/block/')}${modelName}.json`;
+    async getModel(modelPath) {
+        if (this.models[modelPath]) return this.models[modelPath];
+        
+        let actualPath = modelPath;
+        if (!actualPath.includes('/')) actualPath = `block/${actualPath}`;
+        
+        const path = `assets/minecraft/models/${actualPath}.json`;
         const data = await this.fetchJSON(path);
-        if (data) this.models[modelName] = data;
+        if (data) this.models[modelPath] = data;
         return data;
     },
-    
-    getRotationForAxis(axis) {
-        if (axis === 'x') return [0, 0, Math.PI / 2];
-        if (axis === 'z') return [Math.PI / 2, 0, 0];
-        return [0, 0, 0]; 
+
+    evaluateWhen(when, state) {
+        if (when['OR']) {
+            return when['OR'].some(cond => this.evaluateWhen(cond, state));
+        }
+        for (let key in when) {
+            let expectedValues = when[key].split('|');
+            let currentState = state[key] !== undefined ? String(state[key]) : "false";
+            if (!expectedValues.includes(currentState)) return false;
+        }
+        return true;
     }
 };
 
@@ -534,41 +464,276 @@ const destroyMat = new THREE.MeshBasicMaterial({
 const destroyMesh = new THREE.Mesh(destroyGeo, destroyMat);
 destroyMesh.visible = false; 
 scene.add(destroyMesh);
+function getStoredBlockState(x, y, z) {
+    let placed = placedBlocks.get(`${x},${y},${z}`);
+
+    if (
+        placed &&
+        typeof placed === 'object' &&
+        placed.state
+    ) {
+        return placed.state;
+    }
+
+    return null;
+}
+function getBlockContext(gx, gy, gz, bName) {
+    let state = {};
+    let placed = placedBlocks.get(`${gx},${gy},${gz}`);
+    if (placed && typeof placed === 'object' && placed.state) Object.assign(state, placed.state);
+
+    if (bName === 'grass_block' || bName === 'podzol' || bName === 'mycelium') {
+        let above = getGlobalBlock(gx, gy + 1, gz);
+        if (above !== null && (REVERSE_TYPE[above] === 'snow' || REVERSE_TYPE[above] === 'snow_block')) {
+            state.snowy = 'true';
+        } else {
+            state.snowy = 'false';
+        }
+    }
+
+    if (bName === 'snow' && !state.layers) state.layers = '1';
+    if (bName === 'sea_pickle' && !state.pickles) state.pickles = '1';
+    if (bName === 'sweet_berry_bush' && !state.age) state.age = '0';
+    if (bName === 'end_rod' && !state.facing) state.facing = 'up';
+
+    if (bName === 'pointed_dripstone') {
+        if (!state.vertical_direction)
+            state.vertical_direction = 'up';
+
+        let dir = state.vertical_direction === 'up' ? 1 : -1;
+
+        let baseBlock = getGlobalBlock(gx, gy - dir, gz);
+        let tipBlock  = getGlobalBlock(gx, gy + dir, gz);
+
+        let baseIsDripstone =
+            baseBlock &&
+            REVERSE_TYPE[baseBlock] === 'pointed_dripstone';
+
+        let tipIsDripstone =
+            tipBlock &&
+            REVERSE_TYPE[tipBlock] === 'pointed_dripstone';
+        let blockBeyondBase =
+            getGlobalBlock(
+                gx,
+                gy - (dir * 2),
+                gz
+            );
+
+        let beyondBaseIsDripstone =
+            blockBeyondBase &&
+            REVERSE_TYPE[blockBeyondBase] ===
+                'pointed_dripstone';
+        let blockBeyondTip =
+            getGlobalBlock(
+                gx,
+                gy + (dir * 2),
+                gz
+            )
+        let beyondTipIsDripstone = 
+            blockBeyondTip &&
+            REVERSE_TYPE[blockBeyondTip] === 'pointed_dripstone';
+        if (tipIsDripstone) {
+            let neighborstate = getStoredBlockState (
+                gx,
+                gy+dir,
+                gz
+            );
+            if (
+                neighborstate &&
+                neighborstate.vertical_direction &&
+                neighborstate.vertical_direction !==
+                    state.vertical_direction
+            ) {state.thickness = 'tip_merge'}
+        }
+        if (!state.thickness) {
+
+            if (!tipIsDripstone) {
+                state.thickness = 'tip';
+            }
+            else if (tipIsDripstone && !beyondTipIsDripstone) {
+                state.thickness = 'frustum';
+            }
+            else {
+                if (beyondTipIsDripstone && tipIsDripstone && baseIsDripstone) {
+                    state.thickness = 'middle';
+                } else if (!baseIsDripstone){
+                    state.thickness = 'base';
+                } else{
+                    state.thickness = 'tip'
+                }
+            }
+        }
+    }
+
+    if (bName === 'kelp') {
+        if (!state.age) state.age = '0';
+    }
+
+    if (bName.endsWith('_top')) {
+        state.half = 'upper';
+    } else if (bName.includes('door') && !bName.includes('trapdoor')) {
+        if (!state.half) state.half = 'lower';
+    }
+
+    if (bName === 'chiseled_bookshelf') {
+        state.slot_0_occupied = 'false'; state.slot_1_occupied = 'false';
+        state.slot_2_occupied = 'false'; state.slot_3_occupied = 'false';
+        state.slot_4_occupied = 'false'; state.slot_5_occupied = 'false';
+        if (!state.facing) state.facing = 'north';
+    }
+
+    if (bName === 'sculk_vein' || bName === 'glow_lichen') {
+        if (Object.keys(state).length === 0) {
+            state.down = 'true'; state.up = 'false'; state.north = 'false'; state.south = 'false'; state.east = 'false'; state.west = 'false';
+        }
+    }
+
+    if (bName.includes('fence') || bName.includes('pane') || bName.includes('wall') || bName === 'iron_bars') {
+        const connects = (nx, ny, nz) => {
+            let nb = getGlobalBlock(nx, ny, nz);
+            if (!nb) return false;
+            let nn = REVERSE_TYPE[nb];
+            if (nn.includes('fence') || nn.includes('pane') || nn.includes('wall') || nn === 'iron_bars') return true;
+            return !isTransparent[nb];
+        };
+        state.north = connects(gx, gy, gz - 1) ? 'true' : 'false';
+        state.south = connects(gx, gy, gz + 1) ? 'true' : 'false';
+        state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
+        state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
+        if (bName.includes('wall') && !state.up) {
+            const isStraight =
+                (state.north === 'true' && state.south === 'true' && state.east === 'false' && state.west === 'false') ||
+                (state.east  === 'true' && state.west  === 'true' && state.north === 'false' && state.south === 'false');
+            const blockAbove = getGlobalBlock(gx, gy + 1, gz);
+            const solidAbove = blockAbove !== null && blockAbove !== 0 && !isTransparent[blockAbove];
+            const numH = [state.north, state.south, state.east, state.west].filter(v => v === 'true').length;
+            state.up = (!isStraight || solidAbove || numH === 0) ? 'true' : 'false';
+        }
+    }
+
+    if (bName === 'chorus_plant') {
+        const connects = (nx, ny, nz) => {
+            let nb = getGlobalBlock(nx, ny, nz);
+            if (!nb) return false;
+            let nn = REVERSE_TYPE[nb];
+            return nn === 'chorus_plant' || nn === 'chorus_flower' || nn === 'end_stone';
+        };
+        state.north = connects(gx, gy, gz - 1) ? 'true' : 'false';
+        state.south = connects(gx, gy, gz + 1) ? 'true' : 'false';
+        state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
+        state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
+        state.up = connects(gx, gy + 1, gz) ? 'true' : 'false';
+        state.down = connects(gx, gy - 1, gz) ? 'true' : 'false';
+    }
+    
+    if ((bName.includes('log') || bName.includes('pillar')) && !state.axis) state.axis = 'y';
+    if (bName.includes('stairs')) {
+        northblock = getGlobalBlock (
+            gx,
+            gy,
+            gz - 1
+        );
+        eastblock = getGlobalBlock (
+            gx + 1,
+            gy,
+            gz
+        );
+        westblock = getGlobalBlock (
+            gx - 1,
+            gy,
+            gz
+        );
+        southblock = getGlobalBlock (
+            gx,
+            gy,
+            gz + 1
+        );
+        let northstate = getStoredBlockState(
+            gx,
+            gy,
+            gz - 1
+        );
+
+        let eaststate = getStoredBlockState(
+            gx + 1,
+            gy,
+            gz
+        );
+
+        let weststate = getStoredBlockState(
+            gx - 1,
+            gy,
+            gz
+        );
+
+        let southstate = getStoredBlockState(
+            gx,
+            gy,
+            gz + 1
+        );
+        let northIsStair =
+            northblock &&
+            REVERSE_TYPE[northblock].includes('stairs');
+        let eastIsStair =
+            eastblock &&
+            REVERSE_TYPE[eastblock].includes('stairs');
+        let westIsStair =
+            westblock &&
+            REVERSE_TYPE[westblock].includes('stairs');
+        let southIsStair =
+            southblock &&
+            REVERSE_TYPE[southblock].includes('stairs');
+        if (!state.shape) {
+            if (state.facing === 'north') {
+                if (southIsStair && southstate.facing === 'east') state.shape = 'inner_left';
+                else if (southIsStair && southstate.facing === 'west') state.shape = 'inner_right';
+                else if (northIsStair && northstate.facing === 'east') state.shape = 'outer_left';
+                else if (northIsStair && northstate.facing === 'west') state.shape = 'outer_right';
+                else state.shape = 'straight';
+            }
+            else if (state.facing === 'south') {
+                if (northIsStair && northstate.facing === 'east') state.shape = 'inner_right';
+                else if (northIsStair && northstate.facing === 'west') state.shape = 'inner_left';
+                else if (southIsStair && southstate.facing === 'east') state.shape = 'outer_right';
+                else if (southIsStair && southstate.facing === 'west') state.shape = 'outer_left';
+                else state.shape = 'straight';
+            }
+            else if (state.facing === 'west') {
+                if (eastIsStair && eaststate.facing === 'north') state.shape = 'inner_right';
+                else if (eastIsStair && eaststate.facing === 'south') state.shape = 'inner_left';
+                else if (westIsStair && weststate.facing === 'north') state.shape = 'outer_left';
+                else if (westIsStair && weststate.facing === 'south') state.shape = 'outer_right';
+                else state.shape = 'straight';
+            }
+            else if (state.facing === 'east') {
+                if (westIsStair && weststate.facing === 'north') state.shape = 'inner_left';
+                else if (westIsStair && weststate.facing === 'south') state.shape = 'inner_right';
+                else if (eastIsStair && eaststate.facing === 'north') state.shape = 'outer_right';
+                else if (eastIsStair && eaststate.facing === 'south') state.shape = 'outer_left';
+                else state.shape = 'straight';
+            }
+        }
+
+    }
+    return state;
+}
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const crossGeo = new THREE.BufferGeometry();
-const crossPositions = new Float32Array([
-    -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5,  0.5, -0.5,
-     0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,
-    -0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,
-     0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5
-]);
-const crossUVs = new Float32Array([
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1,
-    0,0,  1,0,  0,1,
-    1,0,  1,1,  0,1
-]);
-crossGeo.setAttribute('position', new THREE.BufferAttribute(crossPositions, 3));
-crossGeo.setAttribute('uv', new THREE.BufferAttribute(crossUVs, 2));
-crossGeo.computeVertexNormals();
 
-async function loadCustomModel(bName) {
-    if (customGeometries[bName]) return; 
+async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
+    let key = cacheKey || bName;
+    if (customGeometries[key]) return; 
 
-    // Hardcode Minecraft Conduit Model including proper geometry, UV mappings and translucent casing
     if (bName === 'conduit') {
         const tex = loadTex('conduit');
         let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
         const px = 1/16;
         const geos = [];
         
-        // Inner Central Heart/Core (6x6x6 texels)
         const coreGeo = new THREE.BoxGeometry(6 * px, 6 * px, 6 * px);
         coreGeo.clearGroups();
         const coreUVs = coreGeo.attributes.uv.array;
         
-        // Map central heart textures on the 3D core
         const setCoreFaceUV = (faceIdx, u, v, w, h) => {
             const u1 = u / 32, u2 = (u + w) / 32;
             const v1 = 1 - (v + h) / 16, v2 = 1 - v / 16;
@@ -577,12 +742,11 @@ async function loadCustomModel(bName) {
             coreUVs[i+4]=u1; coreUVs[i+5]=v1; coreUVs[i+6]=u2; coreUVs[i+7]=v1;
         };
         for (let i = 0; i < 6; i++) {
-            setCoreFaceUV(i, 0, 0, 6, 6); // Core Heart UV Mapping
+            setCoreFaceUV(i, 0, 0, 6, 6);
             coreGeo.addGroup(i * 6, 6, 0);
         }
         geos.push(coreGeo);
         
-        // Outer Rings / Cage shells
         const shell1 = new THREE.BoxGeometry(8 * px, 8 * px, 2 * px);
         const shell2 = new THREE.BoxGeometry(8 * px, 2 * px, 8 * px);
         const shell3 = new THREE.BoxGeometry(2 * px, 8 * px, 8 * px);
@@ -600,24 +764,18 @@ async function loadCustomModel(bName) {
         };
         
         for (let i = 0; i < 6; i++) {
-            setShellUV(shellUVs1, i, 12, 0, 8, 8);
-            shell1.addGroup(i * 6, 6, 0);
-            
-            setShellUV(shellUVs2, i, 12, 0, 8, 8);
-            shell2.addGroup(i * 6, 6, 0);
-            
-            setShellUV(shellUVs3, i, 12, 0, 8, 8);
-            shell3.addGroup(i * 6, 6, 0);
+            setShellUV(shellUVs1, i, 12, 0, 8, 8); shell1.addGroup(i * 6, 6, 0);
+            setShellUV(shellUVs2, i, 12, 0, 8, 8); shell2.addGroup(i * 6, 6, 0);
+            setShellUV(shellUVs3, i, 12, 0, 8, 8); shell3.addGroup(i * 6, 6, 0);
         }
         
         geos.push(shell1, shell2, shell3);
         
-        materials[bName] = mat;
-        customGeometries[bName] = mergeBufferGeometries(geos);
+        materials[key] = mat;
+        customGeometries[key] = mergeBufferGeometries(geos);
         return;
     }
 
-    // Handle Skull Model generation overriding directly (avoid 404 fetching)
     const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head']);
     if (hardcodedModels.has(bName)) {
         const fallbackName = resolveFallbackTexture(bName);
@@ -628,28 +786,13 @@ async function loadCustomModel(bName) {
             const geos = [];
             const px = 1/16;
             for (let p of parts) {
-                let w, h, d, mcX, mcY, mcZ;
+                let w = p.to ? p.to[0]-p.from[0] : p.size ? p.size[0] : p.w;
+                let h = p.to ? p.to[1]-p.from[1] : p.size ? p.size[1] : p.h;
+                let d = p.to ? p.to[2]-p.from[2] : p.size ? p.size[2] : p.d;
+                let mcX = p.to ? p.from[0] : p.pos ? p.pos[0] : p.mcX;
+                let mcY = p.to ? p.from[1] : p.pos ? p.pos[1] : p.mcY;
+                let mcZ = p.to ? p.from[2] : p.pos ? p.pos[2] : p.mcZ;
                 
-                // Automatically handle Blockbench "Java Block" format (From/To) 
-                // OR Blockbench "Entity" format (Position/Size)
-                if (p.from && p.to) {
-                    w = p.to[0] - p.from[0];
-                    h = p.to[1] - p.from[1];
-                    d = p.to[2] - p.from[2];
-                    mcX = p.from[0];
-                    mcY = p.from[1];
-                    mcZ = p.from[2];
-                } else {
-                    w = p.size ? p.size[0] : p.w;
-                    h = p.size ? p.size[1] : p.h;
-                    d = p.size ? p.size[2] : p.d;
-                    mcX = p.pos ? p.pos[0] : p.mcX;
-                    mcY = p.pos ? p.pos[1] : p.mcY;
-                    mcZ = p.pos ? p.pos[2] : p.mcZ;
-                }
-                
-                // Translate the unscaled coordinates into the proper physical size mathematically
-                // The geometry builds natively at this scaled size without double shrinking the positions
                 const physW = w * scaleFactor;
                 const physH = h * scaleFactor;
                 const physD = d * scaleFactor;
@@ -660,67 +803,40 @@ async function loadCustomModel(bName) {
                 const uvs = geo.attributes.uv.array;
 
                 const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
-                    if (!uvArr) return; // Skip if UV isn't defined
+                    if (!uvArr) return; 
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
-                    let u1 = u / tS;
-                    let u2 = (u + fw) / tS;
-                    let v1 = 1 - (v + fh) / tS; // bottom-left in UV space
-                    let v2 = 1 - v / tS;        // top-left in UV space
+                    let u1 = u / tS; let u2 = (u + fw) / tS;
+                    let v1 = 1 - (v + fh) / tS; let v2 = 1 - v / tS;        
                     
-                    if (mirrorU) {
-                        const tmp = u1; u1 = u2; u2 = tmp;
-                    }
+                    if (mirrorU) { const tmp = u1; u1 = u2; u2 = tmp; }
                     
                     const i = faceIdx * 8;
                     if (rot180) {
-                        // 180 degree UV rotation
-                        uvs[i]     = u2; uvs[i + 1] = v1;
-                        uvs[i + 2] = u1; uvs[i + 3] = v1;
-                        uvs[i + 4] = u2; uvs[i + 5] = v2;
-                        uvs[i + 6] = u1; uvs[i + 7] = v2;
+                        uvs[i] = u2; uvs[i+1] = v1; uvs[i+2] = u1; uvs[i+3] = v1;
+                        uvs[i+4] = u2; uvs[i+5] = v2; uvs[i+6] = u1; uvs[i+7] = v2;
                     } else {
-                        // Standard Three.js face UV layout
-                        uvs[i]     = u1; uvs[i + 1] = v2;
-                        uvs[i + 2] = u2; uvs[i + 3] = v2;
-                        uvs[i + 4] = u1; uvs[i + 5] = v1;
-                        uvs[i + 6] = u2; uvs[i + 7] = v1;
+                        uvs[i] = u1; uvs[i+1] = v2; uvs[i+2] = u2; uvs[i+3] = v2;
+                        uvs[i+4] = u1; uvs[i+5] = v1; uvs[i+6] = u2; uvs[i+7] = v1;
                     }
                 };
 
                 const m = mirror || false;
-                
-                // 1. Directly map faces normally 
-                setF(0, uvEast, d, h, m);
-                setF(1, uvWest, d, h, m);
-                setF(2, uvUp, w, d, m, true); // Rotate ONLY the Top UV by 180 degrees
-                setF(3, uvDown, w, d, m);
-                setF(4, uvSouth, w, h, m);
-                setF(5, uvNorth, w, h, m);
+                setF(0, uvEast, d, h, m); setF(1, uvWest, d, h, m);
+                setF(2, uvUp, w, d, m, true); setF(3, uvDown, w, d, m);
+                setF(4, uvSouth, w, h, m); setF(5, uvNorth, w, h, m);
 
-                // 2. ROTATE EVERY SINGLE PART 180 DEGREES BEFORE ASSEMBLING
                 geo.rotateY(Math.PI);
-
-                // 3. ASSEMBLE (Piece all the parts together at their target locations)
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
 
-                // 4. HINGE PIVOTS (Make sure pivot points don't rotate with the part)
                 if (pivot) {
-                    const pivX = pivot[0] * scaleFactor * px;
-                    const pivY = pivot[1] * scaleFactor * px;
-                    const pivZ = pivot[2] * scaleFactor * px;
-                    
+                    const pivX = pivot[0] * px; const pivY = pivot[1] * px; const pivZ = pivot[2] * px;
                     geo.translate(-pivX, -pivY, -pivZ);
-                    
-                    // Allow literal degree arrays from Blockbench (e.g. rot: [22.5, 0, 0])
                     if (rot) {
                         if (rot[0]) geo.rotateX(THREE.MathUtils.degToRad(rot[0]));
                         if (rot[1]) geo.rotateY(THREE.MathUtils.degToRad(rot[1]));
                         if (rot[2]) geo.rotateZ(THREE.MathUtils.degToRad(rot[2]));
-                    } else if (rotX) {
-                        geo.rotateX(rotX); // Backwards compatibility 
-                    }
-                    
+                    } else if (rotX) geo.rotateX(rotX);
                     geo.translate(pivX, pivY, pivZ);
                 }
 
@@ -732,82 +848,26 @@ async function loadCustomModel(bName) {
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
-                // Skull: 16x16x16. 
                 { size: [16, 16, 16], pos: [2, 0, 2], uvUp: [128,30], uvDown: [144,30], uvWest: [112,46], uvNorth: [128,46], uvEast: [144,46], uvSouth: [160,46] },
-                // Upper snout (Attaches flush to front of skull)
                 { size: [12, 5, 16],  pos: [3.5, 3, 12.5], uvUp: [192,44], uvDown: [204,44], uvWest: [176,60], uvNorth: [192,60], uvEast: [204,60], uvSouth: [220,60] }, 
-                // Jaw (Hinges at front of skull base) - Note: Pivot mathematically matched to 0.75 scaling logic
-                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [0, 0, 0] }, 
-                // Right Horn (Mirrored)
+                { size: [12, 4, 16],  pos: [3.5, 0, 12.5], uvUp: [192,65], uvDown: [204,65], uvWest: [176,81], uvNorth: [192,81], uvEast: [204,81], uvSouth: [220,81], pivot: [8, 3, 12], rot: [15, 0, 0] }, 
                 { size: [2, 4, 6],    pos: [4.25, 12, 5], uvUp: [6,0], uvDown: [8,0], uvWest: [0,6], uvNorth: [6,6], uvEast: [8,6], uvSouth: [14,6], mirror: true }, 
-                // Left Horn
                 { size: [2, 4, 6],    pos: [10.25, 12, 5],  uvUp: [6,0], uvDown: [8,0], uvWest: [8,6], uvNorth: [6,6], uvEast: [0,6], uvSouth: [14,6] }, 
-                // Right Nostril (Mirrored)
                 { size: [2, 2, 4],    pos: [4.25, 6.75, 20], uvUp: [116,0], uvDown: [118,0], uvWest: [112,4], uvNorth: [116,4], uvEast: [118,4], uvSouth: [120,4], mirror: true }, 
-                // Left Nostril
                 { size: [2, 2, 4],    pos: [10.25, 6.75, 20],  uvUp: [116,0], uvDown: [118,0], uvWest: [118,4], uvNorth: [116,4], uvEast: [112,4], uvSouth: [120,4] }  
             ];
-            
-            // Pass scaleFactor = 0.75 so geometry is built correctly BEFORE positioning without ruining UVs!
             headGeo = buildMCModel(parts, 256, 0.75);
-            
-            // Shift the geometry cleanly to match physical 12x12 world dimensions
             headGeo.translate(-0.5, -0.5, -0.5);
         } else {
-            // Standard Minecraft head texture mapping to maintain backward compatibility for skulls/player heads
-            const parts = [ { size: [8, 8, 8], pos: [-4, 0, -4], 
-                uvWest: [0, 8], uvNorth: [8, 8], uvEast: [16, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
+            const parts = [ { size: [8, 8, 8], pos: [-4, -4, -4], 
+                uvWest: [16, 8], uvNorth: [8, 8], uvEast: [0, 8], uvSouth: [24, 8], uvUp: [8, 0], uvDown: [16, 0] 
             } ];
             headGeo = buildMCModel(parts, 64);
             headGeo.translate(0, -0.25, 0); 
         }
 
-        materials[bName] = mat;
-        customGeometries[bName] = headGeo;
-        return;
-    }
-
-    // Custom geometry interception for Torches & Campfires
-    if (bName === 'torch' || bName === 'soul_torch') {
-        const tex = loadTex(bName);
-        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
-        let geo = new THREE.BoxGeometry(2/16, 10/16, 2/16);
-        geo.translate(0, -3/16, 0);
-        
-        const uvs = geo.attributes.uv.array;
-        const setUV = (faceIdx, u1, v1, u2, v2) => {
-            const i = faceIdx * 8;
-            uvs[i]=u1/16; uvs[i+1]=1-v2/16; uvs[i+2]=u2/16; uvs[i+3]=1-v2/16;
-            uvs[i+4]=u1/16; uvs[i+5]=1-v1/16; uvs[i+6]=u2/16; uvs[i+7]=1-v1/16;
-        };
-        for(let i=0; i<6; i++) setUV(i, 7, 6, 9, 16); 
-        setUV(2, 7, 6, 9, 8); // Top
-        setUV(3, 7, 14, 9, 16); // Bottom
-
-        materials[bName] = mat;
-        customGeometries[bName] = geo;
-        return;
-    }
-
-    if (bName === 'campfire' || bName === 'soul_campfire') {
-        const texLog = loadTex(bName === 'campfire' ? 'campfire_log_lit' : 'soul_campfire_log_lit');
-        let mat = new THREE.MeshLambertMaterial({ map: texLog });
-        let geo = new THREE.BoxGeometry(1, 7/16, 1);
-        geo.translate(0, -4.5/16, 0);
-        materials[bName] = mat;
-        customGeometries[bName] = geo;
-        return;
-    }
-
-    if (CROSS_BLOCKS.has(bName)) {
-        const fallbackTex = resolveFallbackTexture(bName);
-        const tex = loadTex(fallbackTex);
-        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, depthWrite: true });
-        if (bName === 'grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || bName === 'vine') {
-            mat.color.setHex(0x91bd59);
-        }
-        materials[bName] = mat;
-        customGeometries[bName] = crossGeo;
+        materials[key] = mat;
+        customGeometries[key] = headGeo;
         return;
     }
 
@@ -818,280 +878,260 @@ async function loadCustomModel(bName) {
         let baseName = bName;
         if (isInner) baseName = bName.replace('_inner', '');
         if (isOuter) baseName = bName.replace('_outer', '');
-        if (isTop) baseName = bName.replace('_top', '');
+        if (isTop) {
+            baseName = bName.replace('_top', '');
+            stateDict.half = 'upper';
+        } else if (bName.includes('door') && !bName.includes('trapdoor')) {
+            if (!stateDict.half) stateDict.half = 'lower';
+        }
 
-        let modelPath = baseName;
-        const state = await JSONReader.getBlockstate(baseName);
+        const stateJson = await JSONReader.getBlockstate(baseName);
+        let modelPartsToLoad = [];
+        let combinedDisplay = {};
+        let parsedGuiLight = null;
         
-        if (state && state.variants) {
-            let variantKey = "";
-            let keys = Object.keys(state.variants);
-            let targetShape = isInner ? 'inner_left' : isOuter ? 'outer_left' : 'straight';
-            let targetHalf = isTop ? 'upper' : (baseName.includes('door') ? 'lower' : 'bottom');
-            
-            for (let k of keys) {
-                let matchHalf = k.includes(`half=${targetHalf}`);
-                if (!k.includes('half=')) matchHalf = true;
-                
-                let matchShape = k.includes(`shape=${targetShape}`);
-                if (!k.includes('shape=')) matchShape = true;
-                
-                if (matchHalf && matchShape) {
-                    variantKey = k;
-                    break;
+        if (stateJson) {
+            if (stateJson.variants) {
+                let match = "";
+                let keys = Object.keys(stateJson.variants);
+                for (let k of keys) {
+                    let kPairs = k.split(',');
+                    let matchesAll = kPairs.every(pair => {
+                        if (pair === "") return true;
+                        let [prop, val] = pair.split('=');
+                        return stateDict[prop] === val;
+                    });
+                    if (matchesAll) { match = k; break; }
                 }
-            }
-            if (!variantKey) variantKey = keys[0]; 
-            
-            let variant = state.variants[variantKey];
-            if (Array.isArray(variant)) variant = variant[0]; 
-            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
-        } else if (state && state.multipart) {
-            let part = state.multipart[0]; 
-            let variant = part.apply;
-            if (Array.isArray(variant)) variant = variant[0];
-            if (variant.model) modelPath = variant.model.replace('minecraft:block/', '').replace('block/', '');
-        }
-
-        let currentModel = await JSONReader.getModel(modelPath);
-        let elements = currentModel ? currentModel.elements : null;
-        let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
-        let display = currentModel && currentModel.display ? JSON.parse(JSON.stringify(currentModel.display)) : {};
-
-        let depth = 0;
-        while (currentModel && currentModel.parent && depth < 10) {
-            let parentPath = currentModel.parent;
-            if (parentPath.includes(':')) parentPath = parentPath.split(':')[1]; 
-            parentPath = parentPath.replace('block/', '');
-            
-            if (parentPath.startsWith('builtin/')) break;
-            
-            currentModel = await JSONReader.getModel(parentPath);
-            if (currentModel) {
-                if (!elements && currentModel.elements) elements = currentModel.elements;
-                if (currentModel.textures) {
-                    for (let k in currentModel.textures) {
-                        if (!textures[k]) textures[k] = currentModel.textures[k];
+                if (!match && keys.length > 0) match = keys[0];
+                let v = stateJson.variants[match];
+                modelPartsToLoad.push(Array.isArray(v) ? v[0] : v);
+            } else if (stateJson.multipart) {
+                for (let p of stateJson.multipart) {
+                    if (!p.when || JSONReader.evaluateWhen(p.when, stateDict)) {
+                        let apply = Array.isArray(p.apply) ? p.apply[0] : p.apply;
+                        modelPartsToLoad.push(apply);
                     }
                 }
-                if (currentModel.display) {
-                    for (let k in currentModel.display) {
-                        if (!display[k]) display[k] = JSON.parse(JSON.stringify(currentModel.display[k]));
-                    }
+                if (modelPartsToLoad.length === 0 && stateJson.multipart.length > 0) {
+                    let apply = Array.isArray(stateJson.multipart[0].apply) ? stateJson.multipart[0].apply[0] : stateJson.multipart[0].apply;
+                    modelPartsToLoad.push(apply);
                 }
             }
-            depth++;
+        } else {
+            modelPartsToLoad.push({ model: `block/${baseName}` });
         }
 
-        const resolveTexture = (texStr) => {
-            if (!texStr) return null;
-            let key = texStr.startsWith('#') ? texStr.substring(1) : texStr;
-            
-            if (textures[key]) {
-                let safe = 10;
-                while (textures[key] && textures[key].startsWith('#') && safe > 0) {
-                    key = textures[key].substring(1);
-                    safe--;
-                }
-                if (textures[key]) return textures[key];
-            }
-            
-            if (texStr.startsWith('#')) return resolveFallbackTexture(baseName);
-            return texStr;
-        };
-
+        const allCompiledGeometries = [];
         const matArray = [];
         const texMap = {};
         let matIndexCounter = 0;
-
-        const getMaterialForTex = (texPath) => {
-            if (!texPath) texPath = resolveFallbackTexture(baseName); 
-            texPath = texPath.replace('minecraft:', '').replace('block/', '');
+        let isGenerated = false;
+        
+        for (let p of modelPartsToLoad) {
+            let modelPath = p.model.replace('minecraft:', '');
+            if (!modelPath.includes('/')) modelPath = `block/${modelPath}`;
             
-            if (texMap[texPath] !== undefined) return texMap[texPath];
-            
-            let tex = loadTex(texPath);
-            let mat;
-            let isOverlay = texPath.includes('overlay');
-
-            const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
-            const isCutout = CROSS_BLOCKS.has(baseName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom'].some(kw => texPath.includes(kw) || baseName.includes(kw));
-
-            if (isTranslucent || isOverlay) {
-                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
-            } else if (isCutout) {
-                mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
-            } else {
-                mat = new THREE.MeshLambertMaterial({ map: tex });
+            let currentModel = await JSONReader.getModel(modelPath);
+            if (!currentModel && modelPath.startsWith('item/')) {
+                modelPath = `block/${baseName}`;
+                currentModel = await JSONReader.getModel(modelPath);
             }
-            
-            if (texPath === 'grass_block_top' || texPath === 'vine' || texPath === 'grass_block_side_overlay') {
-                mat.color.setHex(0x91bd59); 
-            } else if (texPath.includes('leaves')) {
-                mat.color.setHex(0x91bd59);
-                if (texPath.includes('spruce')) mat.color.setHex(0x619961);
-                if (texPath.includes('birch')) mat.color.setHex(0x80a755);
-            }
-            
-            matArray.push(mat);
-            texMap[texPath] = matIndexCounter;
-            return matIndexCounter++;
-        };
 
-        if (elements && elements.length > 0) {
-            const elementGeometries = [];
-            for (let el of elements) {
-                const w = (el.to[0] - el.from[0]) / 16;
-                const h = (el.to[1] - el.from[1]) / 16;
-                const d = (el.to[2] - el.from[2]) / 16;
-                
-                let hasOverlay = false;
-                if (el.faces) {
-                    for (const mcFace in el.faces) {
-                        if (!el.faces[mcFace]) continue;
-                        let texRef = el.faces[mcFace].texture;
-                        let texPath = resolveTexture(texRef);
-                        if (texPath && texPath.includes('overlay')) hasOverlay = true;
+            if (currentModel && currentModel.gui_light && !parsedGuiLight) parsedGuiLight = currentModel.gui_light;
+            const captureDisplayTransforms = (model) => {
+                if (!model || !model.display) return;
+                for (let k in model.display) {
+                    if (k === 'gui' || k === 'ground') {
+                        if (!combinedDisplay[k]) combinedDisplay[k] = JSON.parse(JSON.stringify(model.display[k]));
                     }
                 }
-                
-                let expand = hasOverlay ? 0.002 : 0;
-                
-                const geo = new THREE.BoxGeometry(
-                    Math.max(0.001, w + expand), 
-                    Math.max(0.001, h + expand), 
-                    Math.max(0.001, d + expand)
-                );
-                
-                geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
-                geo.clearGroups();
+            };
 
-                // OPTIMIZATION: Native proper block rotation parsing logic implemented!
-                if (el.rotation && el.rotation.origin) {
-                    let rx = 0, ry = 0, rz = 0;
-                    let pX = el.rotation.origin[0]/16 - 0.5;
-                    let pY = el.rotation.origin[1]/16 - 0.5;
-                    let pZ = el.rotation.origin[2]/16 - 0.5;
-                    let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
+            captureDisplayTransforms(currentModel);
 
-                    geo.translate(-pX, -pY, -pZ);
-                    if (el.rotation.axis === 'x') { rx = rad; geo.rotateX(rad); }
-                    if (el.rotation.axis === 'y') { ry = rad; geo.rotateY(rad); }
-                    if (el.rotation.axis === 'z') { rz = rad; geo.rotateZ(rad); }
-                    
-                    if (el.rotation.rescale) {
-                        let scaleAmount = 1.0 / Math.cos(Math.abs(rad));
-                        if (el.rotation.axis === 'x') geo.scale(1, scaleAmount, scaleAmount);
-                        if (el.rotation.axis === 'y') geo.scale(scaleAmount, 1, scaleAmount);
-                        if (el.rotation.axis === 'z') geo.scale(scaleAmount, scaleAmount, 1);
-                    }
-                    geo.translate(pX, pY, pZ);
+
+            let elements = currentModel ? currentModel.elements : null;
+            let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
+            let depth = 0;
+
+            while (currentModel && currentModel.parent && depth < 10) {
+                let parentPath = currentModel.parent.replace('minecraft:', '');
+                if (parentPath === 'item/generated' || parentPath === 'item/handheld' || parentPath === 'builtin/generated' || parentPath.startsWith('builtin/')) {
+                    isGenerated = true; break;
                 }
+                currentModel = await JSONReader.getModel(parentPath);
+                if (currentModel) {
+                    if (currentModel.gui_light && !parsedGuiLight) parsedGuiLight = currentModel.gui_light;
+                    if (!elements && currentModel.elements) elements = currentModel.elements;
+                    if (currentModel.textures) {
+                        for (let k in currentModel.textures) if (!textures[k]) textures[k] = currentModel.textures[k];
+                    }
+                    captureDisplayTransforms(currentModel);
+                }
+                depth++;
+            }
 
-                if (el.faces) {
-                    const uvs = geo.attributes.uv;
-                    const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
+            const resolveTexture = (texStr) => {
+                if (!texStr) return null;
+                let tKey = texStr.startsWith('#') ? texStr.substring(1) : texStr;
+                if (textures[tKey]) {
+                    let safe = 10;
+                    while (textures[tKey] && textures[tKey].startsWith('#') && safe > 0) {
+                        tKey = textures[tKey].substring(1); safe--;
+                    }
+                    if (textures[tKey]) return textures[tKey];
+                }
+                return texStr.startsWith('#') ? null : texStr;
+            };
+
+            const getMaterialForTex = (texPath) => {
+                if (!texPath) texPath = resolveFallbackTexture(baseName); 
+                texPath = texPath.replace('minecraft:', '');
+                if (texMap[texPath] !== undefined) return texMap[texPath];
+                
+                let folder = `assets/minecraft/textures/`; let file = texPath;
+                if (!file.includes('/')) folder = BLOCK_TEX_DIR;
+                else { let parts = file.split('/'); file = parts.pop(); folder += parts.join('/') + '/'; }
+                
+                let tex = loadTex(file, folder);
+                let mat;
+                let isOverlay = texPath.includes('overlay');
+                const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
+                
+                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+
+                if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
+                else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+                else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+                else mat = new THREE.MeshLambertMaterial({ map: tex });
+                
+                if (texPath.includes('grass_block_top') || texPath.includes('vine') || texPath.includes('grass_block_side_overlay') || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || texPath.includes('tall_grass') || texPath.includes('fern') || bName === 'sugar_cane') {
+                    mat.color.setHex(0x91bd59); 
+                }
+                else if (bName === 'lily_pad' || texPath.includes('lily_pad')) {
+                    mat.color.setHex(0x4aa850);
+                }
+                else if (texPath.includes('leaves')) { 
+                    mat.color.setHex(0x91bd59); 
+                    if (texPath.includes('spruce')) mat.color.setHex(0x619961); 
+                    if (texPath.includes('birch')) mat.color.setHex(0x80a755); 
+                }
+                
+                matArray.push(mat); texMap[texPath] = matIndexCounter; return matIndexCounter++;
+            };
+
+            if (isGenerated) {
+                let layer0 = resolveTexture(textures.layer0 || textures.cross) || `item/${baseName}`; 
+                let matIdx = getMaterialForTex(layer0);
+                const geo = new THREE.PlaneGeometry(1, 1);
+                geo.clearGroups(); geo.addGroup(0, 6, matIdx);
+                allCompiledGeometries.push(geo);
+            } else if (elements && elements.length > 0) {
+                for (let el of elements) {
+                    const w = (el.to[0] - el.from[0]) / 16, h = (el.to[1] - el.from[1]) / 16, d = (el.to[2] - el.from[2]) / 16;
+                    let expand = 0;
+                    if (el.faces) for (const mcF in el.faces) {
+                        let tPath = resolveTexture(el.faces[mcF]?.texture);
+                        if (tPath && tPath.includes('overlay')) expand = 0.002;
+                    }
                     
-                    for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
-                        const faceData = el.faces[mcFace];
-                        if (!faceData) continue;
+                    const geo = new THREE.BoxGeometry(Math.max(0.001, w + expand), Math.max(0.001, h + expand), Math.max(0.001, d + expand));
+                    geo.translate((el.from[0] + el.to[0])/32 - 0.5, (el.from[1] + el.to[1])/32 - 0.5, (el.from[2] + el.to[2])/32 - 0.5);
+                    geo.clearGroups();
 
-                        let texRef = faceData.texture;
-                        let texPath = resolveTexture(texRef);
-                        let matIdx = getMaterialForTex(texPath);
+                    if (el.rotation && el.rotation.origin) {
+                        let pX = el.rotation.origin[0]/16 - 0.5, pY = el.rotation.origin[1]/16 - 0.5, pZ = el.rotation.origin[2]/16 - 0.5;
+                        let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
+                        geo.translate(-pX, -pY, -pZ);
+                        if (el.rotation.axis === 'x') geo.rotateX(rad);
+                        if (el.rotation.axis === 'y') geo.rotateY(rad);
+                        if (el.rotation.axis === 'z') geo.rotateZ(rad);
+                        if (el.rotation.rescale) {
+                            let sAmt = 1.0 / Math.cos(Math.abs(rad));
+                            if (el.rotation.axis === 'x') geo.scale(1, sAmt, sAmt);
+                            if (el.rotation.axis === 'y') geo.scale(sAmt, 1, sAmt);
+                            if (el.rotation.axis === 'z') geo.scale(sAmt, sAmt, 1);
+                        }
+                        geo.translate(pX, pY, pZ);
+                    }
 
-                        geo.addGroup(faceIdx * 6, 6, matIdx);
+                    if (el.faces) {
+                        const uvs = geo.attributes.uv;
+                        const faceMap = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 };
+                        for (const [mcFace, faceIdx] of Object.entries(faceMap)) {
+                            const faceData = el.faces[mcFace];
+                            if (!faceData) continue;
+                            let matIdx = getMaterialForTex(resolveTexture(faceData.texture));
+                            geo.addGroup(faceIdx * 6, 6, matIdx);
 
-                        let u1 = 0, v1 = 0, u2 = 1, v2 = 1;
-                        if (faceData.uv) {
-                            u1 = faceData.uv[0] / 16;
-                            v1 = faceData.uv[1] / 16;
-                            u2 = faceData.uv[2] / 16;
-                            v2 = faceData.uv[3] / 16;
-                        } else {
-                            if (mcFace === 'up' || mcFace === 'down') {
-                                u1 = el.from[0]/16; v1 = el.from[2]/16; u2 = el.to[0]/16; v2 = el.to[2]/16;
-                            } else if (mcFace === 'north' || mcFace === 'south') {
-                                u1 = el.from[0]/16; v1 = 1 - el.to[1]/16; u2 = el.to[0]/16; v2 = 1 - el.from[1]/16;
-                            } else {
-                                u1 = el.from[2]/16; v1 = 1 - el.to[1]/16; u2 = el.to[2]/16; v2 = 1 - el.from[1]/16;
+                            let u1=0, v1=0, u2=1, v2=1;
+                            if (faceData.uv) { u1=faceData.uv[0]/16; v1=faceData.uv[1]/16; u2=faceData.uv[2]/16; v2=faceData.uv[3]/16; } 
+                            else {
+                                if (mcFace === 'up' || mcFace === 'down') { u1=el.from[0]/16; v1=el.from[2]/16; u2=el.to[0]/16; v2=el.to[2]/16; } 
+                                else if (mcFace === 'north' || mcFace === 'south') { u1=el.from[0]/16; v1=1-el.to[1]/16; u2=el.to[0]/16; v2=1-el.from[1]/16; } 
+                                else { u1=el.from[2]/16; v1=1-el.to[1]/16; u2=el.to[2]/16; v2=1-el.from[1]/16; }
                             }
-                        }
-
-                        let tv1 = 1 - v1;
-                        let tv2 = 1 - v2;
-                        let vIdx = faceIdx * 4;
-                        
-                        let rot = faceData.rotation || 0;
-                        if (rot === 0) {
-                            uvs.setXY(vIdx + 0, u1, tv1); uvs.setXY(vIdx + 1, u2, tv1);
-                            uvs.setXY(vIdx + 2, u1, tv2); uvs.setXY(vIdx + 3, u2, tv2);
-                        } else if (rot === 90) {
-                            uvs.setXY(vIdx + 0, u1, tv2); uvs.setXY(vIdx + 1, u1, tv1);
-                            uvs.setXY(vIdx + 2, u2, tv2); uvs.setXY(vIdx + 3, u2, tv1);
-                        } else if (rot === 180) {
-                            uvs.setXY(vIdx + 0, u2, tv2); uvs.setXY(vIdx + 1, u1, tv2);
-                            uvs.setXY(vIdx + 2, u2, tv1); uvs.setXY(vIdx + 3, u1, tv1);
-                        } else if (rot === 270) {
-                            uvs.setXY(vIdx + 0, u2, tv1); uvs.setXY(vIdx + 1, u2, tv2);
-                            uvs.setXY(vIdx + 2, u1, tv1); uvs.setXY(vIdx + 3, u1, tv2);
+                            let tv1 = 1-v1, tv2 = 1-v2, vIdx = faceIdx * 4;
+                            let rot = faceData.rotation || 0;
+                            if (rot === 0) { uvs.setXY(vIdx, u1, tv1); uvs.setXY(vIdx+1, u2, tv1); uvs.setXY(vIdx+2, u1, tv2); uvs.setXY(vIdx+3, u2, tv2); } 
+                            else if (rot === 90) { uvs.setXY(vIdx, u1, tv2); uvs.setXY(vIdx+1, u1, tv1); uvs.setXY(vIdx+2, u2, tv2); uvs.setXY(vIdx+3, u2, tv1); } 
+                            else if (rot === 180) { uvs.setXY(vIdx, u2, tv2); uvs.setXY(vIdx+1, u1, tv2); uvs.setXY(vIdx+2, u2, tv1); uvs.setXY(vIdx+3, u1, tv1); } 
+                            else if (rot === 270) { uvs.setXY(vIdx, u2, tv1); uvs.setXY(vIdx+1, u2, tv2); uvs.setXY(vIdx+2, u1, tv1); uvs.setXY(vIdx+3, u1, tv2); }
                         }
                     }
+
+                    if (p.x || p.y) {
+                        if (p.x) geo.rotateX(THREE.MathUtils.degToRad(p.x));
+                        if (p.y) geo.rotateY(-THREE.MathUtils.degToRad(p.y)); 
+                    }
+
+                    allCompiledGeometries.push(geo);
                 }
-                elementGeometries.push(geo);
+            } else {
+                throw new Error("No elements found");
             }
-            
-            materials[bName] = matArray;
-            if (elementGeometries.length === 1) {
-                customGeometries[bName] = elementGeometries[0];
-            } else if (elementGeometries.length > 1) {
-                customGeometries[bName] = mergeBufferGeometries(elementGeometries);
-            }
-            
-            customGeometries[bName].userData = { display: display };
-            
-        } else {
-            throw new Error("No elements found");
         }
+        
+        materials[key] = matArray;
+        if (allCompiledGeometries.length === 1) customGeometries[key] = allCompiledGeometries[0];
+        else if (allCompiledGeometries.length > 1) customGeometries[key] = mergeBufferGeometries(allCompiledGeometries);
+        
+        if (customGeometries[key]) customGeometries[key].userData = { display: combinedDisplay, is2D: isGenerated, guiLight: parsedGuiLight || 'side' };
+        
     } catch(e) {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
         let mat;
         
         const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
-        const isCutout = CROSS_BLOCKS.has(bName) || ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
+        const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
 
-        if (isTranslucent) {
-            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
-        } else if (isCutout) {
-            mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
-        } else {
-            mat = new THREE.MeshLambertMaterial({ map: tex });
-        }
+        if (isTranslucent) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
+        else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 }); // Removed DoubleSide here
+        else mat = new THREE.MeshLambertMaterial({ map: tex });
         
-        if (fallbackName === 'grass_block_top' || fallbackName === 'vine' || fallbackName === 'grass_block_side_overlay' || bName === 'grass' || bName === 'tall_grass' || bName === 'fern') {
+        if (fallbackName.includes('grass_block_top') || fallbackName.includes('vine') || fallbackName.includes('grass_block_side_overlay') || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || fallbackName.includes('tall_grass') || fallbackName.includes('fern') || bName === 'sugar_cane') {
             mat.color.setHex(0x91bd59);
-        } else if (fallbackName.includes('leaves')) {
-            mat.color.setHex(0x91bd59);
-            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961);
-            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755);
+        }
+        else if (bName === 'lily_pad' || fallbackName.includes('lily_pad')) {
+            mat.color.setHex(0x208030);
+        }
+        else if (fallbackName.includes('leaves')) { 
+            mat.color.setHex(0x91bd59); 
+            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961); 
+            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755); 
         }
         
-        materials[bName] = mat;
-        
-        let customGeo = geometry.clone(); 
-        if (bName === 'heavy_core') {
-            customGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            customGeo.translate(0, -0.25, 0);
-        }
-        customGeometries[bName] = customGeo; 
+        materials[key] = mat;
+        customGeometries[key] = geometry.clone(); 
     }
     
     const promises = [];
-    if (Array.isArray(materials[bName])) {
-        materials[bName].forEach(mat => { if (mat.map && mat.map.loadPromise) promises.push(mat.map.loadPromise); });
-    } else if (materials[bName] && materials[bName].map && materials[bName].map.loadPromise) {
-        promises.push(materials[bName].map.loadPromise);
+    if (Array.isArray(materials[key])) {
+        materials[key].forEach(mat => { if (mat.map && mat.map.loadPromise) promises.push(mat.map.loadPromise); });
+    } else if (materials[key] && materials[key].map && materials[key].map.loadPromise) {
+        promises.push(materials[key].map.loadPromise);
     }
     await Promise.all(promises);
 }
@@ -1100,29 +1140,146 @@ async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
     
-    let pathInfo = resolveTexturePath(type, true);
+    let defaultState = {};
+    if (type.includes('stairs')) defaultState = { shape: 'straight', half: 'bottom', facing: 'east' };
+    if (type.includes('fence')) defaultState = { north: 'false', south: 'false', east: 'false', west: 'false' };
+    if (type.includes('wall')) defaultState = { up: 'true', north: 'false', south: 'false', east: 'false', west: 'false' };
+    if (type.includes('log') || type.includes('pillar') || type === 'basalt') defaultState.axis = 'y';
+    if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
     
-    // Explicit 2D items (Uses a pure HTMLCanvas element rendering for flawless 1:1 crisp pixels)
-    if (pathInfo.is2D) {
-        let tex = loadTex(pathInfo.filename, pathInfo.folder, true, type);
+    if (type === 'compass_tab') {
+        let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
-        
         const cvs = document.createElement('canvas');
         cvs.width = 16; cvs.height = 16;
         const ctx = cvs.getContext('2d');
         ctx.imageSmoothingEnabled = false; 
-        if (tex.image) {
-            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
-        }
+        if (tex.image) ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
         const url = `url(${cvs.toDataURL('image/png')})`;
         iconCache[type] = url;
         return url;
     }
 
-    if (!customGeometries[type]) await loadCustomModel(type);
+    let itemModel = await JSONReader.getModel(`item/${type}`);
+    let is2DItem = false;
+    let layer0Ref = null;
+    let texturesMap = {};
+    
+    if (itemModel) {
+        let curr = itemModel;
+        let depth = 0;
+        while (curr && depth < 10) {
+            if (curr.textures) {
+                for (let k in curr.textures) {
+                    if (!texturesMap[k]) texturesMap[k] = curr.textures[k];
+                }
+            }
+            if (curr.parent && (curr.parent.includes('item/generated') || curr.parent.includes('item/handheld') || curr.parent.includes('builtin/generated'))) {
+                is2DItem = true;
+                break;
+            }
+            if (!curr.parent) break;
+            curr = await JSONReader.getModel(curr.parent.replace('minecraft:', ''));
+            depth++;
+        }
+    }
+
+    if (is2DItem) {
+        layer0Ref = texturesMap.layer0 || texturesMap.cross;
+        
+        const resolveTexRef = (ref) => {
+            let resolved = ref;
+            let loops = 0;
+            while (resolved && resolved.startsWith('#') && loops < 10) {
+                resolved = texturesMap[resolved.substring(1)];
+                loops++;
+            }
+            return resolved;
+        };
+        
+        layer0Ref = resolveTexRef(layer0Ref);
+        
+        if (!layer0Ref) layer0Ref = `item/${type}`;
+        if (layer0Ref.startsWith('minecraft:')) layer0Ref = layer0Ref.replace('minecraft:', '');
+        
+        let folder = `assets/minecraft/textures/`;
+        let file = layer0Ref;
+        if (!file.includes('/')) {
+            folder = ITEM_TEX_DIR;
+        } else {
+            let parts = file.split('/');
+            file = parts.pop();
+            folder += parts.join('/') + '/';
+        }
+        
+        let tex = loadTex(file, folder, true, type);
+        await tex.loadPromise;
+        
+        if (tex && tex.image && tex.image.width > 0) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false; 
+            
+            const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            if (tintables.includes(type)) {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
+                ctx.fillRect(0, 0, cvs.width, cvs.height);
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
+                ctx.globalCompositeOperation = 'source-over';
+            } else {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+            }
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            
+            if (!customGeometries[type]) loadCustomModel(type, defaultState, type).catch(()=>{});
+            
+            return url;
+        }
+    }
+
+    if (!customGeometries[type]) await loadCustomModel(type, defaultState, type);
     const geo = customGeometries[type];
     const mat = materials[type];
     if (!geo || !mat) return 'none';
+    
+    if (geo.userData && geo.userData.is2D) {
+        let tex = Array.isArray(mat) ? mat[0].map : mat.map;
+        if (tex && tex.loadPromise) await tex.loadPromise;
+        
+        if (tex && tex.image) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false; 
+            
+            const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+            if (tintables.includes(type)) {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
+                ctx.fillRect(0, 0, cvs.width, cvs.height);
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
+                ctx.globalCompositeOperation = 'source-over';
+            } else {
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+            }
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            return url;
+        }
+    }
     
     const mesh = new THREE.Mesh(geo, mat);
     iconScene.add(mesh);
@@ -1143,47 +1300,44 @@ async function getBlockIcon(type) {
         let threeRy = THREE.MathUtils.degToRad(ry);
         let threeRz = THREE.MathUtils.degToRad(rz);
         
-        if (ry === 225) {
-            if (type.includes('stairs')) {
-                threeRy = Math.PI / 4; 
-            } else {
-                threeRy = THREE.MathUtils.degToRad(225); 
-            }
-        }
-
-        // Fix the Spore Blossom rotation to hang perfectly
-        if (type === 'spore_blossom') {
-            threeRz += Math.PI; 
-        }
-        
+        // Minecraft display transforms are authored as XYZ Euler rotations.
+        // Using a different order makes block icons look rotated even when the
+        // correct display.gui values were read from the model JSON.
         mesh.rotation.set(threeRx, threeRy, threeRz, 'XYZ');
     }
     
-    const normals = [
-        new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
-        new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
-        new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
-    ];
+    let guiLight = geo.userData && geo.userData.guiLight ? geo.userData.guiLight : 'side';
 
-    let bestTop = new THREE.Vector3(0, 1, 0);
-    let bestLeft = new THREE.Vector3(-1, 0, 0);
-    let maxY = -Infinity;
-    let minX = Infinity;
+    if (guiLight === 'front') {
+        iconTopLight.position.set(0, 0, 1);
+        iconLeftLight.position.set(0, 0, 1);
+    } else {
+        const normals = [
+            new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
+            new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
+            new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
+        ];
 
-    for (let n of normals) {
-        let globalN = n.clone().applyEuler(mesh.rotation);
-        if (globalN.y > maxY) {
-            maxY = globalN.y;
-            bestTop.copy(n);
+        let bestTop = new THREE.Vector3(0, 1, 0);
+        let bestLeft = new THREE.Vector3(-1, 0, 0);
+        let maxY = -Infinity;
+        let minX = Infinity;
+
+        for (let n of normals) {
+            let globalN = n.clone().applyEuler(mesh.rotation);
+            if (globalN.y > maxY) {
+                maxY = globalN.y;
+                bestTop.copy(n);
+            }
+            if (globalN.z > 0.01 && globalN.x < minX) {
+                minX = globalN.x;
+                bestLeft.copy(n);
+            }
         }
-        if (globalN.z > 0.01 && globalN.x < minX) {
-            minX = globalN.x;
-            bestLeft.copy(n);
-        }
+
+        iconTopLight.position.copy(bestTop.applyEuler(mesh.rotation));
+        iconLeftLight.position.copy(bestLeft.applyEuler(mesh.rotation));
     }
-
-    iconTopLight.position.copy(bestTop.applyEuler(mesh.rotation));
-    iconLeftLight.position.copy(bestLeft.applyEuler(mesh.rotation));
     
     if (guiConfig.scale) {
         mesh.scale.set(guiConfig.scale[0], guiConfig.scale[1], guiConfig.scale[2]);
@@ -1210,7 +1364,10 @@ function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
     if (!type) { element.style.backgroundImage = 'none'; return; }
     
-    if (type === 'compass') return;
+    if (type === 'compass') {
+        element.style.backgroundImage = `url(${ITEM_TEX_DIR}compass_00.png)`;
+        return;
+    }
     
     getBlockIcon(type).then(url => {
         if (element.dataset.iconType === type) element.style.backgroundImage = url;
@@ -1284,7 +1441,6 @@ for (let i = 0; i < 9; i++) {
 
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
-    // Shifted inventory icons 1px left and 1px up inside slot
     itemSprite.style.position = 'absolute';
     itemSprite.style.left = '0px'; 
     itemSprite.style.top = '0px'; 
@@ -1421,7 +1577,7 @@ invBody.appendChild(creativeGridContainer);
 
 const scrollTrack = document.createElement('div');
 scrollTrack.style.position = 'absolute';
-scrollTrack.style.right = '6px'; // Perfected right alignment groove
+scrollTrack.style.right = '6px'; 
 scrollTrack.style.top = '18px';
 scrollTrack.style.width = '14px'; 
 scrollTrack.style.height = '112px'; 
@@ -1468,8 +1624,8 @@ const heldItemUI = document.createElement('div');
 heldItemUI.id = 'held-item-ui';
 heldItemUI.className = 'pixelated';
 heldItemUI.style.position = 'absolute';
-heldItemUI.style.left = '-9px'; // Shifted 1px left
-heldItemUI.style.top = '-9px';  // Shifted 1px up
+heldItemUI.style.left = '-9px'; 
+heldItemUI.style.top = '-9px';  
 heldItemUI.style.width = '16px';
 heldItemUI.style.height = '16px';
 heldItemUI.style.transformOrigin = 'center';
@@ -1633,7 +1789,6 @@ function createItemSlot(bName, i, sourceArray) {
     const itemSprite = document.createElement('div');
     itemSprite.className = 'pixelated';
     itemSprite.style.position = 'absolute';
-    // Shifted grid icons 1px left and 1px up inside creative slots to fix alignment issues
     itemSprite.style.left = '0px'; 
     itemSprite.style.top = '0px'; 
     itemSprite.style.width = '16px';
@@ -1717,7 +1872,7 @@ function populateCreativeGrid() {
     if (currentCategory === 'search') {
         const query = searchInput.value.toLowerCase();
         blocksToShow = ALL_BLOCKS.filter(b => 
-            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && b !== 'air' && b.includes(query)
+            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && !b.includes('_plant') && b !== 'air' && b !== 'sweet_berry_bush' && b.includes(query)
         );
     }
 
@@ -1848,7 +2003,6 @@ document.addEventListener('mousemove', (e) => {
         tooltip.style.top = (e.clientY / currentGuiScale - 12) + 'px';
     }
     
-    // Smooth scroll thumb drag logic that snaps the grid mathematically to rows
     if (isDraggingScroll && creativeScaleCenter.style.display !== 'none') {
         let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
         let maxRow = Math.max(0, totalRows - 5);
@@ -1868,7 +2022,6 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', () => { isDraggingScroll = false; });
 
-// Row by Row Discrete Menu Wheel Scrolling
 invBody.addEventListener('wheel', (e) => {
     if (currentCategory === 'inventory') return;
     let totalRows = Math.ceil(creativeGridContainer.children.length / 9);
@@ -1893,7 +2046,7 @@ updateInventoryUI();
 // ============================================================================
 
 const REAL_MINECRAFT_HARDNESS = {
-    air: 0.0, grass: 0.0, fern: 0.0, dead_bush: 0.0, dandelion: 0.0, poppy: 0.0, blue_orchid: 0.0,
+    air: 0.0, short_grass: 0.0, fern: 0.0, dead_bush: 0.0, dandelion: 0.0, poppy: 0.0, blue_orchid: 0.0,
     allium: 0.0, azure_bluet: 0.0, red_tulip: 0.0, orange_tulip: 0.0, white_tulip: 0.0, pink_tulip: 0.0,
     oxeye_daisy: 0.0, cornflower: 0.0, lily_of_the_valley: 0.0, wither_rose: 0.0,
     dirt: 0.5, coarse_dirt: 0.5, podzol: 0.5, rooted_dirt: 0.5, mud: 0.5, grass_block: 0.6,
@@ -2103,12 +2256,15 @@ function getStairData(x, y, z) {
     let k = `${x},${y},${z}`;
     if (placedBlocks.has(k)) {
         let data = placedBlocks.get(k);
-        if (data && data.isStair) {
-            let typeId = data.type;
-            let bName = REVERSE_TYPE[typeId];
-            if (bName.includes('_inner')) bName = bName.replace('_inner', '');
-            if (bName.includes('_outer')) bName = bName.replace('_outer', '');
-            return { ...data, baseName: bName };
+        if (data && data.type) {
+            let bName = REVERSE_TYPE[data.type];
+            if (bName && bName.includes('stairs')) {
+                let baseName = bName.replace('_inner', '').replace('_outer', '');
+                let facingStr = data.state && data.state.facing ? data.state.facing : 'east';
+                let halfStr = data.state && data.state.half ? data.state.half : 'bottom';
+                let fMap = { 'east': 0, 'north': 1, 'west': 2, 'south': 3 };
+                return { baseName: baseName, facing: fMap[facingStr] || 0, half: halfStr };
+            }
         }
     }
     return null;
@@ -2172,13 +2328,15 @@ function evaluateStair(x, y, z) {
     else if (shape === 'outer_left') { finalType += '_outer'; finalRotY = rotY + Math.PI/2; }
     else if (shape === 'outer_right') { finalType += '_outer'; finalRotY = rotY; }
 
-    let rx = s.half === 'top' ? Math.PI : 0;
+    let rx = 0;
     
     let existing = placedBlocks.get(`${x},${y},${z}`);
     let targetTypeId = TYPE[finalType];
     
     if (!existing || existing.type !== targetTypeId || !existing.rotation || existing.rotation[0] !== rx || existing.rotation[1] !== finalRotY) {
-        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, finalRotY, 0] });
+        let newState = existing && existing.state ? { ...existing.state } : {};
+        newState.shape = shape;
+        setGlobalBlock(x, y, z, { ...existing, type: targetTypeId, rotation: [rx, 0, 0], state: newState });
     }
 }
 
@@ -2202,7 +2360,6 @@ function getGlobalBlock(gx, gy, gz) {
     let lz = gz - (cz * chunkSize);
     let ly = gy - minworldY;
     
-    // OPTIMIZATION: Removed redundant multiplication operations here by directly parsing flat index
     let idx = lx + (lz * 16) + (ly * 256);
     return chunk.blocks[idx];
 }
@@ -2218,7 +2375,8 @@ function setGlobalBlock(gx, gy, gz, typeData) {
         placedBlocks.delete(blockKey);
     } else {
         brokenBlocks.delete(blockKey);
-        placedBlocks.set(blockKey, typeData);
+        let toStore = typeof typeData === 'object' ? typeData : { type: typeId };
+        placedBlocks.set(blockKey, toStore);
     }
 
     let cx = Math.floor(gx / chunkSize);
@@ -2266,7 +2424,7 @@ function doRandomTicks() {
 
                 let above = getGlobalBlock(gx, gy + 1, gz);
                 
-                if (above !== null && above !== 0 && above !== TYPE.oak_leaves && above !== TYPE.spruce_leaves && above !== TYPE.snow_block && above !== TYPE.oak_sapling && above !== TYPE.spruce_sapling) {
+                if (above !== null && above !== 0 && above !== TYPE.oak_leaves && above !== TYPE.spruce_leaves && above !== TYPE.snow_block && above !== TYPE.snow && above !== TYPE.oak_sapling && above !== TYPE.spruce_sapling) {
                     setGlobalBlock(gx, gy, gz, TYPE.dirt);
                 } 
                 else if (above === 0 || above === TYPE.oak_leaves || above === TYPE.spruce_leaves || above === TYPE.snow_block) {
@@ -2301,7 +2459,6 @@ function getBiome(temp, moist, depth) {
     return closestBiome;
 }
 
-// OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
 function getInterpolatedHeightScale(x, z) {
     const range = 8; 
     const step = 4; 
@@ -2404,8 +2561,6 @@ function mergeBufferGeometries(geos) {
     return mergedGeo;
 }
 
-// OPTIMIZATION: Pre-allocated Global Arrays for Light Processing!
-// Stops JavaScript from destroying memory and dropping frames on Garbage Collection every chunk!
 const sharedLightMap = new Uint8Array(16 * 16 * 256);
 const sharedLightQueue = new Int32Array(16 * 16 * 256 * 2);
 
@@ -2706,34 +2861,55 @@ async function generateChunk(chunkX, chunkZ) {
 
     const lightMap = computeChunkLight(blocks);
 
-    const uniqueTypes = new Set();
-    for (let i = 0; i < blocks.length; i++) {
-        if (blocks[i] !== 0) uniqueTypes.add(blocks[i]);
+    const uniqueStates = new Set();
+    const chunkStateKeys = new Array(chunkSize * chunkSize * worldHeight);
+    
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            for (let y = 0; y < worldHeight; y++) {
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
+                if (typeId !== 0) {
+                    let bName = REVERSE_TYPE[typeId];
+                    let gx = startX + x, gy = y + minworldY, gz = startZ + z;
+                    
+                    let stateDict = getBlockContext(gx, gy, gz, bName);
+                    let stateKey = bName;
+                    let keys = Object.keys(stateDict).sort();
+                    if (keys.length > 0) stateKey += '[' + keys.map(k => `${k}=${stateDict[k]}`).join(',') + ']';
+                    
+                    let data = { key: stateKey, dict: stateDict, bName: bName, cap: getBlockCapacity(bName) };
+                    chunkStateKeys[idx] = data;
+                    
+                    let exists = false;
+                    for (let item of uniqueStates) if (item.key === stateKey) { exists = true; break; }
+                    if (!exists) uniqueStates.add(data);
+                }
+            }
+        }
     }
     
-    for (let typeId of uniqueTypes) {
-        let bName = REVERSE_TYPE[typeId];
-        if (!customGeometries[bName]) await loadCustomModel(bName);
+    for (let typeData of uniqueStates) {
+        if (!customGeometries[typeData.key]) await loadCustomModel(typeData.bName, typeData.dict, typeData.key);
     }
 
     const meshes = {};
     const indices = {};
     
-    for (let typeId of uniqueTypes) {
-        let bName = REVERSE_TYPE[typeId];
-        let geo = customGeometries[bName];
-        let mat = materials[bName];
-        let cap = getBlockCapacity(bName);
+    for (let typeData of uniqueStates) {
+        let sKey = typeData.key;
+        let geo = customGeometries[sKey];
+        let mat = materials[sKey] || materials[typeData.bName];
+        let cap = typeData.cap;
         
-        meshes[bName] = new THREE.InstancedMesh(geo, mat, cap);
-        meshes[bName].name = bName;
-        meshes[bName].chunkId = chunkId;
-        meshes[bName].maxCapacity = cap;
-        meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        // OPTIMIZATION: Stop expensive continuous matrix update on dead block meshes
-        meshes[bName].matrixAutoUpdate = false;
-        meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-        indices[bName] = 0;
+        meshes[sKey] = new THREE.InstancedMesh(geo, mat, cap);
+        meshes[sKey].name = sKey;
+        meshes[sKey].chunkId = chunkId;
+        meshes[sKey].maxCapacity = cap;
+        meshes[sKey].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        meshes[sKey].matrixAutoUpdate = false;
+        meshes[sKey].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+        indices[sKey] = 0;
     }
 
     const matrix = new THREE.Matrix4();
@@ -2742,7 +2918,8 @@ async function generateChunk(chunkX, chunkZ) {
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             for (let y = 0; y < worldHeight; y++) {
-                let typeId = blocks[getIdx(x, y, z)];
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
                 if (typeId === 0) continue;
                 let actualY = y + minworldY;
 
@@ -2762,8 +2939,10 @@ async function generateChunk(chunkX, chunkZ) {
                                 isOpen(x, y, z-1) || isOpen(x, y, z+1);
 
                 if (isVisible) {
-                    let bName = REVERSE_TYPE[typeId];
-                    if (meshes[bName] && indices[bName] < meshes[bName].maxCapacity) {
+                    let stateData = chunkStateKeys[idx];
+                    let sKey = stateData.key;
+                    let bName = stateData.bName;
+                    if (meshes[sKey] && indices[sKey] < meshes[sKey].maxCapacity) {
                         
                         let maxAdjLight = 0;
                         let selfBlock = blocks[getIdx(x, y, z)];
@@ -2811,7 +2990,6 @@ async function generateChunk(chunkX, chunkZ) {
                             }
                         }
 
-                        // OPTIMIZATION: Bypassing expensive Euler calculations completely for unrotated blocks
                         if (rot[0] === 0 && rot[1] === 0 && rot[2] === 0) {
                             matrix.makeTranslation(startX + x, actualY, startZ + z);
                         } else {
@@ -2819,9 +2997,9 @@ async function generateChunk(chunkX, chunkZ) {
                             matrix.setPosition(startX + x, actualY, startZ + z);
                         }
 
-                        meshes[bName].setMatrixAt(indices[bName], matrix);
-                        meshes[bName].setColorAt(indices[bName], colorObj); 
-                        indices[bName]++;
+                        meshes[sKey].setMatrixAt(indices[sKey], matrix);
+                        meshes[sKey].setColorAt(indices[sKey], colorObj); 
+                        indices[sKey]++;
                     }
                 }
             }
@@ -2832,7 +3010,6 @@ async function generateChunk(chunkX, chunkZ) {
         meshes[key].count = indices[key];
         meshes[key].instanceMatrix.needsUpdate = true;
         if (meshes[key].instanceColor) meshes[key].instanceColor.needsUpdate = true;
-        // OPTIMIZATION: Hardcoded bounding spheres instead of forcing the CPU to scan all instances
         meshes[key].boundingSphere = new THREE.Sphere(new THREE.Vector3(startX + 8, 128 + minworldY, startZ + 8), 140); 
         scene.add(meshes[key]);
         interactableMeshes.push(meshes[key]);
@@ -2853,28 +3030,51 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
 
     const lightMap = computeChunkLight(blocks);
 
-    const uniqueTypes = new Set();
-    for (let i = 0; i < blocks.length; i++) {
-        if (blocks[i] !== 0) uniqueTypes.add(blocks[i]);
+    const uniqueStates = new Set();
+    const chunkStateKeys = new Array(chunkSize * chunkSize * worldHeight);
+
+    for (let x = 0; x < chunkSize; x++) {
+        for (let z = 0; z < chunkSize; z++) {
+            for (let y = 0; y < worldHeight; y++) {
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
+                if (typeId !== 0) {
+                    let bName = REVERSE_TYPE[typeId];
+                    let gx = startX + x, gy = y + minworldY, gz = startZ + z;
+                    
+                    let stateDict = getBlockContext(gx, gy, gz, bName);
+                    let stateKey = bName;
+                    let keys = Object.keys(stateDict).sort();
+                    if (keys.length > 0) stateKey += '[' + keys.map(k => `${k}=${stateDict[k]}`).join(',') + ']';
+                    
+                    let data = { key: stateKey, dict: stateDict, bName: bName, cap: getBlockCapacity(bName) };
+                    chunkStateKeys[idx] = data;
+                    
+                    let exists = false;
+                    for (let item of uniqueStates) if (item.key === stateKey) { exists = true; break; }
+                    if (!exists) uniqueStates.add(data);
+                }
+            }
+        }
     }
 
-    for (let typeId of uniqueTypes) {
-        let bName = REVERSE_TYPE[typeId];
-        if (!customGeometries[bName]) await loadCustomModel(bName);
+    for (let typeData of uniqueStates) {
+        let sKey = typeData.key;
+        if (!customGeometries[sKey]) await loadCustomModel(typeData.bName, typeData.dict, sKey);
         
-        if (!meshes[bName]) {
-            let geo = customGeometries[bName];
-            let mat = materials[bName];
-            let cap = getBlockCapacity(bName);
-            meshes[bName] = new THREE.InstancedMesh(geo, mat, cap);
-            meshes[bName].name = bName;
-            meshes[bName].chunkId = chunkId;
-            meshes[bName].maxCapacity = cap;
-            meshes[bName].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            meshes[bName].matrixAutoUpdate = false;
-            meshes[bName].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-            scene.add(meshes[bName]);
-            interactableMeshes.push(meshes[bName]);
+        if (!meshes[sKey]) {
+            let geo = customGeometries[sKey];
+            let mat = materials[sKey] || materials[typeData.bName];
+            let cap = typeData.cap;
+            meshes[sKey] = new THREE.InstancedMesh(geo, mat, cap);
+            meshes[sKey].name = sKey;
+            meshes[sKey].chunkId = chunkId;
+            meshes[sKey].maxCapacity = cap;
+            meshes[sKey].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            meshes[sKey].matrixAutoUpdate = false;
+            meshes[sKey].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+            scene.add(meshes[sKey]);
+            interactableMeshes.push(meshes[sKey]);
         }
     }
 
@@ -2887,7 +3087,8 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
     for (let x = 0; x < chunkSize; x++) {
         for (let z = 0; z < chunkSize; z++) {
             for (let y = 0; y < worldHeight; y++) {
-                let typeId = blocks[getIdx(x, y, z)];
+                let idx = getIdx(x, y, z);
+                let typeId = blocks[idx];
                 if (typeId === 0) continue;
 
                 let globalX = startX + x;
@@ -2912,8 +3113,10 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                                 isOpen(x, y, z-1) || isOpen(x, y, z+1);
 
                 if (isVisible) {
-                    let bName = REVERSE_TYPE[typeId];
-                    if (meshes[bName] && indices[bName] < meshes[bName].maxCapacity) {
+                    let stateData = chunkStateKeys[idx];
+                    let sKey = stateData.key;
+                    let bName = stateData.bName;
+                    if (meshes[sKey] && indices[sKey] < meshes[sKey].maxCapacity) {
                         
                         let maxAdjLight = 0;
                         let selfBlock = blocks[getIdx(x, y, z)];
@@ -2968,9 +3171,9 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                             matrix.setPosition(globalX, actualY, globalZ);
                         }
                         
-                        meshes[bName].setMatrixAt(indices[bName], matrix);
-                        meshes[bName].setColorAt(indices[bName], colorObj);
-                        indices[bName]++;
+                        meshes[sKey].setMatrixAt(indices[sKey], matrix);
+                        meshes[sKey].setColorAt(indices[sKey], colorObj);
+                        indices[sKey]++;
                     }
                 }
             }
@@ -3087,37 +3290,187 @@ for (let y = 127; y >= 0; y--) {
 }
 
 camera.position.set(spawnX, safeSpawnY + 2, spawnZ);
+scene.add(camera);
 
-const handGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2); handGeo.translate(0, 0.4, 0); 
-const playerHand = new THREE.Mesh(handGeo, new THREE.MeshStandardMaterial({ color: 0xd2a77d, roughness: 0.8 }));
-playerHand.position.set(0.4, -0.4, -0.1);
-playerHand.rotation.set(-Math.PI / 3, -Math.PI / 16, 0); 
-camera.add(playerHand); scene.add(camera);
+const PLAYER_SKIN_PATH = 'assets/minecraft/textures/entity/player/wide/steve.png';
+const playerTexture = new THREE.TextureLoader().load(PLAYER_SKIN_PATH);
+playerTexture.magFilter = THREE.NearestFilter;
+playerTexture.minFilter = THREE.NearestFilter;
+if (THREE.SRGBColorSpace) playerTexture.colorSpace = THREE.SRGBColorSpace; else playerTexture.encoding = 3001;
 
+function applySkinUVs(geometry, faceUVs) {
+    const uv = geometry.attributes.uv;
+    // Three.js +X/-X faces are wound opposite to Minecraft skin convention so swap left/right
+    const order = ['left', 'right', 'top', 'bottom', 'front', 'back'];
+    order.forEach((faceName, faceIdx) => {
+        const r = faceUVs[faceName];
+        if (!r) return;
+        const u1 = r[0] / 64;
+        const v1 = 1 - (r[1] + r[3]) / 64;
+        const u2 = (r[0] + r[2]) / 64;
+        const v2 = 1 - r[1] / 64;
+        const i = faceIdx * 4;
+        if (faceName === 'bottom') {
+            uv.setXY(i,   u2, v1);
+            uv.setXY(i+1, u1, v1);
+            uv.setXY(i+2, u2, v2);
+            uv.setXY(i+3, u1, v2);
+        } else {
+            uv.setXY(i,   u1, v2);
+            uv.setXY(i+1, u2, v2);
+            uv.setXY(i+2, u1, v1);
+            uv.setXY(i+3, u2, v1);
+        }
+    });
+    uv.needsUpdate = true;
+}
+
+function makePlayerPart(widthPx, heightPx, depthPx, faceUVs) {
+    const geo = new THREE.BoxGeometry(widthPx / 16, heightPx / 16, depthPx / 16);
+    applySkinUVs(geo, faceUVs);
+    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: playerTexture }));
+}
+function makePlayerArm() {
+    return makePlayerPart(4, 12, 4, {
+        right: [40, 20, 4, 12], left: [48, 20, 4, 12], top: [44, 16, 4, 4],
+        bottom: [48, 16, 4, 4], front: [44, 20, 4, 12], back: [52, 20, 4, 12]
+    });
+}
+
+function buildPlayerModel() {
+    const group = new THREE.Group();
+
+    const headPivot = new THREE.Group();
+    headPivot.position.y = 1.5;
+    const headBone = new THREE.Group();
+    headPivot.add(headBone);
+    const head = makePlayerPart(8, 8, 8, {
+        right: [0, 8, 8, 8], left: [16, 8, 8, 8], top: [8, 0, 8, 8],
+        bottom: [16, 0, 8, 8], front: [8, 8, 8, 8], back: [24, 8, 8, 8]
+    });
+    head.position.y = 4 / 16;
+    headBone.add(head);
+
+    const body = makePlayerPart(8, 12, 4, {
+        right: [16, 20, 4, 12], left: [28, 20, 4, 12], top: [20, 16, 8, 4],
+        bottom: [28, 16, 8, 4], front: [20, 20, 8, 12], back: [32, 20, 8, 12]
+    });
+    body.position.y = 0.75 + 6 / 16;
+
+    const rightArmPivot = new THREE.Group();
+    rightArmPivot.position.set(-6 / 16, 1.5, 0);
+    const rightArm = makePlayerArm();
+    rightArm.position.y = -6 / 16;
+    rightArmPivot.add(rightArm);
+
+    const leftArmPivot = new THREE.Group();
+    leftArmPivot.position.set(6 / 16, 1.5, 0);
+    const leftArm = makePlayerPart(4, 12, 4, {
+        right: [32, 52, 4, 12], left: [40, 52, 4, 12], top: [36, 48, 4, 4],
+        bottom: [40, 48, 4, 4], front: [36, 52, 4, 12], back: [44, 52, 4, 12]
+    });
+    leftArm.position.y = -6 / 16;
+    leftArmPivot.add(leftArm);
+
+    const rightLegPivot = new THREE.Group();
+    rightLegPivot.position.set(-2 / 16, 0.75, 0);
+    const rightLeg = makePlayerPart(4, 12, 4, {
+        right: [0, 20, 4, 12], left: [8, 20, 4, 12], top: [4, 16, 4, 4],
+        bottom: [8, 16, 4, 4], front: [4, 20, 4, 12], back: [12, 20, 4, 12]
+    });
+    rightLeg.position.y = -6 / 16;
+    rightLegPivot.add(rightLeg);
+
+    const leftLegPivot = new THREE.Group();
+    leftLegPivot.position.set(2 / 16, 0.75, 0);
+    const leftLeg = makePlayerPart(4, 12, 4, {
+        right: [16, 52, 4, 12], left: [24, 52, 4, 12], top: [20, 48, 4, 4],
+        bottom: [24, 48, 4, 4], front: [20, 52, 4, 12], back: [28, 52, 4, 12]
+    });
+    leftLeg.position.y = -6 / 16;
+    leftLegPivot.add(leftLeg);
+
+    group.add(headPivot, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot);
+    group.userData = { headPivot, headBone, head, body, rightArmPivot, leftArmPivot, rightLegPivot, leftLegPivot };
+    return group;
+}
+
+const playerModel = buildPlayerModel();
+scene.add(playerModel);
+
+const viewModelScene = new THREE.Scene();
+const viewModelCamera = new THREE.PerspectiveCamera(camera.fov, camera.aspect, 0.01, 10);
+const viewModelLight = new THREE.AmbientLight(0xffffff, 1.25);
+viewModelScene.add(viewModelLight);
+const firstPersonArmPivot = new THREE.Group();
+const firstPersonArm = makePlayerArm();
+firstPersonArm.position.y = -6 / 16;
+firstPersonArmPivot.add(firstPersonArm);
+firstPersonArmPivot.rotation.order = 'YXZ';
+viewModelScene.add(firstPersonArmPivot);
+
+const CAMERA_VIEWS = { FIRST: 0, THIRD_BACK: 1, THIRD_FRONT: 2 };
+let cameraView = CAMERA_VIEWS.FIRST;
 let yaw = 0, pitch = 0, keys = {};
+let walkCycle = 0;
+let walkAnimationAmount = 0;
+let bodyYaw = 0;
+let actionSwing = 0;
+let actionType = null;
+let strafeTilt = 0;
+const playerEyePosition = camera.position.clone();
+const PLAYER_EYE_HEIGHT = 1.62;
 let isLeftMouseDown = false; 
 
-// OPTIMIZATION: Removed slow Three.js Raycaster, replacing it with ultra-fast Digital Differential Analyzer loop!
 let mining = { active: false, startTime: 0, blockPosition: null, blockName: null, requiredTime: 500 };
 
 const droppedItems = [];
 const itemGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25);
 
 function spawnDroppedItem(x, y, z, blockName) {
-    if (!materials[blockName]) return; 
-    let mat = Array.isArray(materials[blockName]) ? materials[blockName][0] : materials[blockName];
+    let geo = customGeometries[blockName] || itemGeometry;
+    let mat = materials[blockName];
+    if (!mat) return; 
 
-    const mesh = new THREE.Mesh(itemGeometry, mat);
-    mesh.position.set(x, y, z);
+    const itemGroup = new THREE.Group();
+    const mesh = new THREE.Mesh(geo, mat);
+    
+    let groundConfig = { rotation: [0, 0, 0], translation: [0, 3, 0], scale: [0.25, 0.25, 0.25] };
+    if (geo.userData && geo.userData.display && geo.userData.display.ground) {
+        groundConfig = geo.userData.display.ground;
+    } else if (geo.userData && geo.userData.is2D) {
+        groundConfig.scale = [0.4, 0.4, 0.4];
+    }
+
+    if (groundConfig.scale) {
+        mesh.scale.set(groundConfig.scale[0], groundConfig.scale[1], groundConfig.scale[2]);
+    }
+    if (groundConfig.rotation) {
+        mesh.rotation.set(
+            THREE.MathUtils.degToRad(groundConfig.rotation[0]),
+            THREE.MathUtils.degToRad(groundConfig.rotation[1]),
+            THREE.MathUtils.degToRad(groundConfig.rotation[2]),
+            'YXZ'
+        );
+    }
+    if (groundConfig.translation) {
+        mesh.position.set(
+            groundConfig.translation[0] / 16,
+            groundConfig.translation[1] / 16,
+            groundConfig.translation[2] / 16
+        );
+    }
+    
+    itemGroup.add(mesh);
+    itemGroup.position.set(x, y, z);
     const velocity = new THREE.Vector3((Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4);
-    scene.add(mesh);
-    droppedItems.push({ mesh, velocity, blockName, lifeTime: 0 });
+    scene.add(itemGroup);
+    droppedItems.push({ group: itemGroup, mesh: mesh, velocity, blockName, lifeTime: 0 });
 }
 
-// OPTIMIZATION: Custom Fast Voxel Raycaster (Massive FPS fix!)
 function getTarget() {
-    let start = camera.position.clone();
-    let dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    let start = playerEyePosition.clone();
+    let dir = getCameraForwardVector(true);
     let maxDist = 6;
     let step = 0.05;
     let current = start.clone();
@@ -3129,7 +3482,7 @@ function getTarget() {
         let bz = Math.round(current.z);
         let b = getGlobalBlock(bx, by, bz);
         
-        if (b !== null && b !== 0 && b !== TYPE.water) {
+        if (b !== null && b !== 0 && b !== TYPE.water && !REVERSE_TYPE[b].includes('sculk_vein') && !REVERSE_TYPE[b].includes('glow_lichen')) {
             let prev = current.clone().sub(dir.clone().multiplyScalar(step));
             let pbx = Math.round(prev.x);
             let pby = Math.round(prev.y);
@@ -3148,7 +3501,8 @@ function getTarget() {
             return {
                 position: new THREE.Vector3(bx, by, bz),
                 normal: normal,
-                blockName: blockName
+                blockName: blockName,
+                point: prev.clone()
             };
         }
     }
@@ -3166,6 +3520,68 @@ function startMining(hit) {
     destroyMat.map = destroyTextures[0]; destroyMat.needsUpdate = true;
     destroyMesh.position.copy(hit.position);
     destroyMesh.visible = true; 
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// DEPENDENCY & BREAKING LOGIC (Cascades breaks to anchored plants/blocks)
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
+    let b = getGlobalBlock(pX, pY, pZ);
+    if (b === null || b === 0) return;
+    let blockName = REVERSE_TYPE[b];
+    
+    let placed = placedBlocks.get(`${pX},${pY},${pZ}`);
+    let isUpperHalf = placed && placed.state && placed.state.half === 'upper';
+
+    setGlobalBlock(pX, pY, pZ, 0);
+    
+    if (dropItems && !isUpperHalf) {
+        let dropName = blockName;
+        // Fix for weeping and twisting vines explicitly dropping their _plant base types
+        if (dropName === 'weeping_vines' || dropName === 'weeping_vines_plant') dropName = 'weeping_vines_plant';
+        if (dropName === 'twisting_vines' || dropName === 'twisting_vines_plant') dropName = 'twisting_vines_plant';
+
+        const dropData = BLOCK_DROPS[blockName];
+        const item = (dropData && dropData.item) ? dropData.item : dropName;
+        let count = (dropData && dropData.count) ? dropData.count : 1;
+        if (typeof count === 'function') count = count();
+        
+        for (let i = 0; i < count; i++) {
+            spawnDroppedItem(pX + 0.5, pY + 0.5, pZ + 0.5, item); // Centered slightly
+        }
+    }
+
+    updateStairConnections(pX+1, pY, pZ);
+    updateStairConnections(pX-1, pY, pZ);
+    updateStairConnections(pX, pY, pZ+1);
+    updateStairConnections(pX, pY, pZ-1);
+
+    // Prompt grass below to recount snowy status if needed
+    let floorBelow = getGlobalBlock(pX, pY - 1, pZ);
+    if (floorBelow) chunksToRebuild.add(`${Math.floor(pX/chunkSize)},${Math.floor(pZ/chunkSize)}`);
+    
+    // Check block ABOVE (If the broken block was the floor support)
+    let above = getGlobalBlock(pX, pY + 1, pZ);
+    if (above !== null && above !== 0) {
+        let aName = REVERSE_TYPE[above];
+        const needsSupportBelow = ['grass', 'fern', 'bush', 'sapling', 'flower', 'orchid', 'allium', 'bluet', 'tulip', 'daisy', 'lily', 'rose', 'mushroom', 'fungus', 'roots', 'sugar_cane', 'cactus', 'snow', 'carpet', 'twisting_vines', 'door_top', 'sunflower', 'peony', 'lilac'];
+        let requiresBelow = needsSupportBelow.some(kw => aName.includes(kw)) && !aName.includes('block') && !aName.includes('wall') && !aName.includes('hanging');
+        if (requiresBelow) breakBlockRecursive(pX, pY + 1, pZ, true);
+    }
+    
+    // Check block BELOW (If the broken block was the ceiling support)
+    let below = getGlobalBlock(pX, pY - 1, pZ);
+    if (below !== null && below !== 0) {
+        let bName = REVERSE_TYPE[below];
+        const needsSupportAbove = ['weeping_vines', 'spore_blossom', 'hanging_roots'];
+        let requiresAbove = needsSupportAbove.some(kw => bName.includes(kw));
+        
+        let placedBelow = placedBlocks.get(`${pX},${pY - 1},${pZ}`);
+        let isLowerHalf = placedBelow && placedBelow.state && placedBelow.state.half === 'lower';
+
+        if (requiresAbove || isLowerHalf) breakBlockRecursive(pX, pY - 1, pZ, true);
+        else if (blockName.includes('door_top') && bName === blockName.replace('_top', '')) breakBlockRecursive(pX, pY - 1, pZ, true);
+    }
 }
 
 function updateMining() {
@@ -3194,28 +3610,12 @@ function updateMining() {
         const blockName = mining.blockName; 
         
         let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
-        setGlobalBlock(pX, pY, pZ, 0);
         
         const heldItemType = inventory[selectedSlot].type;
         const harvestable = canHarvestBlock(blockName, heldItemType);
 
-        if (harvestable) {
-            const dropData = BLOCK_DROPS[blockName];
-
-            if (dropData !== null) {
-                const item = dropData?.item || blockName;
-                let count = dropData?.count || 1;
-                if (typeof count === 'function') count = count();
-                for (let i = 0; i < count; i++) {
-                    spawnDroppedItem(p.x, p.y, p.z, item);
-                }
-            }
-        }
-        
-        updateStairConnections(pX+1, pY, pZ);
-        updateStairConnections(pX-1, pY, pZ);
-        updateStairConnections(pX, pY, pZ+1);
-        updateStairConnections(pX, pY, pZ-1);
+        // Initiate the recursive breaking loop starting at the targeted block
+        breakBlockRecursive(pX, pY, pZ, harvestable);
 
         mining.active = false;
         destroyMesh.visible = false;
@@ -3224,6 +3624,11 @@ function updateMining() {
 
 document.addEventListener('contextmenu', e => e.preventDefault());
 
+function triggerPlayerAction(type) {
+    actionType = type;
+    actionSwing = 1;
+}
+
 document.addEventListener('mousedown', (e) => {
     if (e.target.closest('#creative-inventory-screen') || e.target.closest('#hotbar')) return; 
     
@@ -3231,10 +3636,12 @@ document.addEventListener('mousedown', (e) => {
         renderer.domElement.requestPointerLock();
     } else if (document.pointerLockElement) {
         if (e.button === 0) {
-            isLeftMouseDown = true; 
+            isLeftMouseDown = true;
+            triggerPlayerAction('mine');
         } else if (e.button === 2) { 
             const hit = getTarget(); 
             if (!hit) return;
+            triggerPlayerAction('place');
             
             const p = hit.position;
             const placeX = Math.round(p.x + hit.normal.x);
@@ -3252,77 +3659,154 @@ document.addEventListener('mousedown', (e) => {
                 'amethyst_cluster', 'pointed_dripstone', 'weeping_vines', 'twisting_vines', 'crimson_roots', 'warped_roots',
                 'crimson_fungus', 'warped_fungus', 'nether_sprouts', 'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
                 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley', 'wither_rose',
-                'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'grass', 'short_grass',
+                'brown_mushroom', 'red_mushroom', 'fern', 'dead_bush', 'tall_grass', 'large_fern', 'short_grass',
                 'oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling',
                 'mangrove_propagule', 'cherry_sapling', 'pale_oak_sapling', 'hanging_roots'
             ]);
             
             if (flatItems.has(placementType) && !explicit2DItems.has(placementType) && !placementType.includes('sign') && !placementType.includes('door')) return; 
-            
+
+            // Special interaction: Stack snow
+            if (placementType === 'snow') {
+                let clickedBlockId = getGlobalBlock(placeX - hit.normal.x, placeY - hit.normal.y, placeZ - hit.normal.z);
+                if (clickedBlockId === TYPE['snow'] && hit.normal.y === 1) {
+                    let cx = placeX - hit.normal.x; let cy = placeY - hit.normal.y; let cz = placeZ - hit.normal.z;
+                    let currentData = placedBlocks.get(`${cx},${cy},${cz}`);
+                    let layers = currentData && currentData.state && currentData.state.layers ? parseInt(currentData.state.layers) : 1;
+                    if (layers < 8) {
+                        setGlobalBlock(cx, cy, cz, { type: TYPE['snow'], state: { layers: (layers + 1).toString() } });
+                        selectedItem.count--;
+                        if (selectedItem.count <= 0) selectedItem.type = null;
+                        updateInventoryUI();
+                        return; // Successfully layered
+                    }
+                }
+            }
+
             if (placementType && getGlobalBlock(placeX, placeY, placeZ) === 0) {
+
+                if (placementType === 'twisting_vines') {
+                    let below = getGlobalBlock(placeX, placeY - 1, placeZ);
+                    if (below !== null && (REVERSE_TYPE[below] === 'twisting_vines' || REVERSE_TYPE[below] === 'twisting_vines_plant')) {
+                        setGlobalBlock(placeX, placeY - 1, placeZ, { type: TYPE.twisting_vines_plant });
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
+                    }
+                } else if (placementType === 'weeping_vines') {
+                    let above = getGlobalBlock(placeX, placeY + 1, placeZ);
+                    if (above !== null && (REVERSE_TYPE[above] === 'weeping_vines' || REVERSE_TYPE[above] === 'weeping_vines_plant')) {
+                        setGlobalBlock(placeX, placeY + 1, placeZ, { type: TYPE.weeping_vines_plant });
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
+                    }
+                } else if (placementType === 'kelp') {
+                    let below = getGlobalBlock(placeX, placeY - 1, placeZ);
+                    if (below !== null && (REVERSE_TYPE[below] === 'kelp' || REVERSE_TYPE[below] === 'kelp_plant')) {
+                        setGlobalBlock(placeX, placeY - 1, placeZ, { type: TYPE.kelp_plant });
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
+                    }
+                }
+
                 let rotation = [0, 0, 0];
-                let stairData = null;
+                let blockStateDict = {};
                 let extraBlock = null; 
                 
                 if (placementType.includes('log') || placementType.includes('pillar') || placementType === 'basalt' || placementType === 'polished_basalt' || placementType === 'bone_block' || placementType === 'purpur_pillar' || placementType === 'quartz_pillar' || placementType === 'hay_block') {
                     let axis = 'y';
                     if (Math.abs(hit.normal.x) > 0.5) axis = 'x';
                     if (Math.abs(hit.normal.z) > 0.5) axis = 'z';
-                    rotation = JSONReader.getRotationForAxis(axis);
+                    blockStateDict = { axis: axis };
                 } 
                 else if (placementType.includes('stairs')) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
-                    
-                    let facing = 0;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facing = 1; 
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facing = 2; 
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facing = 3; 
-                    else facing = 0; 
 
-                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (camera.position.y - placeY) < 0));
-                    stairData = { isStair: true, facing: facing, half: isTop ? 'top' : 'bottom' };
+                    let facingStr = 'east';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
+
+                    let localY =
+                        hit.point.y -
+                        Math.floor(hit.point.y);
+
+                    let isTop =
+                        hit.normal.y === -1 ||
+                        (
+                            hit.normal.y !== 1 &&
+                            localY > 0.5
+                        );
+
+                    blockStateDict = {
+                        facing: facingStr,
+                        half: isTop ? 'top' : 'bottom',
+                        shape: 'straight'
+                    };
+
+                    rotation = [
+                        isTop ? Math.PI : 0,
+                        0,
+                        0
+                    ];
+                }
+                else if (placementType === 'pointed_dripstone') {
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
+                    blockStateDict = { vertical_direction: isTop ? 'down' : 'up'};
                 }
                 else if (placementType.includes('door') && !placementType.includes('trapdoor')) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
                     let rotY = 0;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
-                    else rotY = Math.PI/2; 
+                    let facingStr = 'east';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) { rotY = Math.PI; facingStr = 'north'; } 
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) { rotY = -Math.PI/2; facingStr = 'west'; } 
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) { rotY = 0; facingStr = 'south'; } 
+                    else { rotY = Math.PI/2; facingStr = 'east'; }
 
                     rotation = [0, rotY, 0];
-                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0] };
+                    blockStateDict = { half: 'lower', facing: facingStr, open: 'false', hinge: 'left' };
+                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0], state: { half: 'upper', facing: facingStr, open: 'false', hinge: 'left' } };
                 }
-                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper') {
+                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper' || placementType === 'crafter') {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
-                    let rotY = 0;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) rotY = Math.PI; 
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) rotY = -Math.PI/2; 
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) rotY = 0; 
-                    else rotY = Math.PI/2; 
+                    let facingStr = 'north';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
+                    else facingStr = 'east';
                     
-                    rotation = [0, rotY, 0];
+                    blockStateDict = { facing: facingStr };
+                }
+
+                // Two-tall plants parsing logic
+                const twoTallPlants = ['sunflower', 'lilac', 'rose_bush', 'peony', 'tall_grass', 'large_fern', 'pitcher_plant'];
+                if (twoTallPlants.includes(placementType)) {
+                    let topClear = getGlobalBlock(placeX, placeY + 1, placeZ);
+                    if (topClear !== 0) return; // Prevent placing if blocked
+                    blockStateDict = { half: 'lower' };
+                    extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType], state: { half: 'upper' } };
                 }
                 
-                let placedData = { type: TYPE[placementType], rotation: rotation };
-                if (stairData) placedData = { ...placedData, ...stairData };
+                let placedData = { type: TYPE[placementType], rotation: rotation, state: blockStateDict };
                 
                 if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
-                    // Not enough room to place the double block
+                    // Not enough room
                 } else {
                     setGlobalBlock(placeX, placeY, placeZ, placedData);
                     
                     if (extraBlock) {
-                        setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation });
+                        setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation, state: extraBlock.state });
                     }
                     
-                    if (stairData) {
+                    if (placementType.includes('stairs')) {
                         updateStairConnections(placeX, placeY, placeZ);
+                    }
+                    
+                    // Update floor grass blocks to become snowy when placing blocks down
+                    let floorBelow = getGlobalBlock(placeX, placeY - 1, placeZ);
+                    if (floorBelow === TYPE.grass_block || floorBelow === TYPE.podzol || floorBelow === TYPE.mycelium) {
+                        chunksToRebuild.add(`${Math.floor(placeX/chunkSize)},${Math.floor(placeZ/chunkSize)}`);
                     }
                     
                     selectedItem.count--;
@@ -3348,7 +3832,8 @@ document.addEventListener('mouseup', (e) => {
 document.addEventListener('mousemove', (e) => {
     if (document.pointerLockElement) {
         yaw -= e.movementX * 0.002;
-        pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch - e.movementY * 0.002));
+        const PITCH_LIMIT = THREE.MathUtils.degToRad(89.5);
+        pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch - e.movementY * 0.002));
     }
 });
 
@@ -3373,6 +3858,9 @@ window.addEventListener('keydown', (e) => {
             }
             renderer.domElement.requestPointerLock();
         }
+    }
+    if (e.key.toLowerCase() === 'c' && creativeScaleCenter.style.display === 'none' && !e.repeat) {
+        cameraView = (cameraView + 1) % 3;
     }
 
     if (e.key >= '1' && e.key <= '9' && creativeScaleCenter.style.display === 'none') {
@@ -3401,6 +3889,140 @@ window.addEventListener('wheel', (e) => {
         updateInventoryUI();
     }
 });
+function getWrappedAngleDifference(target, current) {
+    return Math.atan2(Math.sin(target - current), Math.cos(target - current));
+}
+
+function stepAngleToward(current, target, amount) {
+    return current + getWrappedAngleDifference(target, current) * amount;
+}
+function getCameraForwardVector(includePitch = true) {
+    const cp = includePitch ? Math.cos(pitch) : 1;
+    return new THREE.Vector3(
+        -Math.sin(yaw) * cp,
+        includePitch ? Math.sin(pitch) : 0,
+        -Math.cos(yaw) * cp
+    ).normalize();
+}
+
+function getThirdPersonCameraPosition(startPos, targetOffset) {
+    const desired = startPos.clone().add(targetOffset);
+    const steps = Math.ceil(targetOffset.length() / 0.1);
+    const probe = startPos.clone();
+
+    for (let i = 1; i <= steps; i++) {
+        probe.lerpVectors(startPos, desired, i / steps);
+        const b = getGlobalBlock(Math.round(probe.x), Math.round(probe.y), Math.round(probe.z));
+        if (b !== null && b !== 0 && !isTransparent[b]) {
+            return startPos.clone().add(targetOffset.clone().multiplyScalar(Math.max(0, (i - 2) / steps)));
+        }
+    }
+    return desired;
+}
+function getPlayerHeadTarget() {
+    const headPivot = playerModel.userData.headPivot;
+    headPivot.updateWorldMatrix(true, false);
+    return headPivot.getWorldPosition(new THREE.Vector3());
+}
+function updateCameraView() {
+    if (cameraView === CAMERA_VIEWS.FIRST) {
+        camera.position.copy(playerEyePosition);
+        camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    } else {
+        const isBack = cameraView === CAMERA_VIEWS.THIRD_BACK;
+        const distance = 4;
+
+        const offsetDir = getCameraForwardVector(true);
+        if (isBack) offsetDir.negate();
+
+        const offset = offsetDir.multiplyScalar(distance);
+        const headCenter = playerEyePosition.clone();
+        headCenter.y += 0.13;
+
+        camera.position.copy(getThirdPersonCameraPosition(headCenter, offset));
+        camera.up.set(0, 1, 0);
+        camera.lookAt(getPlayerHeadTarget());
+    }
+
+    playerModel.visible = cameraView !== CAMERA_VIEWS.FIRST;
+}
+
+function updatePlayerModel(delta, moving) {
+    const feetY = playerEyePosition.y - PLAYER_EYE_HEIGHT;
+    playerModel.position.set(playerEyePosition.x, feetY, playerEyePosition.z);
+
+    const neckLimit = 0.65;
+    const yawDiff = getWrappedAngleDifference(yaw, bodyYaw);
+    if (moving) {
+        bodyYaw = stepAngleToward(bodyYaw, yaw, 0.34);
+    } else if (Math.abs(yawDiff) > neckLimit) {
+        bodyYaw += yawDiff - Math.sign(yawDiff) * neckLimit;
+    }
+    const neckYaw = THREE.MathUtils.clamp(getWrappedAngleDifference(yaw, bodyYaw), -neckLimit, neckLimit);
+    playerModel.rotation.y = bodyYaw + Math.PI;
+    const targetTilt = (keys.a ? 0.07 : 0) - (keys.d ? 0.07 : 0);
+    strafeTilt = THREE.MathUtils.lerp(strafeTilt, targetTilt, 0.1);
+    playerModel.rotation.z = strafeTilt;
+
+    const parts = playerModel.userData;
+    
+    if (moving) {
+        walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, 1, 0.35);
+        walkCycle += delta * 9.0;
+    } else {
+        walkAnimationAmount = THREE.MathUtils.lerp(walkAnimationAmount, 0, 0.2);
+    }
+
+    const walkPhase = walkCycle * 0.6662;
+    const swing = Math.cos(walkPhase) * 0.6 * walkAnimationAmount;
+    const oppositeSwing = Math.cos(walkPhase + Math.PI) * 0.6 * walkAnimationAmount;
+    const swingProgress = 1 - actionSwing;
+    const actionRoot = Math.sqrt(Math.max(0, swingProgress));
+    const actionSin = Math.sin(actionRoot * Math.PI);
+    const actionSin2 = Math.sin(swingProgress * swingProgress * Math.PI);
+
+    const time = performance.now() / 1000;
+    const idleBobX = Math.sin(time * 1.2) * 0.03;
+    const idleBobZ = Math.sin(time * 1.2) * 0.03;
+    const idleAmount = 1.0 - walkAnimationAmount;
+
+    parts.rightLegPivot.rotation.x = swing;
+    parts.leftLegPivot.rotation.x = oppositeSwing;
+    const rightArmWalkBlend = Math.max(0.0, 1.0 - actionSwing * 4.0);
+    parts.rightArmPivot.rotation.x = oppositeSwing * rightArmWalkBlend - actionSin * 1.4 + idleBobX * idleAmount;
+    parts.rightArmPivot.rotation.y = actionSin2 * 0.3;
+    parts.rightArmPivot.rotation.z = (actionType === 'place' ? -actionSin * 0.4 : -actionSin * 0.7) + idleBobZ * idleAmount;
+    parts.leftArmPivot.rotation.x = swing + idleBobX * idleAmount;
+    parts.leftArmPivot.rotation.z = -idleBobZ * idleAmount;
+    parts.headBone.rotation.set(-pitch, neckYaw, 0, 'YXZ');
+
+    firstPersonArmPivot.visible = cameraView === CAMERA_VIEWS.FIRST;
+    
+    const armBaseX = 0.56;
+    const armBaseY = -0.52;
+    const armBaseZ = -0.72;
+    
+    const walkU = Math.sin(walkPhase);
+    const walkU2 = Math.cos(walkPhase);
+    const useDrop = Math.sin(actionRoot * Math.PI * 2);
+
+    firstPersonArmPivot.position.set(
+        armBaseX - actionSin * 0.25 + walkU * 0.035 * walkAnimationAmount,
+        armBaseY + Math.abs(walkU) * 0.055 * walkAnimationAmount + useDrop * 0.05,
+        armBaseZ - actionSin2 * 0.15
+    );
+    firstPersonArmPivot.rotation.set(
+        THREE.MathUtils.degToRad(-10) + (-actionSin * 1.2 + Math.abs(walkU) * 0.05 * walkAnimationAmount),
+        THREE.MathUtils.degToRad(-20) + actionSin2 * 0.3,
+        walkU * 0.05 * walkAnimationAmount - actionSin * 0.1,
+        'YXZ'
+    );
+
+    viewModelCamera.rotation.set(pitch * 0.2, 0, 0, 'YXZ');
+
+    actionSwing = Math.max(0, actionSwing - delta * (actionType === 'place' ? 5.5 : 4.0));
+    if (actionSwing === 0) actionType = null;
+}
 
 let isGeneratingChunk = false;
 let isRebuildingChunk = false;
@@ -3450,14 +4072,15 @@ function animate() {
         }
     }
 
-    const dx = -camera.position.x;
-    const dz = -camera.position.z;
+    updateCameraView();
+
+    const dx = -playerEyePosition.x;
+    const dz = -playerEyePosition.z;
     const targetAngle = Math.atan2(dx, dz);
     let relAngle = (targetAngle - yaw) % (Math.PI * 2);
     if (relAngle < 0) relAngle += Math.PI * 2;
     let compassFrame = Math.floor((relAngle / (Math.PI * 2)) * 32) % 32;
     
-    // OPTIMIZATION: Only parse the DOM string queries when the compass orientation actually changes
     if (compassFrame !== lastCompassFrame) {
         lastCompassFrame = compassFrame;
         let frameStr = compassFrame.toString().padStart(2, '0');
@@ -3474,9 +4097,14 @@ function animate() {
         generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
     }
 
-    if (isLeftMouseDown && !mining.active && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
-        const hit = getTarget();
-        if (hit) startMining(hit);
+    if (isLeftMouseDown && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
+        if (!mining.active) {
+            const hit = getTarget();
+            if (hit) startMining(hit);
+        }
+        if (mining.active && actionSwing < 0.1) {
+            triggerPlayerAction('mine');
+        }
     }
 
     updateMining();
@@ -3495,16 +4123,16 @@ function animate() {
         item.lifeTime += delta;
         item.velocity.y -= 15 * delta; 
         
-        let nx = item.mesh.position.x + item.velocity.x * delta;
-        let ny = item.mesh.position.y + item.velocity.y * delta;
-        let nz = item.mesh.position.z + item.velocity.z * delta;
+        let nx = item.group.position.x + item.velocity.x * delta;
+        let ny = item.group.position.y + item.velocity.y * delta;
+        let nz = item.group.position.z + item.velocity.z * delta;
 
         let bX = Math.round(nx); let bY = Math.round(ny - 0.25); let bZ = Math.round(nz);
         let blockBelow = getGlobalBlock(bX, bY, bZ);
 
         if (blockBelow === null) {
             item.velocity.set(0, 0, 0);
-            nx = item.mesh.position.x; ny = item.mesh.position.y; nz = item.mesh.position.z;
+            nx = item.group.position.x; ny = item.group.position.y; nz = item.group.position.z;
         } 
         else if (blockBelow !== 0) {
             ny = bY + 0.5 + 0.125; 
@@ -3514,46 +4142,46 @@ function animate() {
             let wallBlock = getGlobalBlock(bX, Math.round(ny), bZ);
             if (wallBlock !== 0 && wallBlock !== null) {
                 item.velocity.x *= -0.5; item.velocity.z *= -0.5;
-                nx = item.mesh.position.x; nz = item.mesh.position.z;
+                nx = item.group.position.x; nz = item.group.position.z;
             }
         }
 
-        item.mesh.position.set(nx, ny, nz);
-        item.mesh.rotation.y += delta * 2;
-        if (item.velocity.y === 0) item.mesh.position.y += Math.sin(item.lifeTime * 4) * 0.002;
+        item.group.position.set(nx, ny, nz);
+        item.group.rotation.y += delta * 2;
+        if (item.velocity.y === 0) item.group.position.y += Math.sin(item.lifeTime * 4) * 0.002;
         
-        const dist = camera.position.distanceTo(item.mesh.position);
+        const dist = playerEyePosition.distanceTo(item.group.position);
         if (dist < 1.5) {
-            scene.remove(item.mesh); item.mesh.geometry.dispose();
+            scene.remove(item.group); 
+            if (item.mesh.geometry !== itemGeometry) item.mesh.geometry.dispose();
             droppedItems.splice(i, 1); addItemToInventory(item.blockName, 1);
-        } else if (item.mesh.position.y < minworldY - 20) {
-            scene.remove(item.mesh); item.mesh.geometry.dispose(); droppedItems.splice(i, 1);
+        } else if (item.group.position.y < minworldY - 20) {
+            scene.remove(item.group); 
+            if (item.mesh.geometry !== itemGeometry) item.mesh.geometry.dispose();
+            droppedItems.splice(i, 1);
         }
-    }
-
-    if (mining.active) {
-        const t = Date.now() * 0.025; 
-        playerHand.rotation.x = (-Math.PI / 3) + Math.sin(t) * 0.25;
-        playerHand.position.z = -0.2 + Math.cos(t) * 0.15;
-        playerHand.position.y = -0.25 + Math.sin(t) * 0.04;
-    } else {
-        playerHand.rotation.x = THREE.MathUtils.lerp(playerHand.rotation.x, -Math.PI / 3, 0.2);
-        playerHand.position.z = THREE.MathUtils.lerp(playerHand.position.z, -0.1, 0.2);
-        playerHand.position.y = THREE.MathUtils.lerp(playerHand.position.y, -0.4, 0.2);
     }
 
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
     const rgt = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
-    
-    if (keys.w) camera.position.addScaledVector(fwd, -moveSpeed * delta);
-    if (keys.s) camera.position.addScaledVector(fwd, moveSpeed * delta);
-    if (keys.a) camera.position.addScaledVector(rgt, moveSpeed * delta);
-    if (keys.d) camera.position.addScaledVector(rgt, -moveSpeed * delta);
-    if (keys[' ']) camera.position.y += moveSpeed * delta;
-    if (keys.shift) camera.position.y -= moveSpeed * delta;
+    const moving = !!(keys.w || keys.s || keys.a || keys.d);
+    if (keys.w) playerEyePosition.addScaledVector(fwd, -moveSpeed * delta);
+    if (keys.s) playerEyePosition.addScaledVector(fwd, moveSpeed * delta);
+    if (keys.a) playerEyePosition.addScaledVector(rgt, moveSpeed * delta);
+    if (keys.d) playerEyePosition.addScaledVector(rgt, -moveSpeed * delta);
+    if (keys[' ']) playerEyePosition.y += moveSpeed * delta;
+    if (keys.shift) playerEyePosition.y -= moveSpeed * delta;
 
-    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    updatePlayerModel(delta, moving);
+    updateCameraView();
+    renderer.clear();
     renderer.render(scene, camera);
+    if (cameraView === CAMERA_VIEWS.FIRST) {
+        renderer.clearDepth();
+        viewModelCamera.aspect = camera.aspect;
+        viewModelCamera.updateProjectionMatrix();
+        renderer.render(viewModelScene, viewModelCamera);
+    }
     stats.update();
 }
 
