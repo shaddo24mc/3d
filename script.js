@@ -1080,10 +1080,38 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                             else if (rot === 270) { uvs.setXY(vIdx, u2, tv1); uvs.setXY(vIdx+1, u2, tv2); uvs.setXY(vIdx+2, u1, tv1); uvs.setXY(vIdx+3, u1, tv2); }
                         }
                     }
-
                     if (p.x || p.y) {
-                        if (p.x) geo.rotateX(THREE.MathUtils.degToRad(p.x));
-                        if (p.y) geo.rotateY(-THREE.MathUtils.degToRad(p.y)); 
+                        const uvs = geo.attributes.uv;
+                        const hasUVLock = !!p.uvlock;
+                        const yRotDeg = p.y || 0;
+                        const xRotDeg = p.x || 0;
+                        if (hasUVLock && yRotDeg !== 0) {
+                            const counterRad = THREE.MathUtils.degToRad(yRotDeg);
+                            for (const faceIdx of [2, 3]) {
+                                const base = faceIdx * 4;
+                                const u0 = uvs.getX(base+0), v0 = uvs.getY(base+0);
+                                const u1 = uvs.getX(base+1), v1 = uvs.getY(base+1);
+                                const u2 = uvs.getX(base+2), v2 = uvs.getY(base+2);
+                                const u3 = uvs.getX(base+3), v3 = uvs.getY(base+3);
+                                const cos = Math.cos(counterRad);
+                                const sin = Math.sin(counterRad);
+                                const rotUV = (u, v) => {
+                                    const du = u - 0.5, dv = v - 0.5;
+                                    return [0.5 + du * cos - dv * sin, 0.5 + du * sin + dv * cos];
+                                };
+                                const [ru0, rv0] = rotUV(u0, v0);
+                                const [ru1, rv1] = rotUV(u1, v1);
+                                const [ru2, rv2] = rotUV(u2, v2);
+                                const [ru3, rv3] = rotUV(u3, v3);
+                                uvs.setXY(base+0, ru0, rv0);
+                                uvs.setXY(base+1, ru1, rv1);
+                                uvs.setXY(base+2, ru2, rv2);
+                                uvs.setXY(base+3, ru3, rv3);
+                            }
+                            uvs.needsUpdate = true;
+                        }
+                        if (xRotDeg) geo.rotateX(THREE.MathUtils.degToRad(xRotDeg));
+                        if (yRotDeg) geo.rotateY(-THREE.MathUtils.degToRad(yRotDeg));
                     }
 
                     allCompiledGeometries.push(geo);
@@ -1092,7 +1120,6 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 throw new Error("No elements found");
             }
         }
-        
         materials[key] = matArray;
         if (allCompiledGeometries.length === 1) customGeometries[key] = allCompiledGeometries[0];
         else if (allCompiledGeometries.length > 1) customGeometries[key] = mergeBufferGeometries(allCompiledGeometries);
