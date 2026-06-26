@@ -1086,7 +1086,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                         const yRotDeg = p.y || 0;
                         const xRotDeg = p.x || 0;
                         if (hasUVLock && yRotDeg !== 0) {
-                            const counterRad = THREE.MathUtils.degToRad(yRotDeg);
+                            const counterRad = THREE.MathUtils.degToRad(-yRotDeg);
                             for (const faceIdx of [2, 3]) {
                                 const base = faceIdx * 4;
                                 const u0 = uvs.getX(base+0), v0 = uvs.getY(base+0);
