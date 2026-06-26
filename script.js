@@ -3469,40 +3469,60 @@ function spawnDroppedItem(x, y, z, blockName) {
 }
 
 function getTarget() {
-    let start = playerEyePosition.clone();
-    let dir = getCameraForwardVector(true);
-    let maxDist = 6;
-    let step = 0.05;
-    let current = start.clone();
-    
-    for (let d = 0; d < maxDist; d += step) {
-        current.add(dir.clone().multiplyScalar(step));
-        let bx = Math.round(current.x);
-        let by = Math.round(current.y);
-        let bz = Math.round(current.z);
-        let b = getGlobalBlock(bx, by, bz);
-        
-        if (b !== null && b !== 0 && b !== TYPE.water && !REVERSE_TYPE[b].includes('sculk_vein') && !REVERSE_TYPE[b].includes('glow_lichen')) {
-            let prev = current.clone().sub(dir.clone().multiplyScalar(step));
-            let pbx = Math.round(prev.x);
-            let pby = Math.round(prev.y);
-            let pbz = Math.round(prev.z);
-            let normal = new THREE.Vector3(pbx - bx, pby - by, pbz - bz);
-            
-            if (Math.abs(normal.x) > Math.abs(normal.y) && Math.abs(normal.x) > Math.abs(normal.z)) {
-                normal.set(Math.sign(normal.x), 0, 0);
-            } else if (Math.abs(normal.y) > Math.abs(normal.z)) {
-                normal.set(0, Math.sign(normal.y), 0);
-            } else {
-                normal.set(0, 0, Math.sign(normal.z));
-            }
+    const dir = getCameraForwardVector(true);
+    const ox = playerEyePosition.x;
+    const oy = playerEyePosition.y;
+    const oz = playerEyePosition.z;
+    let ix = Math.floor(ox + 0.5);
+    let iy = Math.floor(oy + 0.5);
+    let iz = Math.floor(oz + 0.5);
+    const stepX = dir.x >= 0 ? 1 : -1;
+    const stepY = dir.y >= 0 ? 1 : -1;
+    const stepZ = dir.z >= 0 ? 1 : -1;
+    const tDeltaX = Math.abs(1.0 / dir.x);
+    const tDeltaY = Math.abs(1.0 / dir.y);
+    const tDeltaZ = Math.abs(1.0 / dir.z);
+    const nextBoundaryX = ix + stepX * 0.5;
+    const nextBoundaryY = iy + stepY * 0.5;
+    const nextBoundaryZ = iz + stepZ * 0.5;
+    let tMaxX = (dir.x !== 0) ? Math.abs((nextBoundaryX - ox) / dir.x) : Infinity;
+    let tMaxY = (dir.y !== 0) ? Math.abs((nextBoundaryY - oy) / dir.y) : Infinity;
+    let tMaxZ = (dir.z !== 0) ? Math.abs((nextBoundaryZ - oz) / dir.z) : Infinity;
+    const maxDist = 6;
+    let normalX = 0, normalY = 0, normalZ = 0;
+    while (true) {
+        if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+            if (tMaxX > maxDist) break;
+            ix += stepX;
+            tMaxX += tDeltaX;
+            normalX = -stepX; normalY = 0; normalZ = 0;
+        } else if (tMaxY < tMaxZ) {
+            if (tMaxY > maxDist) break;
+            iy += stepY;
+            tMaxY += tDeltaY;
+            normalX = 0; normalY = -stepY; normalZ = 0;
+        } else {
+            if (tMaxZ > maxDist) break;
+            iz += stepZ;
+            tMaxZ += tDeltaZ;
+            normalX = 0; normalY = 0; normalZ = -stepZ;
+        }
+        const b = getGlobalBlock(ix, iy, iz);
+        if (b !== null && b !== 0 && b !== TYPE.water
+            && !REVERSE_TYPE[b].includes('sculk_vein')
+            && !REVERSE_TYPE[b].includes('glow_lichen')) {
+            const tCrossed = Math.min(tMaxX - tDeltaX, tMaxY - tDeltaY, tMaxZ - tDeltaZ);
+            const hitPoint = new THREE.Vector3(
+                ox + dir.x * tCrossed,
+                oy + dir.y * tCrossed,
+                oz + dir.z * tCrossed
+            );
 
-            let blockName = REVERSE_TYPE[b];
             return {
-                position: new THREE.Vector3(bx, by, bz),
-                normal: normal,
-                blockName: blockName,
-                point: prev.clone()
+                position: new THREE.Vector3(ix, iy, iz),
+                normal: new THREE.Vector3(normalX, normalY, normalZ),
+                blockName: REVERSE_TYPE[b],
+                point: hitPoint
             };
         }
     }
@@ -3518,7 +3538,7 @@ function startMining(hit) {
 
     mining = { active: true, startTime: Date.now(), blockPosition: hit.position, blockName: blockName, requiredTime: requiredTime };
     destroyMat.map = destroyTextures[0]; destroyMat.needsUpdate = true;
-    destroyMesh.position.copy(hit.position);
+    destroyMesh.position.set(hit.position.x, hit.position.y, hit.position.z);
     destroyMesh.visible = true; 
 }
 
@@ -3607,16 +3627,11 @@ function updateMining() {
 
     if (elapsed >= mining.requiredTime) {
         const p = mining.blockPosition;
-        const blockName = mining.blockName; 
-        
-        let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
-        
+        const blockName = mining.blockName;
+        let pX = p.x | 0; let pY = p.y | 0; let pZ = p.z | 0;
         const heldItemType = inventory[selectedSlot].type;
         const harvestable = canHarvestBlock(blockName, heldItemType);
-
-        // Initiate the recursive breaking loop starting at the targeted block
         breakBlockRecursive(pX, pY, pZ, harvestable);
-
         mining.active = false;
         destroyMesh.visible = false;
     }
@@ -3644,9 +3659,9 @@ document.addEventListener('mousedown', (e) => {
             triggerPlayerAction('place');
             
             const p = hit.position;
-            const placeX = Math.round(p.x + hit.normal.x);
-            const placeY = Math.round(p.y + hit.normal.y);
-            const placeZ = Math.round(p.z + hit.normal.z);
+            const placeX = (p.x + hit.normal.x) | 0;
+            const placeY = (p.y + hit.normal.y) | 0;
+            const placeZ = (p.z + hit.normal.z) | 0;
             
             const selectedItem = inventory[selectedSlot];
             
