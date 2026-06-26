@@ -3771,8 +3771,9 @@ document.addEventListener('mousedown', (e) => {
                     } else if (hit.normal.y === 1) {
                         isTop = false;
                     } else {
-                        const blockCentreY = hit.position.y;
-                        isTop = (hit.point.y - blockCentreY) > 0.0;
+                        const blockBottomY = hit.position.y - 0.5;
+                        const localHitY = hit.point.y - blockBottomY;
+                        isTop = localHitY < 0.5;
                     }
 
                     blockStateDict = {
