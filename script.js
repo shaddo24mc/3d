@@ -3469,43 +3469,74 @@ function spawnDroppedItem(x, y, z, blockName) {
 }
 
 function getTarget() {
-    let start = playerEyePosition.clone();
-    let dir = getCameraForwardVector(true);
-    let maxDist = 6;
-    let step = 0.05;
-    let current = start.clone();
-    
-    for (let d = 0; d < maxDist; d += step) {
-        current.add(dir.clone().multiplyScalar(step));
-        let bx = Math.round(current.x);
-        let by = Math.round(current.y);
-        let bz = Math.round(current.z);
-        let b = getGlobalBlock(bx, by, bz);
-        
-        if (b !== null && b !== 0 && b !== TYPE.water && !REVERSE_TYPE[b].includes('sculk_vein') && !REVERSE_TYPE[b].includes('glow_lichen')) {
-            let prev = current.clone().sub(dir.clone().multiplyScalar(step));
-            let pbx = Math.round(prev.x);
-            let pby = Math.round(prev.y);
-            let pbz = Math.round(prev.z);
-            let normal = new THREE.Vector3(pbx - bx, pby - by, pbz - bz);
-            
-            if (Math.abs(normal.x) > Math.abs(normal.y) && Math.abs(normal.x) > Math.abs(normal.z)) {
-                normal.set(Math.sign(normal.x), 0, 0);
-            } else if (Math.abs(normal.y) > Math.abs(normal.z)) {
-                normal.set(0, Math.sign(normal.y), 0);
-            } else {
-                normal.set(0, 0, Math.sign(normal.z));
-            }
+    const origin = playerEyePosition.clone();
+    const dir = getCameraForwardVector(true).normalize();
 
-            let blockName = REVERSE_TYPE[b];
+    const maxDist = 6;
+
+    let x = Math.floor(origin.x);
+    let y = Math.floor(origin.y);
+    let z = Math.floor(origin.z);
+
+    const stepX = dir.x > 0 ? 1 : -1;
+    const stepY = dir.y > 0 ? 1 : -1;
+    const stepZ = dir.z > 0 ? 1 : -1;
+
+    const tDeltaX = dir.x === 0 ? Infinity : Math.abs(1 / dir.x);
+    const tDeltaY = dir.y === 0 ? Infinity : Math.abs(1 / dir.y);
+    const tDeltaZ = dir.z === 0 ? Infinity : Math.abs(1 / dir.z);
+
+    let tMaxX = dir.x > 0
+        ? ((x + 1) - origin.x) / dir.x
+        : (origin.x - x) / -dir.x;
+
+    let tMaxY = dir.y > 0
+        ? ((y + 1) - origin.y) / dir.y
+        : (origin.y - y) / -dir.y;
+
+    let tMaxZ = dir.z > 0
+        ? ((z + 1) - origin.z) / dir.z
+        : (origin.z - z) / -dir.z;
+
+    let normal = new THREE.Vector3();
+
+    while (true) {
+
+        const block = getGlobalBlock(x, y, z);
+
+        if (block && block.type !== TYPE.air) {
+
+            const t = Math.min(tMaxX, tMaxY, tMaxZ);
+
             return {
-                position: new THREE.Vector3(bx, by, bz),
-                normal: normal,
-                blockName: blockName,
-                point: prev.clone()
+                x,
+                y,
+                z,
+                normal,
+                point: origin.clone().add(dir.clone().multiplyScalar(t))
             };
         }
+
+        if (Math.min(tMaxX, tMaxY, tMaxZ) > maxDist)
+            break;
+
+        if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+            x += stepX;
+            normal.set(-stepX,0,0);
+            tMaxX += tDeltaX;
+        }
+        else if (tMaxY < tMaxZ) {
+            y += stepY;
+            normal.set(0,-stepY,0);
+            tMaxY += tDeltaY;
+        }
+        else {
+            z += stepZ;
+            normal.set(0,0,-stepZ);
+            tMaxZ += tDeltaZ;
+        }
     }
+
     return null;
 }
 
@@ -3724,9 +3755,7 @@ document.addEventListener('mousedown', (e) => {
                     else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
                     else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
 
-                    let localY =
-                        hit.point.y -
-                        Math.floor(hit.point.y);
+                    let localY = hit.point.y - hit.y;
 
                     let isTop =
                         hit.normal.y === -1 ||
