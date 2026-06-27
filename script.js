@@ -950,15 +950,15 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
             captureDisplayTransforms(currentModel);
 
-
             let elements = currentModel ? currentModel.elements : null;
             let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
+            let partIsGenerated = false;
             let depth = 0;
 
             while (currentModel && currentModel.parent && depth < 10) {
                 let parentPath = currentModel.parent.replace('minecraft:', '');
                 if (parentPath === 'item/generated' || parentPath === 'item/handheld' || parentPath === 'builtin/generated' || parentPath.startsWith('builtin/')) {
-                    isGenerated = true; break;
+                    partIsGenerated = true; isGenerated = true; break;
                 }
                 currentModel = await JSONReader.getModel(parentPath);
                 if (currentModel) {
@@ -1021,7 +1021,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 matArray.push(mat); texMap[texPath] = matIndexCounter; return matIndexCounter++;
             };
 
-            if (isGenerated) {
+            if (partIsGenerated) {
                 let layer0 = resolveTexture(textures.layer0 || textures.cross) || `item/${baseName}`; 
                 let matIdx = getMaterialForTex(layer0);
                 const geo = new THREE.PlaneGeometry(1, 1);
