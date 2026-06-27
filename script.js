@@ -3538,7 +3538,7 @@ function getTarget() {
         if (b !== null && b !== 0 && b !== TYPE.water
             && !REVERSE_TYPE[b].includes('sculk_vein')
             && !REVERSE_TYPE[b].includes('glow_lichen')) {
-            const tCrossed = Math.min(tMaxX - tDeltaX, tMaxY - tDeltaY, tMaxZ - tDeltaZ);
+            const tCrossed = normalX !== 0 ? tMaxX - tDeltaX : normalY !== 0 ? tMaxY - tDeltaY : tMaxZ - tDeltaZ;
             const hitPoint = new THREE.Vector3(
                 ox + dir.x * tCrossed,
                 oy + dir.y * tCrossed,
@@ -3771,9 +3771,8 @@ document.addEventListener('mousedown', (e) => {
                     } else if (hit.normal.y === 1) {
                         isTop = false;
                     } else {
-                        const blockBottomY = hit.position.y - 0.5;
-                        const localHitY = hit.point.y - blockBottomY;
-                        isTop = localHitY < 0.5;
+                        const localHitY = hit.point.y - hit.position.y + 0.5;
+                        isTop = localHitY > 0.5;
                     }
 
                     blockStateDict = {
