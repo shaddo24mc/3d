@@ -201,7 +201,7 @@ const CATEGORIES = {
 };
 
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b.includes('_plant') || b === 'air' || b === 'sweet_berry_bush') return;
+    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || (b.includes('_plant') && b !== 'chorus_plant') || b === 'air' || b === 'sweet_berry_bush') return;
 
     if (STRICT_ITEMS.has(b)) {
         if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
@@ -1169,8 +1169,9 @@ async function getBlockIcon(type) {
     
     let defaultState = {};
     if (type.includes('stairs')) defaultState = { shape: 'straight', half: 'bottom', facing: 'east' };
-    if (type.includes('fence')) defaultState = { north: 'false', south: 'false', east: 'false', west: 'false' };
-    if (type.includes('wall')) defaultState = { up: 'true', north: 'false', south: 'false', east: 'false', west: 'false' };
+    if (type.includes('fence') && !type.includes('fence_gate')) defaultState = { north: 'false', south: 'false', east: 'false', west: 'false', waterlogged: 'false' };
+    if (type.includes('fence_gate')) defaultState = { facing: 'south', in_wall: 'false', open: 'false', powered: 'false' };
+    if (type.includes('wall')) defaultState = { up: 'true', north: 'none', south: 'none', east: 'none', west: 'none' };
     if (type.includes('log') || type.includes('pillar') || type === 'basalt') defaultState.axis = 'y';
     if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
     
