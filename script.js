@@ -1318,25 +1318,24 @@ function getBlockContext(gx, gy, gz, bName) {
         state.south = connects(gx, gy, gz + 1) ? 'true' : 'false';
         state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
-        if (bName.includes('wall')) {
-            const n = state.north || 'none';
-            const s = state.south || 'none';
-            const e = state.east || 'none';
-            const w = state.west || 'none';
-            const hasN = n !== 'none';
-            const hasS = s !== 'none';
-            const hasE = e !== 'none';
-            const hasW = w !== 'none';
-            const isStraightNS = (hasN && hasS && !hasE && !hasW);
-            const isStraightEW = (hasE && hasW && !hasN && !hasS);
-            const isStraight = isStraightNS || isStraightEW;
-            const blockAbove = getGlobalBlock(gx, gy + 1, gz);
-            const solidAbove = blockAbove !== null && blockAbove !== 0 && !isTransparent[blockAbove];
-            const numH = (hasN ? 1 : 0) + (hasS ? 1 : 0) + (hasE ? 1 : 0) + (hasW ? 1 : 0);
-            const shouldBeUp = (!isStraight || solidAbove || numH === 0);
-            state.up = shouldBeUp ? 'true' : 'false';
-        }
-
+    }
+    if (bName.includes('wall')) {
+        const n = state.north || 'none';
+        const s = state.south || 'none';
+        const e = state.east || 'none';
+        const w = state.west || 'none';
+        const hasN = n !== 'none';
+        const hasS = s !== 'none';
+        const hasE = e !== 'none';
+        const hasW = w !== 'none';
+        const isStraightNS = (hasN && hasS && !hasE && !hasW);
+        const isStraightEW = (hasE && hasW && !hasN && !hasS);
+        const isStraight = isStraightNS || isStraightEW;
+        const blockAbove = getGlobalBlock(gx, gy + 1, gz);
+        const solidAbove = blockAbove !== null && blockAbove !== 0 && !isTransparent[blockAbove];
+        const numH = (hasN ? 1 : 0) + (hasS ? 1 : 0) + (hasE ? 1 : 0) + (hasW ? 1 : 0);
+        const shouldBeUp = (!isStraight || solidAbove || numH === 0);
+        state.up = shouldBeUp ? 'true' : 'false';
     }
 
     if (bName === 'chorus_plant') {
