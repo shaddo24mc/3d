@@ -704,13 +704,10 @@ const baseBlocks = [
     'cinnabar',
     'polished_cinnabar',
     'chiseled_cinnabar',
-    'cinnabar_bricks',
-    'cracked_cinnabar_bricks',
-
+    'cinnabar_bricks', 
     'cinnabar_slab',
     'cinnabar_stairs',
-    'cinnabar_wall',
-
+    'cinnabar_wall', 
     'polished_cinnabar_slab',
     'polished_cinnabar_stairs',
     'polished_cinnabar_wall',
