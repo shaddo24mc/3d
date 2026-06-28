@@ -796,7 +796,7 @@ const CATEGORIES = {
     combat: { name: 'Combat', icon: 'iron_sword', blocks: [] },
     food: { name: 'Food & Drinks', icon: 'golden_apple', blocks: [] },
     materials: { name: 'Materials', icon: 'iron_ingot', blocks: [] },
-    spawns: { name: 'Spawn Eggs', icon: 'creeper_head', blocks: [] },
+    spawns: { name: 'Spawn Eggs', icon: 'creeper_spawn_egg', blocks: [] },
     operator: { name: 'Operator Utilities', icon: 'command_block', blocks: [] },
     inventory: { name: 'Survival Inventory', icon: 'chest', blocks: [] }
 };
