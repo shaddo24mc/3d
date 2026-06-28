@@ -779,7 +779,7 @@ const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg'].some(kw => b.includes(kw))) {
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike',].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -1166,7 +1166,7 @@ function getBlockContext(gx, gy, gz, bName) {
     if (bName === 'sweet_berry_bush' && !state.age) state.age = '0';
     if (bName === 'end_rod' && !state.facing) state.facing = 'up';
 
-    if (bName === 'pointed_dripstone' || bName === 'sulfur_spike') {
+    if (bName === 'pointed_dripstone') {
         if (!state.vertical_direction)
             state.vertical_direction = 'up';
 
@@ -1182,17 +1182,7 @@ function getBlockContext(gx, gy, gz, bName) {
         let tipIsDripstone =
             tipBlock &&
             REVERSE_TYPE[tipBlock] === 'pointed_dripstone';
-        let blockBeyondBase =
-            getGlobalBlock(
-                gx,
-                gy - (dir * 2),
-                gz
-            );
 
-        let beyondBaseIsDripstone =
-            blockBeyondBase &&
-            REVERSE_TYPE[blockBeyondBase] ===
-                'pointed_dripstone';
         let blockBeyondTip =
             getGlobalBlock(
                 gx,
@@ -1227,6 +1217,63 @@ function getBlockContext(gx, gy, gz, bName) {
                 if (beyondTipIsDripstone && tipIsDripstone && baseIsDripstone) {
                     state.thickness = 'middle';
                 } else if (!baseIsDripstone){
+                    state.thickness = 'base';
+                } else{
+                    state.thickness = 'tip'
+                }
+            }
+        }
+    }
+    if (bName === 'sulfur_spike') {
+        if (!state.vertical_direction)
+            state.vertical_direction = 'up';
+
+        let dir = state.vertical_direction === 'up' ? 1 : -1;
+
+        let baseBlock = getGlobalBlock(gx, gy - dir, gz);
+        let tipBlock  = getGlobalBlock(gx, gy + dir, gz);
+
+        let baseIsSpike =
+            baseBlock &&
+            REVERSE_TYPE[baseBlock] === 'sulfur_spike';
+
+        let tipIsSpike =
+            tipBlock &&
+            REVERSE_TYPE[tipBlock] === 'sulfur_spike';
+        let blockBeyondTip =
+            getGlobalBlock(
+                gx,
+                gy + (dir * 2),
+                gz
+            )
+        let beyondTipIsSpike = 
+            blockBeyondTip &&
+            REVERSE_TYPE[blockBeyondTip] === 'sulfur_spike';
+        if (tipIsSpike) {
+            let neighborstate = getStoredBlockState (
+                gx,
+                gy+dir,
+                gz
+            );
+            if (
+                neighborstate &&
+                neighborstate.vertical_direction &&
+                neighborstate.vertical_direction !==
+                    state.vertical_direction
+            ) {state.thickness = 'tip_merge'}
+        }
+        if (!state.thickness) {
+
+            if (!tipIsSpike) {
+                state.thickness = 'tip';
+            }
+            else if (tipIsSpike && !beyondTipIsSpike) {
+                state.thickness = 'frustum';
+            }
+            else {
+                if (beyondTipIsSpike && tipIsSpike && baseIsSpike) {
+                    state.thickness = 'middle';
+                } else if (!baseIsSpike){
                     state.thickness = 'base';
                 } else{
                     state.thickness = 'tip'
@@ -1670,7 +1717,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 let isOverlay = texPath.includes('overlay');
                 const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
                 
-                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', ].some(kw => texPath.includes(kw) || baseName.includes(kw));
+                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike',].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
                 if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
                 else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
