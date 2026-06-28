@@ -542,6 +542,9 @@ const ITEMS = [
     'zombie_spawn_egg',
     'zombie_villager_spawn_egg',
     'zombified_piglin_spawn_egg',
+    'bucket_of_sulfur_cube',
+    'bounce_music_disc',
+    'sulfur_cube_spawn_egg',
 ];
 const STRICT_ITEMS = new Set(ITEMS);
 
@@ -607,7 +610,7 @@ const baseBlocks = [
     'cyan_terracotta', 'purple_terracotta', 'blue_terracotta', 'brown_terracotta', 'green_terracotta',
     'red_terracotta', 'black_terracotta',
     'sunflower', 'lilac', 'rose_bush', 'peony', 'tall_grass', 'large_fern', 'pitcher_crop',
-    'magma_block', 'bone_block', 'target',
+    'magma_block', 'target',
     'kelp', 'kelp_plant', 'turtle_egg', 'frogspawn',
     'tube_coral', 'brain_coral', 'bubble_coral', 'fire_coral', 'horn_coral',
     'tube_coral_block', 'brain_coral_block', 'bubble_coral_block', 'fire_coral_block', 'horn_coral_block',
@@ -615,7 +618,7 @@ const baseBlocks = [
     'dead_tube_coral', 'dead_brain_coral', 'dead_bubble_coral', 'dead_fire_coral', 'dead_horn_coral',
     'dead_tube_coral_block', 'dead_brain_coral_block', 'dead_bubble_coral_block', 'dead_fire_coral_block', 'dead_horn_coral_block',
     'dead_tube_coral_fan', 'dead_brain_coral_fan', 'dead_bubble_coral_fan', 'dead_fire_coral_fan', 'dead_horn_coral_fan',
-    'conduit', 'bamboo', 'bamboo_block', 'stripped_bamboo_block',
+     'bamboo', 'bamboo_block', 'stripped_bamboo_block',
     'campfire', 'soul_campfire',
     'weeping_vines', 'weeping_vines_plant', 'twisting_vines', 'twisting_vines_plant',
     'crimson_roots', 'warped_roots', 'nether_sprouts',
@@ -669,23 +672,54 @@ const baseBlocks = [
     'acacia_fence_gate', 'dark_oak_fence_gate', 'mangrove_fence_gate', 'cherry_fence_gate',
     'pale_oak_fence_gate', 'bamboo_fence_gate', 'crimson_fence_gate', 'warped_fence_gate',
     'lightning_rod',
-    'chain', 'iron_bars',
-    'vine', 'glow_lichen',
-    'sugar_cane', 'kelp', 'bamboo',
+    'chain',
+    'vine', 
+    'sugar_cane',
     'glass_pane',
-    'cake', 'candle_cake',
-    'white_candle_cake', 'orange_candle_cake', 'magenta_candle_cake', 'light_blue_candle_cake',
-    'yellow_candle_cake', 'lime_candle_cake', 'pink_candle_cake', 'gray_candle_cake',
-    'light_gray_candle_cake', 'cyan_candle_cake', 'purple_candle_cake', 'blue_candle_cake',
-    'brown_candle_cake', 'green_candle_cake', 'red_candle_cake', 'black_candle_cake',
+    'cake',
     'end_portal_frame', 'end_gateway', 'end_portal',
     'nether_portal',
     'structure_block', 'structure_void', 'jigsaw', 'command_block',
     'repeating_command_block', 'chain_command_block',
     'barrier', 'light',
-    'pale_hanging_moss', 'pale_moss_block', 'pale_moss_carpet',
-    'open_eyeblossom', 'closed_eyeblossom',
+    'pale_hanging_moss', 'pale_moss_block', 'pale_moss_carpet', 
     'resin_block', 'resin_bricks', 'chiseled_resin_bricks', 'resin_brick', 'resin_clump',
+    'sulfur',
+    'polished_sulfur',
+    'chiseled_sulfur',
+    'sulfur_bricks',
+    'cracked_sulfur_bricks',
+
+    'sulfur_slab',
+    'sulfur_stairs',
+    'sulfur_wall',
+
+    'polished_sulfur_slab',
+    'polished_sulfur_stairs',
+    'polished_sulfur_wall',
+
+    'sulfur_brick_slab',
+    'sulfur_brick_stairs',
+    'sulfur_brick_wall',
+    'cinnabar',
+    'polished_cinnabar',
+    'chiseled_cinnabar',
+    'cinnabar_bricks',
+    'cracked_cinnabar_bricks',
+
+    'cinnabar_slab',
+    'cinnabar_stairs',
+    'cinnabar_wall',
+
+    'polished_cinnabar_slab',
+    'polished_cinnabar_stairs',
+    'polished_cinnabar_wall',
+
+    'cinnabar_brick_slab',
+    'cinnabar_brick_stairs',
+    'cinnabar_brick_wall',
+    'potent_sulfur',
+    'sulfur_spike',
     ...ITEMS
 ];
 
@@ -721,7 +755,7 @@ WOODS.forEach(w => {
 
 STONE_TYPES.forEach(st => {
     generatedBlocks.push(`${st}_slab`, `${st}_stairs`);
-    if (!['dark_prismarine', 'stone', 'cut_copper', 'exposed_cut_copper', 'weathered_cut_copper', 'oxidized_cut_copper', 'waxed_cut_copper', 'waxed_exposed_cut_copper', 'waxed_weathered_cut_copper', 'waxed_oxidized_cut_copper', 'smooth_sandstone', 'smooth_red_sandstone', 'smooth_quartz', 'purpur', 'resin_brick'].includes(st)) {
+    if (!['dark_prismarine', 'stone', 'cut_copper', 'exposed_cut_copper', 'weathered_cut_copper', 'oxidized_cut_copper', 'waxed_cut_copper', 'waxed_exposed_cut_copper', 'waxed_weathered_cut_copper', 'waxed_oxidized_cut_copper', 'smooth_sandstone', 'smooth_red_sandstone', 'smooth_quartz', 'purpur', 'resin_brick', 'sulfur', 'polished_sulfur', 'sulfur_brick', 'cinnabar', 'polished_cinnabar', 'cinnabar_brick'].includes(st)) {
         generatedBlocks.push(`${st}_wall`);
     }
 });
@@ -769,9 +803,78 @@ const CATEGORIES = {
     operator: { name: 'Operator Utilities', icon: 'command_block', blocks: [] },
     inventory: { name: 'Survival Inventory', icon: 'chest', blocks: [] }
 };
+const HIDDEN_CREATIVE_BLOCKS = new Set([
+    'air',
 
+    'pitcher_crop',
+    'sweet_berry_bush',
+
+    'kelp_plant',
+    'weeping_vines_plant',
+    'twisting_vines_plant',
+
+    'fire',
+    'soul_fire',
+
+    'end_portal',
+    'end_gateway',
+    'nether_portal',
+    'infested_stone',
+    'infested_cobblestone',
+    'infested_stone_bricks',
+    'infested_mossy_stone_bricks',
+    'infested_cracked_stone_bricks',
+    'infested_chiseled_stone_bricks',
+    'infested_deepslate',
+    'spawner',
+    'trial_spawner',
+    'vault',
+
+    'frogspawn',
+
+    'cave_vines_plant',
+
+    'void_air',
+    'cave_air',
+
+    'moving_piston',
+    'piston_head',
+
+    'wall_torch',
+    'redstone_wall_torch',
+    'soul_wall_torch',
+
+    'attached_melon_stem',
+    'attached_pumpkin_stem',
+
+    'big_dripleaf_stem',
+
+    'bubble_column',
+
+    'wall_sign',
+    'wall_hanging_sign',
+
+    'skeleton_wall_skull',
+    'wither_skeleton_wall_skull',
+    'zombie_wall_head',
+    'player_wall_head',
+    'creeper_wall_head',
+    'dragon_wall_head',
+    'piglin_wall_head',
+]);
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || (b.includes('_plant') && b !== 'chorus_plant') || b === 'air' || b === 'sweet_berry_bush') return;
+    if (
+        HIDDEN_CREATIVE_BLOCKS.has(b) ||
+
+        b.endsWith('_inner') ||
+        b.endsWith('_outer') ||
+        b.endsWith('_top') ||
+
+        b.endsWith('_wall_head') ||
+        b.endsWith('_wall_skull') ||
+        b.endsWith('_wall_sign') ||
+        b.endsWith('_wall_hanging_sign')
+    ) return;
 
     if (STRICT_ITEMS.has(b)) {
         if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots') || b === 'shield' || b === 'trident' || b === 'crossbow' || b === 'mace' || b === 'wind_charge' || b === 'totem_of_undying' || b === 'turtle_helmet') CATEGORIES.combat.blocks.push(b);
