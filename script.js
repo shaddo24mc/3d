@@ -1166,7 +1166,7 @@ function getBlockContext(gx, gy, gz, bName) {
     if (bName === 'sweet_berry_bush' && !state.age) state.age = '0';
     if (bName === 'end_rod' && !state.facing) state.facing = 'up';
 
-    if (bName === 'pointed_dripstone') {
+    if (bName === 'pointed_dripstone' || bName === 'sulfur_spike') {
         if (!state.vertical_direction)
             state.vertical_direction = 'up';
 
@@ -1234,6 +1234,7 @@ function getBlockContext(gx, gy, gz, bName) {
             }
         }
     }
+    
 
     if (bName === 'kelp') {
         if (!state.age) state.age = '0';
@@ -4459,6 +4460,10 @@ document.addEventListener('mousedown', (e) => {
                     ];
                 }
                 else if (placementType === 'pointed_dripstone') {
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
+                    blockStateDict = { vertical_direction: isTop ? 'down' : 'up'};
+                }
+                else if (placementType === 'sulfur_spike') {
                     let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
                     blockStateDict = { vertical_direction: isTop ? 'down' : 'up'};
                 }
