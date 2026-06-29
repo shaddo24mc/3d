@@ -1320,33 +1320,127 @@ function getBlockContext(gx, gy, gz, bName) {
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
     }
     
-    if (bName.includes('wall')) {
+    function getWallState(x, y, z) {
 
-        state.north = state.north === 'true' ? 'low' : 'none';
-        state.south = state.south === 'true' ? 'low' : 'none';
-        state.east  = state.east  === 'true' ? 'low' : 'none';
-        state.west  = state.west  === 'true' ? 'low' : 'none';
+        const state = {
+            north: "none",
+            east: "none",
+            south: "none",
+            west: "none",
+            up: "true"
+        };
 
-        const isStraight =
-            (state.north !== 'none' && state.south !== 'none' &&
-            state.east === 'none' && state.west === 'none') ||
+        //--------------------------------------------------
+        // Connection helpers
+        //--------------------------------------------------
 
-            (state.east !== 'none' && state.west !== 'none' &&
-            state.north === 'none' && state.south === 'none');
+        function getName(dx, dy, dz) {
+            const id = getGlobalBlock(x + dx, y + dy, z + dz);
+            if (!id) return null;
+            return REVERSE_TYPE[id];
+        }
 
-        const blockAbove = getGlobalBlock(gx, gy + 1, gz);
-        const solidAbove =
-            blockAbove !== null &&
-            blockAbove !== 0 &&
-            !isTransparent[blockAbove];
+        function isSolid(dx, dy, dz) {
+            const id = getGlobalBlock(x + dx, y + dy, z + dz);
+            if (!id) return false;
+            return !isTransparent[id];
+        }
 
-        const numH =
-            (state.north !== 'none') +
-            (state.south !== 'none') +
-            (state.east  !== 'none') +
-            (state.west  !== 'none');
+        function isWall(dx, dz) {
+            const n = getName(dx, 0, dz);
+            return n && n.endsWith("_wall");
+        }
 
-        state.up = (!isStraight || solidAbove || numH === 0) ? 'true' : 'false';
+        function connects(dx, dz) {
+
+            const name = getName(dx, 0, dz);
+
+            if (!name)
+                return false;
+
+            if (name.endsWith("_wall"))
+                return true;
+
+            if (name.endsWith("_fence_gate"))
+                return true;
+
+            if (isSolid(dx, 0, dz))
+                return true;
+
+            return false;
+        }
+
+        //--------------------------------------------------
+        // Initial LOW/NONE
+        //--------------------------------------------------
+
+        state.north = connects(0,-1) ? "low" : "none";
+        state.east  = connects(1,0)  ? "low" : "none";
+        state.south = connects(0,1)  ? "low" : "none";
+        state.west  = connects(-1,0) ? "low" : "none";
+
+        //--------------------------------------------------
+        // TALL SIDES
+        //--------------------------------------------------
+
+        function makeTall(dx, dz, key) {
+
+            if (state[key] === "none")
+                return;
+
+            // Solid block above neighbor
+            if (isSolid(dx, 1, dz)) {
+                state[key] = "tall";
+                return;
+            }
+
+            // Neighbor wall with block above
+            if (isWall(dx, dz) && isSolid(dx, 1, dz)) {
+                state[key] = "tall";
+                return;
+            }
+
+            // Optional: if you cache wall states, check neighbor.up here
+            // if (neighborState.up == "true") state[key] = "tall";
+        }
+
+        makeTall(0,-1,"north");
+        makeTall(1,0,"east");
+        makeTall(0,1,"south");
+        makeTall(-1,0,"west");
+
+        //--------------------------------------------------
+        // CENTER POST
+        //--------------------------------------------------
+
+        const n = state.north !== "none";
+        const e = state.east  !== "none";
+        const s = state.south !== "none";
+        const w = state.west  !== "none";
+
+        const straightNS = n && s && !e && !w;
+        const straightEW = e && w && !n && !s;
+
+        const solidAbove = isSolid(0,1,0);
+
+        const hasTall =
+            state.north === "tall" ||
+            state.east  === "tall" ||
+            state.south === "tall" ||
+            state.west  === "tall";
+
+        if (
+            solidAbove ||
+            hasTall ||
+            !straightNS && !straightEW ||
+            (!n && !e && !s && !w)
+        ) {
+            state.up = "true";
+        } else {
+            state.up = "false";
+        }
+
+        return state;
     }
 
     if (bName === 'chorus_plant') {
