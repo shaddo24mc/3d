@@ -1311,7 +1311,7 @@ function getBlockContext(gx, gy, gz, bName) {
             let nb = getGlobalBlock(nx, ny, nz);
             if (!nb) return false;
             let nn = REVERSE_TYPE[nb];
-            if (nn.includes('fence') || nn.includes('pane') || nn.includes('wall') || nn === 'iron_bars') return true;
+            if (nn.includes('fence') || nn.includes('pane') || nn === 'iron_bars') return true;
             return !isTransparent[nb];
         };
         state.north = connects(gx, gy, gz - 1) ? 'true' : 'false';
@@ -1320,22 +1320,44 @@ function getBlockContext(gx, gy, gz, bName) {
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
     }
     if (bName.includes('wall')) {
-        const n = state.north || 'none';
-        const s = state.south || 'none';
-        const e = state.east || 'none';
-        const w = state.west || 'none';
-        const hasN = n !== 'none';
-        const hasS = s !== 'none';
-        const hasE = e !== 'none';
-        const hasW = w !== 'none';
-        const isStraightNS = (hasN && hasS && !hasE && !hasW);
-        const isStraightEW = (hasE && hasW && !hasN && !hasS);
-        const isStraight = isStraightNS || isStraightEW;
+        state.north = state.north === "true" ? "low" : "none";
+        state.south = state.south === "true" ? "low" : "none";
+        state.east  = state.east  === "true" ? "low" : "none";
+        state.west  = state.west  === "true" ? "low" : "none";
+        const isStraight =
+            (state.north !== "none" && state.south !== "none" &&
+            state.east === "none" && state.west === "none") ||
+            (state.east !== "none" && state.west !== "none" &&
+            state.north === "none" && state.south === "none");
         const blockAbove = getGlobalBlock(gx, gy + 1, gz);
-        const solidAbove = blockAbove !== null && blockAbove !== 0 && !isTransparent[blockAbove];
-        const numH = (hasN ? 1 : 0) + (hasS ? 1 : 0) + (hasE ? 1 : 0) + (hasW ? 1 : 0);
-        const shouldBeUp = (!isStraight || solidAbove || numH === 0);
-        state.up = shouldBeUp ? 'true' : 'false';
+        const solidAbove =
+            blockAbove !== null &&
+            blockAbove !== 0 &&
+            !isTransparent[blockAbove];
+        const numConnections =
+            (state.north !== "none") +
+            (state.south !== "none") +
+            (state.east  !== "none") +
+            (state.west  !== "none");
+        state.up =
+            (!isStraight || solidAbove || numConnections === 0)
+                ? "true"
+                : "false";
+        const makeTall = (dx, dz, side) => {
+            if (state[side] === "none") return;
+            const aboveNeighbor = getGlobalBlock(gx + dx, gy + 1, gz + dz);
+            if (
+                aboveNeighbor !== null &&
+                aboveNeighbor !== 0 &&
+                !isTransparent[aboveNeighbor]
+            ) {
+                state[side] = "tall";
+            }
+        };
+        makeTall(0, -1, "north");
+        makeTall(1,  0, "east");
+        makeTall(0,  1, "south");
+        makeTall(-1, 0, "west");
     }
 
     if (bName === 'chorus_plant') {
