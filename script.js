@@ -1319,31 +1319,34 @@ function getBlockContext(gx, gy, gz, bName) {
         state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
     }
+    
     if (bName.includes('wall')) {
-        let eastblock = getGlobalBlock(gx + 1, gy, gz);
-        let westblock = getGlobalBlock(gx - 1, gy, gz);
-        let northblock = getGlobalBlock(gx, gy, gz - 1);
-        let southblock = getGlobalBlock(gx, gy, gz + 1);
-        let eastIsWall =
-            eastblock &&
-            REVERSE_TYPE[eastblock].includes("wall");
-        let westIsWall =
-            westblock &&
-            REVERSE_TYPE[westblock].includes("wall");
-        let northIsWall =
-            northblock && 
-            REVERSE_TYPE[northblock].includes("wall");
-        let southISWall =
-            southblock &&
-            REVERSE_TYPE[southblock].includes("wall");
-        let eaststate =
-            getStoredBlockState(gx + 1, gy, gz);
-        let weststate =
-            getStoredBlockState(gx - 1, gy, gz);
-        let northstate =
-            getStoredBlockState(gx, gy, gz - 1);
-        let southstate =
-            getStoredBlockState(gx, gy, gz + 1);
+
+        state.north = state.north === 'true' ? 'low' : 'none';
+        state.south = state.south === 'true' ? 'low' : 'none';
+        state.east  = state.east  === 'true' ? 'low' : 'none';
+        state.west  = state.west  === 'true' ? 'low' : 'none';
+
+        const isStraight =
+            (state.north !== 'none' && state.south !== 'none' &&
+            state.east === 'none' && state.west === 'none') ||
+
+            (state.east !== 'none' && state.west !== 'none' &&
+            state.north === 'none' && state.south === 'none');
+
+        const blockAbove = getGlobalBlock(gx, gy + 1, gz);
+        const solidAbove =
+            blockAbove !== null &&
+            blockAbove !== 0 &&
+            !isTransparent[blockAbove];
+
+        const numH =
+            (state.north !== 'none') +
+            (state.south !== 'none') +
+            (state.east  !== 'none') +
+            (state.west  !== 'none');
+
+        state.up = (!isStraight || solidAbove || numH === 0) ? 'true' : 'false';
     }
 
     if (bName === 'chorus_plant') {
