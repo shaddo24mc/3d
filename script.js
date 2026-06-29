@@ -1343,7 +1343,7 @@ function getBlockContext(gx, gy, gz, bName) {
         let northstate =
             getStoredBlockState(gx, gy, gz - 1);
         let southstate =
-            getStoredBlockState(, gy, gz + 1);
+            getStoredBlockState(gx, gy, gz + 1);
     }
 
     if (bName === 'chorus_plant') {
