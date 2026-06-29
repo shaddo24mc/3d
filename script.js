@@ -719,6 +719,78 @@ const baseBlocks = [
     'sulfur_spike',
     ...ITEMS
 ];
+const cubeAllBlocks = [
+  "amethyst_block",
+  "basalt",
+  "bone_block",
+  "brown_wool",
+  "calcite",
+  "chiseled_deepslate",
+  "clay",
+  "coal_block",
+  "coal_ore",
+  "coarse_dirt",
+  "cobbled_deepslate",
+  "cobblestone",
+  "cracked_deepslate_bricks",
+  "cracked_deepslate_tiles",
+  "crimson_nylium",
+  "crying_obsidian",
+  "cyan_wool",
+  "deepslate",
+  "deepslate_bricks",
+  "deepslate_coal_ore",
+  "deepslate_copper_ore",
+  "deepslate_diamond_ore",
+  "deepslate_emerald_ore",
+  "deepslate_gold_ore",
+  "deepslate_iron_ore",
+  "deepslate_lapis_lazuli_ore",
+  "deepslate_redstone_ore",
+  "deepslate_tiles",
+  "diamond_block",
+  "dirt",
+  "emerald_block",
+  "end_stone",
+  "end_stone_bricks",
+  "gravel",
+  "gray_wool",
+  "green_wool",
+  "lapis_lazuli_block",
+  "light_blue_wool",
+  "magma_block",
+  "moss_block",
+  "mossy_cobblestone",
+  "mossy_stone_bricks",
+  "mud",
+  "nether_quartz_ore",
+  "netherite_block",
+  "netherrack",
+  "obsidian",
+  "orange_wool",
+  "packed_mud",
+  "pink_wool",
+  "polished_basalt",
+  "polished_deepslate",
+  "purpur_block",
+  "purpur_pillar",
+  "quartz_block",
+  "raw_copper_block",
+  "raw_gold_block",
+  "raw_iron_block",
+  "red_sand",
+  "red_wool",
+  "reinforced_deepslate",
+  "sand",
+  "sandstone",
+  "smooth_quartz_block",
+  "snow",
+  "stone",
+  "tuff",
+  "warped_nylium",
+  "yellow_wool"
+];
+
 
 const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
 const WOODS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'pale_oak', 'crimson', 'warped', 'bamboo'];
@@ -1319,129 +1391,85 @@ function getBlockContext(gx, gy, gz, bName) {
         state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
     }
-    
-    function getWallState(x, y, z) {
+    if (bName.includes('wall')) {
+    let eastblock  = getGlobalBlock(gx + 1, gy, gz);
+    let westblock  = getGlobalBlock(gx - 1, gy, gz);
+    let northblock = getGlobalBlock(gx, gy, gz - 1);
+    let southblock = getGlobalBlock(gx, gy, gz + 1);
+    let topblock   = getGlobalBlock(gx, gy + 1, gz);
 
-        const state = {
-            north: "none",
-            east: "none",
-            south: "none",
-            west: "none",
-            up: "true"
-        };
+    let beyondeastblock  = getGlobalBlock(gx + 1, gy + 1, gz);
+    let beyondwestblock  = getGlobalBlock(gx - 1, gy + 1, gz);
+    let beyondnorthblock = getGlobalBlock(gx, gy + 1, gz - 1);
+    let beyondsouthblock = getGlobalBlock(gx, gy + 1, gz + 1);
 
-        //--------------------------------------------------
-        // Connection helpers
-        //--------------------------------------------------
+    let eastIsWall  = eastblock  && REVERSE_TYPE[eastblock].includes("wall");
+    let westIsWall  = westblock  && REVERSE_TYPE[westblock].includes("wall");
+    let northIsWall = northblock && REVERSE_TYPE[northblock].includes("wall");
+    let southIsWall = southblock && REVERSE_TYPE[southblock].includes("wall");
+    let topIsWall   = topblock   && REVERSE_TYPE[topblock].includes("wall");
 
-        function getName(dx, dy, dz) {
-            const id = getGlobalBlock(x + dx, y + dy, z + dz);
-            if (!id) return null;
-            return REVERSE_TYPE[id];
-        }
+    let beyondeastIsWall  = beyondeastblock  && REVERSE_TYPE[beyondeastblock].includes("wall");
+    let beyondwestIsWall  = beyondwestblock  && REVERSE_TYPE[beyondwestblock].includes("wall");
+    let beyondnorthIsWall = beyondnorthblock && REVERSE_TYPE[beyondnorthblock].includes("wall");
+    let beyondsouthIsWall = beyondsouthblock && REVERSE_TYPE[beyondsouthblock].includes("wall");
 
-        function isSolid(dx, dy, dz) {
-            const id = getGlobalBlock(x + dx, y + dy, z + dz);
-            if (!id) return false;
-            return !isTransparent[id];
-        }
+    let eastIsLegal  = eastIsWall  || (eastblock  && cubeAllBlocks.includes(REVERSE_TYPE[eastblock]));
+    let westIsLegal  = westIsWall  || (westblock  && cubeAllBlocks.includes(REVERSE_TYPE[westblock]));
+    let northIsLegal = northIsWall || (northblock && cubeAllBlocks.includes(REVERSE_TYPE[northblock]));
+    let southIsLegal = southIsWall || (southblock && cubeAllBlocks.includes(REVERSE_TYPE[southblock]));
 
-        function isWall(dx, dz) {
-            const n = getName(dx, 0, dz);
-            return n && n.endsWith("_wall");
-        }
+    let openDirections = [northIsLegal, southIsLegal, eastIsLegal, westIsLegal].filter(Boolean).length;
+    let straightLineNS = northIsLegal && southIsLegal && !eastIsLegal && !westIsLegal;
+    let straightLineEW = eastIsLegal && westIsLegal && !northIsLegal && !southIsLegal;
 
-        function connects(dx, dz) {
-
-            const name = getName(dx, 0, dz);
-
-            if (!name)
-                return false;
-
-            if (name.endsWith("_wall"))
-                return true;
-
-            if (name.endsWith("_fence_gate"))
-                return true;
-
-            if (isSolid(dx, 0, dz))
-                return true;
-
-            return false;
-        }
-
-        //--------------------------------------------------
-        // Initial LOW/NONE
-        //--------------------------------------------------
-
-        state.north = connects(0,-1) ? "low" : "none";
-        state.east  = connects(1,0)  ? "low" : "none";
-        state.south = connects(0,1)  ? "low" : "none";
-        state.west  = connects(-1,0) ? "low" : "none";
-
-        //--------------------------------------------------
-        // TALL SIDES
-        //--------------------------------------------------
-
-        function makeTall(dx, dz, key) {
-
-            if (state[key] === "none")
-                return;
-
-            // Solid block above neighbor
-            if (isSolid(dx, 1, dz)) {
-                state[key] = "tall";
-                return;
-            }
-
-            // Neighbor wall with block above
-            if (isWall(dx, dz) && isSolid(dx, 1, dz)) {
-                state[key] = "tall";
-                return;
-            }
-
-            // Optional: if you cache wall states, check neighbor.up here
-            // if (neighborState.up == "true") state[key] = "tall";
-        }
-
-        makeTall(0,-1,"north");
-        makeTall(1,0,"east");
-        makeTall(0,1,"south");
-        makeTall(-1,0,"west");
-
-        //--------------------------------------------------
-        // CENTER POST
-        //--------------------------------------------------
-
-        const n = state.north !== "none";
-        const e = state.east  !== "none";
-        const s = state.south !== "none";
-        const w = state.west  !== "none";
-
-        const straightNS = n && s && !e && !w;
-        const straightEW = e && w && !n && !s;
-
-        const solidAbove = isSolid(0,1,0);
-
-        const hasTall =
-            state.north === "tall" ||
-            state.east  === "tall" ||
-            state.south === "tall" ||
-            state.west  === "tall";
-
-        if (
-            solidAbove ||
-            hasTall ||
-            !straightNS && !straightEW ||
-            (!n && !e && !s && !w)
-        ) {
-            state.up = "true";
-        } else {
-            state.up = "false";
-        }
-
-        return state;
+    if (topblock || openDirections !== 2 || (!straightLineNS && !straightLineEW)) {
+        state.up = 'true';
+    } else {
+        state.up = 'false';
     }
+
+    if (northblock && northIsLegal) {
+        if (beyondnorthblock && !beyondnorthIsWall) {
+        state.north = 'tall';
+        } else {
+        state.north = 'low';
+        }
+    } else {
+        state.north = 'none';
+    }
+
+    if (southblock && southIsLegal) {
+        if (beyondsouthblock && !beyondsouthIsWall) {
+        state.south = 'tall';
+        } else {
+        state.south = 'low';
+        }
+    } else {
+        state.south = 'none';
+    }
+
+    if (eastblock && eastIsLegal) {
+        if (beyondeastblock && !beyondeastIsWall) {
+        state.east = 'tall';
+        } else {
+        state.east = 'low';
+        }
+    } else {
+        state.east = 'none';
+    }
+
+    if (westblock && westIsLegal) {
+        if (beyondwestblock && !beyondwestIsWall) {
+        state.west = 'tall';
+        } else {
+        state.west = 'low';
+        }
+    } else {
+        state.west = 'none';
+    }
+    }
+
 
     if (bName === 'chorus_plant') {
         const connects = (nx, ny, nz) => {
