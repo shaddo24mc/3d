@@ -831,11 +831,7 @@ const cubeAllBlocks = [
     "yellow_wool", "lime_wool", "pink_wool", "gray_wool",
     "light_gray_wool", "cyan_wool", "purple_wool", "blue_wool",
     "brown_wool", "green_wool", "red_wool", "black_wool"
-];
-
-    
-];
-
+    ];
 
 const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
 const WOODS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'pale_oak', 'crimson', 'warped', 'bamboo'];
