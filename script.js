@@ -1392,83 +1392,63 @@ function getBlockContext(gx, gy, gz, bName) {
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
     }
     if (bName.includes('wall')) {
-    let eastblock  = getGlobalBlock(gx + 1, gy, gz);
-    let westblock  = getGlobalBlock(gx - 1, gy, gz);
-    let northblock = getGlobalBlock(gx, gy, gz - 1);
-    let southblock = getGlobalBlock(gx, gy, gz + 1);
-    let topblock   = getGlobalBlock(gx, gy + 1, gz);
-
-    let beyondeastblock  = getGlobalBlock(gx + 1, gy + 1, gz);
-    let beyondwestblock  = getGlobalBlock(gx - 1, gy + 1, gz);
-    let beyondnorthblock = getGlobalBlock(gx, gy + 1, gz - 1);
-    let beyondsouthblock = getGlobalBlock(gx, gy + 1, gz + 1);
-
-    let eastIsWall  = eastblock  && REVERSE_TYPE[eastblock].includes("wall");
-    let westIsWall  = westblock  && REVERSE_TYPE[westblock].includes("wall");
-    let northIsWall = northblock && REVERSE_TYPE[northblock].includes("wall");
-    let southIsWall = southblock && REVERSE_TYPE[southblock].includes("wall");
-    let topIsWall   = topblock   && REVERSE_TYPE[topblock].includes("wall");
-
-    let beyondeastIsWall  = beyondeastblock  && REVERSE_TYPE[beyondeastblock].includes("wall");
-    let beyondwestIsWall  = beyondwestblock  && REVERSE_TYPE[beyondwestblock].includes("wall");
-    let beyondnorthIsWall = beyondnorthblock && REVERSE_TYPE[beyondnorthblock].includes("wall");
-    let beyondsouthIsWall = beyondsouthblock && REVERSE_TYPE[beyondsouthblock].includes("wall");
-
-    let eastIsLegal  = eastIsWall  || (eastblock  && cubeAllBlocks.includes(REVERSE_TYPE[eastblock]));
-    let westIsLegal  = westIsWall  || (westblock  && cubeAllBlocks.includes(REVERSE_TYPE[westblock]));
-    let northIsLegal = northIsWall || (northblock && cubeAllBlocks.includes(REVERSE_TYPE[northblock]));
-    let southIsLegal = southIsWall || (southblock && cubeAllBlocks.includes(REVERSE_TYPE[southblock]));
-
-    let openDirections = [northIsLegal, southIsLegal, eastIsLegal, westIsLegal].filter(Boolean).length;
-    let straightLineNS = northIsLegal && southIsLegal && !eastIsLegal && !westIsLegal;
-    let straightLineEW = eastIsLegal && westIsLegal && !northIsLegal && !southIsLegal;
-
-    if (topblock || openDirections !== 2 || (!straightLineNS && !straightLineEW)) {
-        state.up = 'true';
-    } else {
-        state.up = 'false';
-    }
-
-    if (northblock && northIsLegal) {
-        if (beyondnorthblock && !beyondnorthIsWall) {
-        state.north = 'tall';
+        let eastblock  = getGlobalBlock(gx + 1, gy, gz);
+        let westblock  = getGlobalBlock(gx - 1, gy, gz);
+        let northblock = getGlobalBlock(gx, gy, gz - 1);
+        let southblock = getGlobalBlock(gx, gy, gz + 1);
+        let topblock   = getGlobalBlock(gx, gy + 1, gz);
+        let beyondeastblock  = getGlobalBlock(gx + 1, gy + 1, gz);
+        let beyondwestblock  = getGlobalBlock(gx - 1, gy + 1, gz);
+        let beyondnorthblock = getGlobalBlock(gx, gy + 1, gz - 1);
+        let beyondsouthblock = getGlobalBlock(gx, gy + 1, gz + 1);
+        let eastIsWall  = eastblock  && REVERSE_TYPE[eastblock] && REVERSE_TYPE[eastblock].includes("wall");
+        let westIsWall  = westblock  && REVERSE_TYPE[westblock] && REVERSE_TYPE[westblock].includes("wall");
+        let northIsWall = northblock && REVERSE_TYPE[northblock] && REVERSE_TYPE[northblock].includes("wall");
+        let southIsWall = southblock && REVERSE_TYPE[southblock] && REVERSE_TYPE[southblock].includes("wall");
+        let topIsWall   = topblock   && REVERSE_TYPE[topblock] && REVERSE_TYPE[topblock].includes("wall");
+        let beyondeastIsWall  = beyondeastblock  && REVERSE_TYPE[beyondeastblock] && REVERSE_TYPE[beyondeastblock].includes("wall");
+        let beyondwestIsWall  = beyondwestblock  && REVERSE_TYPE[beyondwestblock] && REVERSE_TYPE[beyondwestblock].includes("wall");
+        let beyondnorthIsWall = beyondnorthblock && REVERSE_TYPE[beyondnorthblock] && REVERSE_TYPE[beyondnorthblock].includes("wall");
+        let beyondsouthIsWall = beyondsouthblock && REVERSE_TYPE[beyondsouthblock] && REVERSE_TYPE[beyondsouthblock].includes("wall");
+        let eastIsLegal  = eastIsWall  || (eastblock  && cubeAllBlocks.includes(REVERSE_TYPE[eastblock]));
+        let westIsLegal  = westIsWall  || (westblock  && cubeAllBlocks.includes(REVERSE_TYPE[westblock]));
+        let northIsLegal = northIsWall || (northblock && cubeAllBlocks.includes(REVERSE_TYPE[northblock]));
+        let southIsLegal = southIsWall || (southblock && cubeAllBlocks.includes(REVERSE_TYPE[southblock]));
+        let openDirections = [northIsLegal, southIsLegal, eastIsLegal, westIsLegal].filter(Boolean).length;
+        let straightLineNS = northIsLegal && southIsLegal && !eastIsLegal && !westIsLegal;
+        let straightLineEW = eastIsLegal && westIsLegal && !northIsLegal && !southIsLegal;
+        if (topblock || openDirections !== 2 || (!straightLineNS && !straightLineEW)) {
+            state.up = 'true';
         } else {
-        state.north = 'low';
+            state.up = 'false';
         }
-    } else {
-        state.north = 'none';
+        function checkTall(beyondBlock, beyondIsWall) {
+            if (!beyondBlock) return false;
+            let typeName = REVERSE_TYPE[beyondBlock];
+            return cubeAllBlocks.includes(typeName) && !beyondIsWall;
+        }
+        if (northblock && northIsLegal) {
+            state.north = checkTall(beyondnorthblock, beyondnorthIsWall) ? 'tall' : 'low';
+        } else {
+            state.north = 'none';
+        }
+        if (southblock && southIsLegal) {
+            state.south = checkTall(beyondsouthblock, beyondsouthIsWall) ? 'tall' : 'low';
+        } else {
+            state.south = 'none';
+        }
+        if (eastblock && eastIsLegal) {
+            state.east = checkTall(beyondeastblock, beyondeastIsWall) ? 'tall' : 'low';
+        } else {
+            state.east = 'none';
+        }
+        if (westblock && westIsLegal) {
+            state.west = checkTall(beyondwestblock, beyondwestIsWall) ? 'tall' : 'low';
+        } else {
+            state.west = 'none';
+        }
     }
 
-    if (southblock && southIsLegal) {
-        if (beyondsouthblock && !beyondsouthIsWall) {
-        state.south = 'tall';
-        } else {
-        state.south = 'low';
-        }
-    } else {
-        state.south = 'none';
-    }
-
-    if (eastblock && eastIsLegal) {
-        if (beyondeastblock && !beyondeastIsWall) {
-        state.east = 'tall';
-        } else {
-        state.east = 'low';
-        }
-    } else {
-        state.east = 'none';
-    }
-
-    if (westblock && westIsLegal) {
-        if (beyondwestblock && !beyondwestIsWall) {
-        state.west = 'tall';
-        } else {
-        state.west = 'low';
-        }
-    } else {
-        state.west = 'none';
-    }
-    }
 
 
     if (bName === 'chorus_plant') {
