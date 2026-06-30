@@ -1401,19 +1401,36 @@ function getBlockContext(gx, gy, gz, bName) {
         let beyondwestblock  = getGlobalBlock(gx - 1, gy + 1, gz);
         let beyondnorthblock = getGlobalBlock(gx, gy + 1, gz - 1);
         let beyondsouthblock = getGlobalBlock(gx, gy + 1, gz + 1);
-        let eastIsWall  = eastblock  && REVERSE_TYPE[eastblock] && REVERSE_TYPE[eastblock].includes("wall");
-        let westIsWall  = westblock  && REVERSE_TYPE[westblock] && REVERSE_TYPE[westblock].includes("wall");
-        let northIsWall = northblock && REVERSE_TYPE[northblock] && REVERSE_TYPE[northblock].includes("wall");
-        let southIsWall = southblock && REVERSE_TYPE[southblock] && REVERSE_TYPE[southblock].includes("wall");
-        let topIsWall   = topblock   && REVERSE_TYPE[topblock] && REVERSE_TYPE[topblock].includes("wall");
-        let beyondeastIsWall  = beyondeastblock  && REVERSE_TYPE[beyondeastblock] && REVERSE_TYPE[beyondeastblock].includes("wall");
-        let beyondwestIsWall  = beyondwestblock  && REVERSE_TYPE[beyondwestblock] && REVERSE_TYPE[beyondwestblock].includes("wall");
-        let beyondnorthIsWall = beyondnorthblock && REVERSE_TYPE[beyondnorthblock] && REVERSE_TYPE[beyondnorthblock].includes("wall");
-        let beyondsouthIsWall = beyondsouthblock && REVERSE_TYPE[beyondsouthblock] && REVERSE_TYPE[beyondsouthblock].includes("wall");
-        let eastIsLegal  = eastIsWall  || (eastblock  && cubeAllBlocks.includes(REVERSE_TYPE[eastblock]));
-        let westIsLegal  = westIsWall  || (westblock  && cubeAllBlocks.includes(REVERSE_TYPE[westblock]));
-        let northIsLegal = northIsWall || (northblock && cubeAllBlocks.includes(REVERSE_TYPE[northblock]));
-        let southIsLegal = southIsWall || (southblock && cubeAllBlocks.includes(REVERSE_TYPE[southblock]));
+        function getBlockName(blockObj) {
+            if (!blockObj) return "";
+            return typeof blockObj === "string" ? blockObj : (REVERSE_TYPE[blockObj] || "");
+        }
+        let eastName  = getBlockName(eastblock);
+        let westName  = getBlockName(westblock);
+        let northName = getBlockName(northblock);
+        let southName = getBlockName(southblock);
+        let topName   = getBlockName(topblock);
+        let beyondeastName  = getBlockName(beyondeastblock);
+        let beyondwestName  = getBlockName(beyondwestblock);
+        let beyondnorthName = getBlockName(beyondnorthblock);
+        let beyondsouthName = getBlockName(beyondsouthblock);
+        let eastIsWall  = eastName.includes("wall");
+        let westIsWall  = westName.includes("wall");
+        let northIsWall = northName.includes("wall");
+        let southIsWall = southName.includes("wall");
+        let topIsWall   = topName.includes("wall");
+        let beyondeastIsWall  = beyondeastName.includes("wall");
+        let beyondwestIsWall  = beyondwestName.includes("wall");
+        let beyondnorthIsWall = beyondnorthName.includes("wall");
+        let beyondsouthIsWall = beyondsouthName.includes("wall");
+        function isSolidBlock(nameStr, rawBlock) {
+            if (!nameStr) return false;
+            return cubeAllBlocks.includes(nameStr) || cubeAllBlocks.includes(rawBlock);
+        }
+        let eastIsLegal  = eastIsWall  || isSolidBlock(eastName, eastblock);
+        let westIsLegal  = westIsWall  || isSolidBlock(westName, westblock);
+        let northIsLegal = northIsWall || isSolidBlock(northName, northblock);
+        let southIsLegal = southIsWall || isSolidBlock(southName, southblock);
         let openDirections = [northIsLegal, southIsLegal, eastIsLegal, westIsLegal].filter(Boolean).length;
         let straightLineNS = northIsLegal && southIsLegal && !eastIsLegal && !westIsLegal;
         let straightLineEW = eastIsLegal && westIsLegal && !northIsLegal && !southIsLegal;
@@ -1421,33 +1438,29 @@ function getBlockContext(gx, gy, gz, bName) {
             state.up = 'true';
         } else {
             state.up = 'false';
-        }
-        function checkTall(beyondBlock, beyondIsWall) {
-            if (!beyondBlock) return false;
-            let typeName = REVERSE_TYPE[beyondBlock];
-            return cubeAllBlocks.includes(typeName) && !beyondIsWall;
-        }
+        } 
         if (northblock && northIsLegal) {
-            state.north = checkTall(beyondnorthblock, beyondnorthIsWall) ? 'tall' : 'low';
+            state.north = (beyondnorthblock && isSolidBlock(beyondnorthName, beyondnorthblock) && !beyondnorthIsWall) ? 'tall' : 'low';
         } else {
             state.north = 'none';
         }
         if (southblock && southIsLegal) {
-            state.south = checkTall(beyondsouthblock, beyondsouthIsWall) ? 'tall' : 'low';
+            state.south = (beyondsouthblock && isSolidBlock(beyondsouthName, beyondsouthblock) && !beyondsouthIsWall) ? 'tall' : 'low';
         } else {
             state.south = 'none';
         }
         if (eastblock && eastIsLegal) {
-            state.east = checkTall(beyondeastblock, beyondeastIsWall) ? 'tall' : 'low';
+            state.east = (beyondeastblock && isSolidBlock(beyondeastName, beyondeastblock) && !beyondeastIsWall) ? 'tall' : 'low';
         } else {
             state.east = 'none';
         }
         if (westblock && westIsLegal) {
-            state.west = checkTall(beyondwestblock, beyondwestIsWall) ? 'tall' : 'low';
+            state.west = (beyondwestblock && isSolidBlock(beyondwestName, beyondwestblock) && !beyondwestIsWall) ? 'tall' : 'low';
         } else {
             state.west = 'none';
         }
     }
+
 
 
 
