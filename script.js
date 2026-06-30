@@ -4992,7 +4992,9 @@ function animate() {
         isGeneratingChunk = true;
         const next = chunkQueue.shift();
         const [cx, cz] = next.split(',').map(Number);
-        generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
+        generateChunk(cx, cz)
+            .catch((err) => { console.error('generateChunk failed for', next, err); })
+            .then(() => { isGeneratingChunk = false; });
     }
 
     if (isLeftMouseDown && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
@@ -5013,7 +5015,9 @@ function animate() {
         const chunkId = chunksToRebuild.values().next().value;
         chunksToRebuild.delete(chunkId);
         let [cx, cz] = chunkId.split(',').map(Number);
-        rebuildChunkGeometry(cx, cz).then(() => { isRebuildingChunk = false; });
+        rebuildChunkGeometry(cx, cz)
+            .catch((err) => { console.error('rebuildChunkGeometry failed for', chunkId, err); })
+            .then(() => { isRebuildingChunk = false; });
     }
     
     for (let i = droppedItems.length - 1; i >= 0; i--) {
