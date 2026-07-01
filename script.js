@@ -2021,6 +2021,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         if (customGeometries[key]) customGeometries[key].userData = { display: combinedDisplay, is2D: isGenerated, guiLight: parsedGuiLight || 'side' };
         
     } catch(e) {
+        console.error("MODEL BUILD FAILED:", bName, e);
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
         let mat;
