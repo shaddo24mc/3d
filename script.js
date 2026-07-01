@@ -1871,9 +1871,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 let tKey = texStr.startsWith('#') ? texStr.substring(1) : texStr;
                 if (textures[tKey]) {
                     let safe = 10;
-                    console.log("tKey:", tKey);
-                    console.log("value:", textures[tKey]);
-                    console.log("typeof:", typeof textures[tKey]);
+                    if (bName === "glass_pane") {
+                        console.log("tKey:", tKey);
+                        console.log("value:", textures[tKey]);
+                        console.log("typeof:", typeof textures[tKey]);
+                    }
                     while (
                         typeof textures[tKey] === "string" &&
                         textures[tKey].startsWith("#") &&
