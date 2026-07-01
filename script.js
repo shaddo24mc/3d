@@ -1868,24 +1868,32 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
             const resolveTexture = (texStr) => {
                 if (!texStr) return null;
+
                 let tKey = texStr.startsWith('#') ? texStr.substring(1) : texStr;
+
                 if (textures[tKey]) {
-                    let safe = 10;
-                    if (bName === "glass_pane") {
-                        console.log("tKey:", tKey);
-                        console.log("value:", textures[tKey]);
-                        console.log("typeof:", typeof textures[tKey]);
+                    if (typeof textures[tKey] === "object" && textures[tKey].sprite) {
+                        return textures[tKey].sprite;
                     }
+
+                    let safe = 10;
                     while (
                         typeof textures[tKey] === "string" &&
                         textures[tKey].startsWith("#") &&
                         safe > 0
                     ) {
-                        tKey = textures[tKey].substring(1); safe--;
+                        tKey = textures[tKey].substring(1);
+                        safe--;
                     }
+
+                    if (typeof textures[tKey] === "object" && textures[tKey].sprite) {
+                        return textures[tKey].sprite;
+                    }
+
                     if (textures[tKey]) return textures[tKey];
                 }
-                return texStr.startsWith('#') ? null : texStr;
+
+                return texStr.startsWith("#") ? null : texStr;
             };
 
             const getMaterialForTex = (texPath) => {
