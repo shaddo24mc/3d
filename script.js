@@ -2039,31 +2039,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         
     } catch(e) {
         console.error("MODEL BUILD FAILED:", bName, e);
-        const fallbackName = resolveFallbackTexture(bName);
-        const tex = loadTex(fallbackName);
-        let mat;
-        
-        const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
-        const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
-
-        if (isTranslucent) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
-        else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 }); // Removed DoubleSide here
-        else mat = new THREE.MeshLambertMaterial({ map: tex });
-        
-        if (fallbackName.includes('grass_block_top') || fallbackName.includes('vine') || fallbackName.includes('grass_block_side_overlay') || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || fallbackName.includes('tall_grass') || fallbackName.includes('fern') || bName === 'sugar_cane') {
-            mat.color.setHex(0x91bd59);
-        }
-        else if (bName === 'lily_pad' || fallbackName.includes('lily_pad')) {
-            mat.color.setHex(0x208030);
-        }
-        else if (fallbackName.includes('leaves')) { 
-            mat.color.setHex(0x91bd59); 
-            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961); 
-            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755); 
-        }
-        
-        materials[key] = mat;
-        customGeometries[key] = geometry.clone(); 
+        return;
     }
     
     const promises = [];
