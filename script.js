@@ -2113,51 +2113,54 @@ async function getBlockIcon(type) {
         
         layer0Ref = resolveTexRef(layer0Ref);
         
-        if (!layer0Ref) layer0Ref = `item/${type}`;
-        if (layer0Ref.startsWith('minecraft:')) layer0Ref = layer0Ref.replace('minecraft:', '');
-        
-        let folder = `assets/minecraft/textures/`;
-        let file = layer0Ref;
-        if (!file.includes('/')) {
-            folder = ITEM_TEX_DIR;
-        } else {
-            let parts = file.split('/');
-            file = parts.pop();
-            folder += parts.join('/') + '/';
-        }
-        
-        let tex = loadTex(file, folder, true, type);
-        await tex.loadPromise;
-        
-        if (tex && tex.image && tex.image.width > 0) {
-            const cvs = document.createElement('canvas');
-            cvs.width = 16; cvs.height = 16;
-            const ctx = cvs.getContext('2d');
-            ctx.imageSmoothingEnabled = false; 
+        // If the item model didn't resolve to a real texture, don't invent item/<type>.
+        // Let getBlockIcon fall through to the normal block-model icon path below.
+        if (layer0Ref) {
+            if (layer0Ref.startsWith('minecraft:')) layer0Ref = layer0Ref.replace('minecraft:', '');
             
-            const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
-            if (tintables.includes(type)) {
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
-                ctx.globalCompositeOperation = 'source-atop';
-                ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
-                ctx.fillRect(0, 0, cvs.width, cvs.height);
-                ctx.globalCompositeOperation = 'multiply';
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
-                ctx.globalCompositeOperation = 'destination-in';
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
-                ctx.globalCompositeOperation = 'source-over';
+            let folder = `assets/minecraft/textures/`;
+            let file = layer0Ref;
+            if (!file.includes('/')) {
+                folder = ITEM_TEX_DIR;
             } else {
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                let parts = file.split('/');
+                file = parts.pop();
+                folder += parts.join('/') + '/';
             }
+            
+            let tex = loadTex(file, folder, true, type);
+            await tex.loadPromise;
+            
+            if (tex && tex.image && tex.image.width > 0) {
+                const cvs = document.createElement('canvas');
+                cvs.width = 16; cvs.height = 16;
+                const ctx = cvs.getContext('2d');
+                ctx.imageSmoothingEnabled = false; 
+                
+                const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+                if (tintables.includes(type)) {
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                    ctx.globalCompositeOperation = 'source-atop';
+                    ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
+                    ctx.fillRect(0, 0, cvs.width, cvs.height);
+                    ctx.globalCompositeOperation = 'multiply';
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                    ctx.globalCompositeOperation = 'destination-in';
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
+                    ctx.globalCompositeOperation = 'source-over';
+                } else {
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                }
 
-            const url = `url(${cvs.toDataURL('image/png')})`;
-            iconCache[type] = url;
-            
-            if (!STRICT_ITEMS_SET.has(type) && !customGeometries[type]) {
-                loadCustomModel(type, defaultState, type).catch(()=>{});
+                const url = `url(${cvs.toDataURL('image/png')})`;
+                iconCache[type] = url;
+                
+                if (!STRICT_ITEMS_SET.has(type) && !customGeometries[type]) {
+                    loadCustomModel(type, defaultState, type).catch(()=>{});
+                }
+                
+                return url;
             }
-            
-            return url;
         }
     }
 
