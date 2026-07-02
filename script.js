@@ -1221,14 +1221,35 @@ const JSONReader = {
     },
 
     evaluateWhen(when, state) {
-        if (when['OR']) {
-            return when['OR'].some(cond => this.evaluateWhen(cond, state));
+        if (!when) return true;
+
+        if (when.OR) {
+            return when.OR.some(cond => this.evaluateWhen(cond, state));
         }
-        for (let key in when) {
-            let expectedValues = when[key].split('|');
-            let currentState = state[key] !== undefined ? String(state[key]) : "false";
+
+        if (when.AND) {
+            return when.AND.every(cond => this.evaluateWhen(cond, state));
+        }
+
+        for (const key in when) {
+            if (key === 'OR' || key === 'AND') continue;
+
+            const rawExpected = when[key];
+            const currentState = state[key] !== undefined ? String(state[key]) : "false";
+
+            let expectedValues;
+
+            if (Array.isArray(rawExpected)) {
+                expectedValues = rawExpected.map(v => String(v));
+            } else if (typeof rawExpected === 'string') {
+                expectedValues = rawExpected.split('|').map(v => String(v));
+            } else {
+                expectedValues = [String(rawExpected)];
+            }
+
             if (!expectedValues.includes(currentState)) return false;
         }
+
         return true;
     }
 };
