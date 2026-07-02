@@ -1039,9 +1039,6 @@ const animatedTextures = [];
 const allTabsUI = [];
 
 const STRICT_ITEMS_SET = new Set(STRICT_ITEMS);
-
-const STRICT_ITEMS_SET = new Set(STRICT_ITEMS);
-
 // ============================================================================
 // 4. TEXTURE LOADERS & PATH RESOLVERS
 // ============================================================================
