@@ -1038,6 +1038,8 @@ const iconCache = {};
 const animatedTextures = [];
 const allTabsUI = [];
 
+const STRICT_ITEMS_SET = new Set(STRICT_ITEMS);
+
 // ============================================================================
 // 4. TEXTURE LOADERS & PATH RESOLVERS
 // ============================================================================
@@ -2151,10 +2153,16 @@ async function getBlockIcon(type) {
             const url = `url(${cvs.toDataURL('image/png')})`;
             iconCache[type] = url;
             
-            if (!customGeometries[type]) loadCustomModel(type, defaultState, type).catch(()=>{});
+            if (!STRICT_ITEMS_SET.has(type) && !customGeometries[type]) {
+                loadCustomModel(type, defaultState, type).catch(()=>{});
+            }
             
             return url;
         }
+    }
+
+    if (STRICT_ITEMS_SET.has(type)) {
+        return 'none';
     }
 
     if (!customGeometries[type]) await loadCustomModel(type, defaultState, type);
