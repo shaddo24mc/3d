@@ -544,6 +544,24 @@ const ITEMS = [
     'bucket_of_sulfur_cube',
     'bounce_music_disc',
     'sulfur_cube_spawn_egg',
+    'copper_sword',
+    'copper_pickaxe',
+    'copper_axe',
+    'copper_shovel',
+    'copper_hoe',
+    'copper_helmet',
+    'copper_chestplate',
+    'copper_leggings',
+    'copper_boots',
+    'copper_nugget',
+    'copper_horse_armor',
+    'enchanted_book',
+    'suspicious_stew',
+    'copper_nautilus_armor',
+    'iron_nautilus_armor',
+    'gold_nautilus_armor',
+    'diamond_nautilus_armor',
+    'netherite_nautilus_armor'
 ];
 const STRICT_ITEMS = new Set(ITEMS);
 
@@ -671,7 +689,7 @@ const baseBlocks = [
     'acacia_fence_gate', 'dark_oak_fence_gate', 'mangrove_fence_gate', 'cherry_fence_gate',
     'pale_oak_fence_gate', 'bamboo_fence_gate', 'crimson_fence_gate', 'warped_fence_gate',
     'lightning_rod',
-    'chain',
+    'iron_chain',
     'vine', 
     'sugar_cane',
     'glass_pane',
@@ -826,7 +844,8 @@ const cubeAllBlocks = [
     "white_wool", "orange_wool", "magenta_wool", "light_blue_wool",
     "yellow_wool", "lime_wool", "pink_wool", "gray_wool",
     "light_gray_wool", "cyan_wool", "purple_wool", "blue_wool",
-    "brown_wool", "green_wool", "red_wool", "black_wool"
+    "brown_wool", "green_wool", "red_wool", "black_wool",
+    'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'
     ];
 
 const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
@@ -888,7 +907,7 @@ const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike',].some(kw => b.includes(kw))) {
+        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'iron_chain', 'iron_bars', 'carpet', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike',].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -1929,7 +1948,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 let isOverlay = texPath.includes('overlay');
                 const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
                 
-                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike',].some(kw => texPath.includes(kw) || baseName.includes(kw));
+                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'iron_chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
                 if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
                 else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
@@ -2815,8 +2834,16 @@ function populateCreativeGrid() {
     
     if (currentCategory === 'search') {
         const query = searchInput.value.toLowerCase();
-        blocksToShow = ALL_BLOCKS.filter(b => 
-            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && !b.includes('_plant') && b !== 'air' && b !== 'sweet_berry_bush' && b.includes(query)
+        blocksToShow = ALL_BLOCKS.filter(b =>
+            !HIDDEN_CREATIVE_BLOCKS.has(b) &&
+            !b.includes('_inner') &&
+            !b.includes('_outer') &&
+            !b.includes('_top') &&
+            !b.endsWith('_wall_head') &&
+            !b.endsWith('_wall_skull') &&
+            !b.endsWith('_wall_sign') &&
+            !b.endsWith('_wall_hanging_sign') &&
+            b.includes(query)
         );
     }
 
