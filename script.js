@@ -2157,6 +2157,25 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
+
+    // Vanilla special item sprites that should NOT be built from a base item + glint
+    if (type === 'enchanted_golden_apple' || type === 'enchanted_book') {
+        let tex = loadTex(type, ITEM_TEX_DIR, true, type);
+        await tex.loadPromise;
+
+        if (tex && tex.image && tex.image.width > 0) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16;
+            cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            return url;
+        }
+    }
     
     let defaultState = {};
     if (type.includes('stairs')) defaultState = { shape: 'straight', half: 'bottom', facing: 'east' };
