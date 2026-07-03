@@ -11,6 +11,7 @@ globalStyles.innerHTML = `
     canvas { display: block; }
     .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
     .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
+
     .item-icon-glint {
         position: absolute;
         inset: 0;
@@ -2197,6 +2198,23 @@ async function getBlockIcon(type) {
         iconCache[type] = url;
         return url;
     }
+    if (type === 'enchanted_golden_apple' || type === 'enchanted_book') {
+        let tex = loadTex(type, ITEM_TEX_DIR);
+        await tex.loadPromise;
+
+        if (tex && tex.image && tex.image.width > 0) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16;
+            cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            return url;
+        }
+    }
     async function getBlockIcon(type) {
         if (!type || type === 'air') return 'none';
         if (iconCache[type]) return iconCache[type];
@@ -2469,6 +2487,46 @@ function setGlintMaskFromBackground(element) {
 function itemUsesInventoryGlint(type) {
     return type === 'enchanted_golden_apple' || type === 'enchanted_book';
 }
+function itemHasCreativeGlint(type) {
+    return type === 'enchanted_book' || type === 'enchanted_golden_apple';
+}
+
+function updateItemGlintOverlay(element, type) {
+    let glint = element.querySelector(':scope > .item-icon-glint');
+
+    if (!itemHasCreativeGlint(type)) {
+        if (glint) glint.remove();
+        return;
+    }
+
+    if (!glint) {
+        glint = document.createElement('div');
+        glint.className = 'item-icon-glint';
+        element.appendChild(glint);
+    }
+}
+
+function setGlintMaskFromBackground(element) {
+    const glint = element.querySelector(':scope > .item-icon-glint');
+    if (!glint) return;
+
+    const bg = element.style.backgroundImage;
+    if (!bg || bg === 'none') {
+        glint.style.webkitMaskImage = '';
+        glint.style.maskImage = '';
+        return;
+    }
+
+    glint.style.webkitMaskImage = bg;
+    glint.style.maskImage = bg;
+    glint.style.webkitMaskRepeat = 'no-repeat';
+    glint.style.maskRepeat = 'no-repeat';
+    glint.style.webkitMaskPosition = 'center';
+    glint.style.maskPosition = 'center';
+    glint.style.webkitMaskSize = 'contain';
+    glint.style.maskSize = 'contain';
+}
+
 function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
 
