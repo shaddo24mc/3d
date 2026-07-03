@@ -17,46 +17,49 @@ globalStyles.innerHTML = `
         pointer-events: none;
         overflow: hidden;
         z-index: 3;
-        mix-blend-mode: screen;
-        opacity: 0.95;
+        opacity: 0.9;
     }
 
     .item-icon-glint::before,
     .item-icon-glint::after {
         content: "";
         position: absolute;
-        inset: -80%;
+        inset: -70%;
         background-image: url('assets/minecraft/textures/misc/enchanted_glint_item.png');
         background-repeat: repeat;
         background-size: 64px 64px;
-        opacity: 0.85;
         transform-origin: center;
         animation-timing-function: linear;
         animation-iteration-count: infinite;
-        filter: hue-rotate(250deg) saturate(1.7) brightness(1.15);
+
+        /* purple enchanted-item tint */
+        background-color: rgba(170, 90, 255, 0.95);
+        background-blend-mode: multiply;
+        mix-blend-mode: screen;
     }
 
     .item-icon-glint::before {
+        transform: rotate(-24deg) scale(1.35);
+        opacity: 0.42;
         animation-name: mc-glint-a;
-        animation-duration: 2.4s;
-        transform: rotate(-25deg) scale(1.5);
+        animation-duration: 6.2s;
     }
 
     .item-icon-glint::after {
+        transform: rotate(18deg) scale(1.35);
+        opacity: 0.28;
         animation-name: mc-glint-b;
-        animation-duration: 3.4s;
-        transform: rotate(18deg) scale(1.5);
-        opacity: 0.65;
+        animation-duration: 8.6s;
     }
 
     @keyframes mc-glint-a {
         0%   { background-position:   0px   0px; }
-        100% { background-position: -96px -96px; }
+        100% { background-position: -64px -64px; }
     }
 
     @keyframes mc-glint-b {
         0%   { background-position:   0px   0px; }
-        100% { background-position:  128px -80px; }
+        100% { background-position:  80px -48px; }
     }
 `;
 document.head.appendChild(globalStyles);
@@ -70,7 +73,8 @@ const SPRITE_HUD_DIR = 'assets/minecraft/textures/gui/sprites/hud/';
 const MISC_TEX_DIR = 'assets/minecraft/textures/misc/';
 const ENCHANT_GLINT_ITEMS = new Set([
     'enchanted_book',
-    'enchanted_golden_apple'
+    'enchanted_golden_apple',
+    'experience_bottle'
 ]);
 
 const scene = new THREE.Scene();
