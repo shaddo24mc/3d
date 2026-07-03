@@ -1008,9 +1008,9 @@ const HIDDEN_CREATIVE_BLOCKS = new Set([
     'pitcher_crop',
     'sweet_berry_bush',
 
-    'kelp_plant',
-    'weeping_vines_plant',
-    'twisting_vines_plant',
+    'kelp',
+    'weeping_vines',
+    'twisting_vines',
 
     'fire',
     'soul_fire',
