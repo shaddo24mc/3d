@@ -11,7 +11,6 @@ globalStyles.innerHTML = `
     canvas { display: block; }
     .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
     .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
-
     .item-icon-glint {
         position: absolute;
         inset: 0;
@@ -2159,6 +2158,25 @@ async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
 
+    // Vanilla special item sprites that should NOT be built from a base item + glint
+    if (type === 'enchanted_golden_apple' || type === 'enchanted_book') {
+        let tex = loadTex(type, ITEM_TEX_DIR, true, type);
+        await tex.loadPromise;
+
+        if (tex && tex.image && tex.image.width > 0) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16;
+            cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            return url;
+        }
+    }
+    
     let defaultState = {};
     if (type.includes('stairs')) defaultState = { shape: 'straight', half: 'bottom', facing: 'east' };
     if (type.includes('fence') && !type.includes('fence_gate')) defaultState = { north: 'false', south: 'false', east: 'false', west: 'false', waterlogged: 'false' };
@@ -2178,23 +2196,6 @@ async function getBlockIcon(type) {
         const url = `url(${cvs.toDataURL('image/png')})`;
         iconCache[type] = url;
         return url;
-    }
-    if (type === 'enchanted_golden_apple' || type === 'enchanted_book') {
-        let tex = loadTex(type, ITEM_TEX_DIR);
-        await tex.loadPromise;
-
-        if (tex && tex.image && tex.image.width > 0) {
-            const cvs = document.createElement('canvas');
-            cvs.width = 16;
-            cvs.height = 16;
-            const ctx = cvs.getContext('2d');
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
-
-            const url = `url(${cvs.toDataURL('image/png')})`;
-            iconCache[type] = url;
-            return url;
-        }
     }
 
     let itemModel = await JSONReader.getModel(`item/${type}`);
@@ -2433,57 +2434,6 @@ function setGlintMaskFromBackground(element) {
         return;
     }
 
-    const match = bg.match(/url\((['"]?)(.*?)\1\)/);
-    if (!match || !match[2]) {
-        glint.style.webkitMaskImage = '';
-        glint.style.maskImage = '';
-        return;
-    }
-
-    const imgUrl = match[2];
-
-    glint.style.webkitMaskImage = `url("${imgUrl}")`;
-    glint.style.maskImage = `url("${imgUrl}")`;
-    glint.style.webkitMaskRepeat = 'no-repeat';
-    glint.style.maskRepeat = 'no-repeat';
-    glint.style.webkitMaskPosition = 'center';
-    glint.style.maskPosition = 'center';
-    glint.style.webkitMaskSize = '16px 16px';
-    glint.style.maskSize = '16px 16px';
-}
-function itemUsesInventoryGlint(type) {
-    return type === 'enchanted_golden_apple' || type === 'enchanted_book';
-}
-function itemHasCreativeGlint(type) {
-    return type === 'enchanted_book' || type === 'enchanted_golden_apple';
-}
-
-function updateItemGlintOverlay(element, type) {
-    let glint = element.querySelector(':scope > .item-icon-glint');
-
-    if (!itemHasCreativeGlint(type)) {
-        if (glint) glint.remove();
-        return;
-    }
-
-    if (!glint) {
-        glint = document.createElement('div');
-        glint.className = 'item-icon-glint';
-        element.appendChild(glint);
-    }
-}
-
-function setGlintMaskFromBackground(element) {
-    const glint = element.querySelector(':scope > .item-icon-glint');
-    if (!glint) return;
-
-    const bg = element.style.backgroundImage;
-    if (!bg || bg === 'none') {
-        glint.style.webkitMaskImage = '';
-        glint.style.maskImage = '';
-        return;
-    }
-
     glint.style.webkitMaskImage = bg;
     glint.style.maskImage = bg;
     glint.style.webkitMaskRepeat = 'no-repeat';
@@ -2493,7 +2443,6 @@ function setGlintMaskFromBackground(element) {
     glint.style.webkitMaskSize = 'contain';
     glint.style.maskSize = 'contain';
 }
-
 function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
 
@@ -2518,21 +2467,7 @@ function applyIcon(element, type) {
     });
 }
 
-function setInventoryIconWithGlint(slotDiv, type) {
-    applyIcon(slotDiv, type);
 
-    const parent = slotDiv.parentElement;
-    if (!parent) return;
-
-    const oldGlint = parent.querySelector(':scope > .item-icon-glint');
-    if (oldGlint) oldGlint.remove();
-
-    if (type && itemUsesInventoryGlint(type)) {
-        const glint = document.createElement('div');
-        glint.className = 'item-icon-glint';
-        parent.appendChild(glint);
-    }
-}
 // ============================================================================
 // 5. DOM UI CREATION & STRUCTURING 
 // ============================================================================
@@ -2955,23 +2890,8 @@ function createItemSlot(bName, i, sourceArray) {
     itemSprite.style.backgroundSize = '16px 16px';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
-    const refreshSlotVisual = () => {
-        const currentType = sourceArray ? sourceArray[i].type : bName;
-
-        applyIcon(itemSprite, currentType);
-
-        const oldGlint = slotWrap.querySelector('.item-icon-glint');
-        if (oldGlint) oldGlint.remove();
-
-        if (currentType && itemUsesInventoryGlint(currentType)) {
-            const glint = document.createElement('div');
-            glint.className = 'item-icon-glint';
-            slotWrap.appendChild(glint);
-        }
-    };
-
+    applyIcon(itemSprite, bName);
     slotWrap.appendChild(itemSprite);
-    refreshSlotVisual();
 
     const highlight = document.createElement('div');
     highlight.style.position = 'absolute';
@@ -3023,7 +2943,7 @@ function createItemSlot(bName, i, sourceArray) {
                 }
             }
             updateInventoryUI();
-            refreshSlotVisual();
+            
             let currentItemAfter = sourceArray ? sourceArray[i].type : bName;
             if (currentItemAfter) {
                 tooltip.innerText = formatName(currentItemAfter);
@@ -3071,7 +2991,7 @@ function updateInventoryUI() {
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
-        setInventoryIconWithGlint(ui.div, item.type);
+        applyIcon(ui.div, item.type);
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
@@ -3084,7 +3004,7 @@ function updateInventoryUI() {
     
     if (heldItem.type) {
         heldItemWrapper.style.display = 'block';
-        setInventoryIconWithGlint(heldItemUI, heldItem.type);
+        applyIcon(heldItemUI, heldItem.type);
         heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
     } else {
         heldItemWrapper.style.display = 'none';
