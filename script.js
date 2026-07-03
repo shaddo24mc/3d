@@ -30,9 +30,8 @@ globalStyles.innerHTML = `
         transform-origin: center;
         animation-timing-function: linear;
         animation-iteration-count: infinite;
-
-        /* mcmeta blur equivalent */
         image-rendering: auto;
+        filter: brightness(1.65) saturate(1.15);
     }
 
     .item-icon-glint::before {
