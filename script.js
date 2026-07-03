@@ -2197,7 +2197,30 @@ async function getBlockIcon(type) {
         iconCache[type] = url;
         return url;
     }
+    async function getBlockIcon(type) {
+        if (!type || type === 'air') return 'none';
+        if (iconCache[type]) return iconCache[type];
 
+        // Vanilla special item sprites that should NOT be built from a base item + glint
+        if (type === 'enchanted_golden_apple' || type === 'enchanted_book') {
+            let tex = loadTex(type, ITEM_TEX_DIR, true, type);
+            await tex.loadPromise;
+
+            if (tex && tex.image && tex.image.width > 0) {
+                const cvs = document.createElement('canvas');
+                cvs.width = 16;
+                cvs.height = 16;
+                const ctx = cvs.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+
+                const url = `url(${cvs.toDataURL('image/png')})`;
+                iconCache[type] = url;
+                return url;
+            }
+        }
+    
+    let defaultState = {};
     let itemModel = await JSONReader.getModel(`item/${type}`);
     let is2DItem = false;
     let layer0Ref = null;
@@ -2443,6 +2466,9 @@ function setGlintMaskFromBackground(element) {
     glint.style.webkitMaskSize = 'contain';
     glint.style.maskSize = 'contain';
 }
+function itemUsesInventoryGlint(type) {
+    return type === 'enchanted_golden_apple' || type === 'enchanted_book';
+}
 function applyIcon(element, type) {
     element.dataset.iconType = type || 'none';
 
@@ -2467,7 +2493,21 @@ function applyIcon(element, type) {
     });
 }
 
+function setInventoryIconWithGlint(slotDiv, type) {
+    applyIcon(slotDiv, type);
 
+    const parent = slotDiv.parentElement;
+    if (!parent) return;
+
+    const oldGlint = parent.querySelector(':scope > .item-icon-glint');
+    if (oldGlint) oldGlint.remove();
+
+    if (type && itemUsesInventoryGlint(type)) {
+        const glint = document.createElement('div');
+        glint.className = 'item-icon-glint';
+        parent.appendChild(glint);
+    }
+}
 // ============================================================================
 // 5. DOM UI CREATION & STRUCTURING 
 // ============================================================================
@@ -2890,8 +2930,23 @@ function createItemSlot(bName, i, sourceArray) {
     itemSprite.style.backgroundSize = '16px 16px';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
-    applyIcon(itemSprite, bName);
+    const refreshSlotVisual = () => {
+        const currentType = sourceArray ? sourceArray[i].type : bName;
+
+        applyIcon(itemSprite, currentType);
+
+        const oldGlint = slotWrap.querySelector('.item-icon-glint');
+        if (oldGlint) oldGlint.remove();
+
+        if (currentType && itemUsesInventoryGlint(currentType)) {
+            const glint = document.createElement('div');
+            glint.className = 'item-icon-glint';
+            slotWrap.appendChild(glint);
+        }
+    };
+
     slotWrap.appendChild(itemSprite);
+    refreshSlotVisual();
 
     const highlight = document.createElement('div');
     highlight.style.position = 'absolute';
@@ -2943,7 +2998,7 @@ function createItemSlot(bName, i, sourceArray) {
                 }
             }
             updateInventoryUI();
-            
+            refreshSlotVisual();
             let currentItemAfter = sourceArray ? sourceArray[i].type : bName;
             if (currentItemAfter) {
                 tooltip.innerText = formatName(currentItemAfter);
@@ -2991,7 +3046,7 @@ function updateInventoryUI() {
     for (let i = 0; i < 9; i++) {
         const item = inventory[i];
         const ui = hotbarSlotsUI[i];
-        applyIcon(ui.div, item.type);
+        setInventoryIconWithGlint(ui.div, item.type);
         ui.label.innerText = (item.count > 1) ? item.count : '';
     }
     
@@ -3004,7 +3059,7 @@ function updateInventoryUI() {
     
     if (heldItem.type) {
         heldItemWrapper.style.display = 'block';
-        applyIcon(heldItemUI, heldItem.type);
+        setInventoryIconWithGlint(heldItemUI, heldItem.type);
         heldLabel.innerText = (heldItem.count > 1) ? heldItem.count : '';
     } else {
         heldItemWrapper.style.display = 'none';
