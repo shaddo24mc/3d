@@ -68,7 +68,8 @@ const MISC_TEX_DIR = 'assets/minecraft/textures/misc/';
 const ENCHANT_GLINT_ITEMS = new Set([
     'enchanted_book',
     'enchanted_golden_apple',
-    'experience_bottle'
+    'experience_bottle',
+    'netherite_chestplate'
 ]);
 
 const scene = new THREE.Scene();
