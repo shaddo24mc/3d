@@ -1013,7 +1013,7 @@ const HIDDEN_CREATIVE_BLOCKS = new Set([
     'spawner',
     'trial_spawner',
     'vault',
-
+    'knowledge_book',
     'frogspawn',
 
     'cave_vines_plant',
