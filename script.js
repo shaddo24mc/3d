@@ -11,6 +11,53 @@ globalStyles.innerHTML = `
     canvas { display: block; }
     .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
     .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
+    .item-icon-glint {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 3;
+        mix-blend-mode: screen;
+        opacity: 0.95;
+    }
+
+    .item-icon-glint::before,
+    .item-icon-glint::after {
+        content: "";
+        position: absolute;
+        inset: -80%;
+        background-image: url('assets/minecraft/textures/misc/enchanted_glint_item.png');
+        background-repeat: repeat;
+        background-size: 64px 64px;
+        opacity: 0.85;
+        transform-origin: center;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+        filter: hue-rotate(250deg) saturate(1.7) brightness(1.15);
+    }
+
+    .item-icon-glint::before {
+        animation-name: mc-glint-a;
+        animation-duration: 2.4s;
+        transform: rotate(-25deg) scale(1.5);
+    }
+
+    .item-icon-glint::after {
+        animation-name: mc-glint-b;
+        animation-duration: 3.4s;
+        transform: rotate(18deg) scale(1.5);
+        opacity: 0.65;
+    }
+
+    @keyframes mc-glint-a {
+        0%   { background-position:   0px   0px; }
+        100% { background-position: -96px -96px; }
+    }
+
+    @keyframes mc-glint-b {
+        0%   { background-position:   0px   0px; }
+        100% { background-position:  128px -80px; }
+    }
 `;
 document.head.appendChild(globalStyles);
 
@@ -20,6 +67,11 @@ const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/
 const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
 const SPRITE_CREATIVE_DIR = 'assets/minecraft/textures/gui/sprites/container/creative_inventory/';
 const SPRITE_HUD_DIR = 'assets/minecraft/textures/gui/sprites/hud/';
+const MISC_TEX_DIR = 'assets/minecraft/textures/misc/';
+const ENCHANT_GLINT_ITEMS = new Set([
+    'enchanted_book',
+    'enchanted_golden_apple'
+]);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
@@ -732,7 +784,14 @@ const baseBlocks = [
     'cinnabar_brick_wall',
     'potent_sulfur',
     'sulfur_spike',
-    'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'
+    'copper_chain', 
+    'exposed_copper_chain', 
+    'weathered_copper_chain', 
+    'oxidized_copper_chain', 
+    'waxed_copper_chain', 
+    'waxed_exposed_copper_chain', 
+    'waxed_weathered_copper_chain', 
+    'waxed_oxidized_copper_chain',
     ...ITEMS
 ];
 const cubeAllBlocks = [
@@ -2330,18 +2389,64 @@ async function getBlockIcon(type) {
     iconCache[type] = url;
     return url;
 }
+function itemHasCreativeGlint(type) {
+    return ENCHANT_GLINT_ITEMS.has(type);
+}
+function updateItemGlintOverlay(element, type) {
+    let glint = element.querySelector(':scope > .item-icon-glint');
 
-function applyIcon(element, type) {
-    element.dataset.iconType = type || 'none';
-    if (!type) { element.style.backgroundImage = 'none'; return; }
-    
-    if (type === 'compass') {
-        element.style.backgroundImage = `url(${ITEM_TEX_DIR}compass_00.png)`;
+    if (!itemHasCreativeGlint(type)) {
+        if (glint) glint.remove();
         return;
     }
-    
+
+    if (!glint) {
+        glint = document.createElement('div');
+        glint.className = 'item-icon-glint';
+        element.appendChild(glint);
+    }
+}
+function setGlintMaskFromBackground(element) {
+    const glint = element.querySelector(':scope > .item-icon-glint');
+    if (!glint) return;
+
+    const bg = element.style.backgroundImage;
+    if (!bg || bg === 'none') {
+        glint.style.webkitMaskImage = '';
+        glint.style.maskImage = '';
+        return;
+    }
+
+    glint.style.webkitMaskImage = bg;
+    glint.style.maskImage = bg;
+    glint.style.webkitMaskRepeat = 'no-repeat';
+    glint.style.maskRepeat = 'no-repeat';
+    glint.style.webkitMaskPosition = 'center';
+    glint.style.maskPosition = 'center';
+    glint.style.webkitMaskSize = 'contain';
+    glint.style.maskSize = 'contain';
+}
+function applyIcon(element, type) {
+    element.dataset.iconType = type || 'none';
+
+    if (!type) {
+        element.style.backgroundImage = 'none';
+        updateItemGlintOverlay(element, null);
+        return;
+    }
+
+    if (type === 'compass') {
+        element.style.backgroundImage = `url(${ITEM_TEX_DIR}compass_00.png)`;
+        updateItemGlintOverlay(element, type);
+        setGlintMaskFromBackground(element);
+        return;
+    }
+
     getBlockIcon(type).then(url => {
-        if (element.dataset.iconType === type) element.style.backgroundImage = url;
+        if (element.dataset.iconType !== type) return;
+        element.style.backgroundImage = url;
+        updateItemGlintOverlay(element, type);
+        setGlintMaskFromBackground(element);
     });
 }
 
@@ -2420,6 +2525,7 @@ for (let i = 0; i < 9; i++) {
     itemSprite.style.backgroundSize = 'contain';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
+    itemSprite.style.overflow = 'hidden';
     slotWrap.appendChild(itemSprite);
 
     const countLabel = document.createElement('span');
