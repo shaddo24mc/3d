@@ -732,6 +732,7 @@ const baseBlocks = [
     'cinnabar_brick_wall',
     'potent_sulfur',
     'sulfur_spike',
+    'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'
     ...ITEMS
 ];
 const cubeAllBlocks = [
@@ -986,6 +987,13 @@ const HIDDEN_CREATIVE_BLOCKS = new Set([
     'creeper_wall_head',
     'dragon_wall_head',
     'piglin_wall_head',
+    'tripwire',
+    'structure_block',
+    'structure_void',
+    'jigsaw',
+    'command_block',
+    'chain_command_block',
+    'repeating_command'
 ]);
 ALL_BLOCKS.forEach(b => {
     if (
@@ -1006,7 +1014,7 @@ ALL_BLOCKS.forEach(b => {
         else if (['apple', 'beef', 'bread', 'porkchop', 'potato', 'chicken', 'mutton', 'rabbit', 'salmon', 'cod', 'cookie', 'melon_slice', 'beetroot', 'carrot', 'berry', 'kelp', 'stew', 'soup', 'pie', 'honey_bottle', 'chorus_fruit', 'tropical_fish', 'pufferfish', 'sweet_berries', 'glow_berries', 'dried_kelp', 'suspicious_stew', 'enchanted_golden_apple'].some(k=>b.includes(k))) CATEGORIES.food.blocks.push(b);
         else if (b.includes('pickaxe') || b.includes('axe') || b.includes('shovel') || b.includes('hoe') || b === 'compass' || b === 'recovery_compass' || b === 'clock' || b === 'flint_and_steel' || b === 'shears' || b === 'fishing_rod' || b === 'carrot_on_a_stick' || b === 'warped_fungus_on_a_stick' || b === 'spyglass' || b === 'brush' || b === 'lead' || b === 'name_tag' || b.includes('horse_armor') || b === 'saddle' || b === 'elytra' || b === 'goat_horn' || b === 'wolf_armor') CATEGORIES.tools.blocks.push(b);
         else if (b.includes('head') || b.includes('skull') || b === 'egg' || b.includes('spawn_egg') || b.includes('pottery_sherd') || b.includes('banner_pattern') || b === 'sniffer_egg') CATEGORIES.spawns.blocks.push(b);
-        else if (b === 'command_block') CATEGORIES.operator.blocks.push(b);
+        else if (b.includes('command_block') || b.includes('structure') || b === 'light' || b === 'jigsaw' || b === 'barrier') CATEGORIES.operator.blocks.push(b);
         else CATEGORIES.materials.blocks.push(b);
     } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
         CATEGORIES.colored.blocks.push(b);
