@@ -31,20 +31,19 @@ globalStyles.innerHTML = `
         animation-timing-function: linear;
         animation-iteration-count: infinite;
 
-        /* important: no background-color, no multiply */
-        mix-blend-mode: screen;
-        filter: brightness(1.35) saturate(1.2) hue-rotate(255deg);
+        /* mcmeta blur equivalent */
+        image-rendering: auto;
     }
 
     .item-icon-glint::before {
         transform: rotate(-30deg) scale(1.3);
-        opacity: 0.13;
+        opacity: 0.26;
         animation: mc-glint-a 8s linear infinite;
     }
 
     .item-icon-glint::after {
         transform: rotate(30deg) scale(1.3);
-        opacity: 0.09;
+        opacity: 0.18;
         animation: mc-glint-b 12s linear infinite;
     }
 
