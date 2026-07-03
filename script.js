@@ -11,7 +11,8 @@ globalStyles.innerHTML = `
     canvas { display: block; }
     .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
     .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
-    .item-icon-glint {
+    .item-icon-glint,
+    .equipment-icon-glint {
         position: absolute;
         inset: 0;
         pointer-events: none;
@@ -20,27 +21,41 @@ globalStyles.innerHTML = `
     }
 
     .item-icon-glint::before,
-    .item-icon-glint::after {
+    .item-icon-glint::after,
+    .equipment-icon-glint::before,
+    .equipment-icon-glint::after {
         content: "";
         position: absolute;
         inset: -70%;
-        background-image: url('assets/minecraft/textures/misc/enchanted_glint_item.png');
         background-repeat: repeat;
         background-size: 64px 64px;
         transform-origin: center;
         animation-timing-function: linear;
         animation-iteration-count: infinite;
         image-rendering: auto;
+    }
+
+    .item-icon-glint::before,
+    .item-icon-glint::after {
+        background-image: url('assets/minecraft/textures/misc/enchanted_glint_item.png');
         filter: brightness(1.65) saturate(1.15);
     }
 
-    .item-icon-glint::before {
+    .equipment-icon-glint::before,
+    .equipment-icon-glint::after {
+        background-image: url('assets/minecraft/textures/misc/enchanted_glint_entity.png');
+        filter: brightness(1.45) saturate(1.08);
+    }
+
+    .item-icon-glint::before,
+    .equipment-icon-glint::before {
         transform: rotate(-30deg) scale(1.3);
         opacity: 0.26;
         animation: mc-glint-a 8s linear infinite;
     }
 
-    .item-icon-glint::after {
+    .item-icon-glint::after,
+    .equipment-icon-glint::after {
         transform: rotate(30deg) scale(1.3);
         opacity: 0.18;
         animation: mc-glint-b 12s linear infinite;
