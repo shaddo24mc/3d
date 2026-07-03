@@ -137,9 +137,9 @@ const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, transpar
 const starsMesh = new THREE.Points(starsGeo, starsMat);
 scene.add(starsMesh);
 
-// ===========================================================================
+// ==========================================================================
 // 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
-// ===========================================================================
+// ==========================================================================
 const ITEMS = [
     'acacia_boat',
     'acacia_chest_boat',
