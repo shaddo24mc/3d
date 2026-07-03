@@ -2160,7 +2160,12 @@ async function getBlockIcon(type) {
 
     // Vanilla special item sprites that should NOT be built from a base item + glint
     if (type === 'enchanted_golden_apple' || type === 'enchanted_book') {
-        let tex = loadTex(type, ITEM_TEX_DIR, true, type);
+        const baseIconName =
+            type === 'enchanted_golden_apple' ? 'golden_apple' :
+            type === 'enchanted_book' ? 'enchanted_book' :
+            type;
+
+        let tex = loadTex(baseIconName, ITEM_TEX_DIR);
         await tex.loadPromise;
 
         if (tex && tex.image && tex.image.width > 0) {
