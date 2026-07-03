@@ -2433,14 +2433,23 @@ function setGlintMaskFromBackground(element) {
         return;
     }
 
-    glint.style.webkitMaskImage = bg;
-    glint.style.maskImage = bg;
+    const match = bg.match(/url\((['"]?)(.*?)\1\)/);
+    if (!match || !match[2]) {
+        glint.style.webkitMaskImage = '';
+        glint.style.maskImage = '';
+        return;
+    }
+
+    const imgUrl = match[2];
+
+    glint.style.webkitMaskImage = `url("${imgUrl}")`;
+    glint.style.maskImage = `url("${imgUrl}")`;
     glint.style.webkitMaskRepeat = 'no-repeat';
     glint.style.maskRepeat = 'no-repeat';
     glint.style.webkitMaskPosition = 'center';
     glint.style.maskPosition = 'center';
-    glint.style.webkitMaskSize = 'contain';
-    glint.style.maskSize = 'contain';
+    glint.style.webkitMaskSize = '16px 16px';
+    glint.style.maskSize = '16px 16px';
 }
 function itemUsesInventoryGlint(type) {
     return type === 'enchanted_golden_apple' || type === 'enchanted_book';
