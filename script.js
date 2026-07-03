@@ -31,33 +31,31 @@ globalStyles.innerHTML = `
         animation-timing-function: linear;
         animation-iteration-count: infinite;
 
-        /* this is the important part: tint lightly, don't darken the item */
+        /* important: no background-color, no multiply */
         mix-blend-mode: screen;
-        filter: brightness(1.35) saturate(1.15) hue-rotate(248deg);
+        filter: brightness(1.35) saturate(1.2) hue-rotate(255deg);
     }
 
     .item-icon-glint::before {
-        transform: rotate(-25deg) scale(1.32);
-        opacity: 0.18;
-        animation-name: mc-glint-a;
-        animation-duration: 8s;
+        transform: rotate(-30deg) scale(1.3);
+        opacity: 0.13;
+        animation: mc-glint-a 8s linear infinite;
     }
 
     .item-icon-glint::after {
-        transform: rotate(18deg) scale(1.32);
-        opacity: 0.12;
-        animation-name: mc-glint-b;
-        animation-duration: 12s;
+        transform: rotate(30deg) scale(1.3);
+        opacity: 0.09;
+        animation: mc-glint-b 12s linear infinite;
     }
 
     @keyframes mc-glint-a {
-        0%   { background-position:   0px   0px; }
-        100% { background-position: -48px -48px; }
+        0%   { background-position: 0px 0px; }
+        100% { background-position: -64px -64px; }
     }
 
     @keyframes mc-glint-b {
-        0%   { background-position:   0px   0px; }
-        100% { background-position:  56px -32px; }
+        0%   { background-position: 0px 0px; }
+        100% { background-position: 64px -64px; }
     }
 `;
 document.head.appendChild(globalStyles);
