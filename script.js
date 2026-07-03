@@ -17,7 +17,7 @@ globalStyles.innerHTML = `
         pointer-events: none;
         overflow: hidden;
         z-index: 3;
-    } 
+    }
 
     .item-icon-glint::before,
     .item-icon-glint::after {
@@ -31,22 +31,21 @@ globalStyles.innerHTML = `
         animation-timing-function: linear;
         animation-iteration-count: infinite;
 
-        /* purple tint without darkening the base icon */
-        background-color: rgba(185, 105, 255, 0.55);
-        background-blend-mode: screen;
+        /* this is the important part: tint lightly, don't darken the item */
         mix-blend-mode: screen;
+        filter: brightness(1.35) saturate(1.15) hue-rotate(248deg);
     }
 
     .item-icon-glint::before {
-        transform: rotate(-25deg) scale(1.35);
-        opacity: 0.34;
+        transform: rotate(-25deg) scale(1.32);
+        opacity: 0.18;
         animation-name: mc-glint-a;
         animation-duration: 8s;
     }
 
     .item-icon-glint::after {
-        transform: rotate(18deg) scale(1.35);
-        opacity: 0.22;
+        transform: rotate(18deg) scale(1.32);
+        opacity: 0.12;
         animation-name: mc-glint-b;
         animation-duration: 12s;
     }
