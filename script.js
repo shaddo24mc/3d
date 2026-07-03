@@ -17,8 +17,7 @@ globalStyles.innerHTML = `
         pointer-events: none;
         overflow: hidden;
         z-index: 3;
-        opacity: 0.9;
-    }
+    } 
 
     .item-icon-glint::before,
     .item-icon-glint::after {
@@ -32,34 +31,34 @@ globalStyles.innerHTML = `
         animation-timing-function: linear;
         animation-iteration-count: infinite;
 
-        /* purple enchanted-item tint */
-        background-color: rgba(170, 90, 255, 0.95);
-        background-blend-mode: multiply;
+        /* purple tint without darkening the base icon */
+        background-color: rgba(185, 105, 255, 0.55);
+        background-blend-mode: screen;
         mix-blend-mode: screen;
     }
 
     .item-icon-glint::before {
-        transform: rotate(-24deg) scale(1.35);
-        opacity: 0.42;
+        transform: rotate(-25deg) scale(1.35);
+        opacity: 0.34;
         animation-name: mc-glint-a;
-        animation-duration: 6.2s;
+        animation-duration: 8s;
     }
 
     .item-icon-glint::after {
         transform: rotate(18deg) scale(1.35);
-        opacity: 0.28;
+        opacity: 0.22;
         animation-name: mc-glint-b;
-        animation-duration: 8.6s;
+        animation-duration: 12s;
     }
 
     @keyframes mc-glint-a {
         0%   { background-position:   0px   0px; }
-        100% { background-position: -64px -64px; }
+        100% { background-position: -48px -48px; }
     }
 
     @keyframes mc-glint-b {
         0%   { background-position:   0px   0px; }
-        100% { background-position:  80px -48px; }
+        100% { background-position:  56px -32px; }
     }
 `;
 document.head.appendChild(globalStyles);
