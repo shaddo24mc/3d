@@ -80,10 +80,12 @@ const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
 const SPRITE_CREATIVE_DIR = 'assets/minecraft/textures/gui/sprites/container/creative_inventory/';
 const SPRITE_HUD_DIR = 'assets/minecraft/textures/gui/sprites/hud/';
 const MISC_TEX_DIR = 'assets/minecraft/textures/misc/';
-const ENCHANT_GLINT_ITEMS = new Set([
+const ITEM_GLINT_ITEMS = new Set([
     'enchanted_book',
     'enchanted_golden_apple',
-    'experience_bottle',
+    'experience_bottle'
+]);
+const EQUIPMENT_GLINT_ITEMS = new Set([
     'netherite_chestplate'
 ]);
 
@@ -2427,25 +2429,37 @@ async function getBlockIcon(type) {
     iconCache[type] = url;
     return url;
 }
-function itemHasCreativeGlint(type) {
-    return ENCHANT_GLINT_ITEMS.has(type);
+function getItemGlintType(type) {
+    if (ITEM_GLINT_ITEMS.has(type)) return 'item';
+    if (EQUIPMENT_GLINT_ITEMS.has(type)) return 'equipment';
+    return null;
 }
 function updateItemGlintOverlay(element, type) {
-    let glint = element.querySelector(':scope > .item-icon-glint');
+    const glintType = getItemGlintType(type);
+    let itemGlint = element.querySelector(':scope > .item-icon-glint');
+    let equipGlint = element.querySelector(':scope > .equipment-icon-glint');
 
-    if (!itemHasCreativeGlint(type)) {
-        if (glint) glint.remove();
-        return;
-    }
-
-    if (!glint) {
-        glint = document.createElement('div');
-        glint.className = 'item-icon-glint';
-        element.appendChild(glint);
+    if (glintType === 'item') {
+        if (equipGlint) equipGlint.remove();
+        if (!itemGlint) {
+            itemGlint = document.createElement('div');
+            itemGlint.className = 'item-icon-glint';
+            element.appendChild(itemGlint);
+        }
+    } else if (glintType === 'equipment') {
+        if (itemGlint) itemGlint.remove();
+        if (!equipGlint) {
+            equipGlint = document.createElement('div');
+            equipGlint.className = 'equipment-icon-glint';
+            element.appendChild(equipGlint);
+        }
+    } else {
+        if (itemGlint) itemGlint.remove();
+        if (equipGlint) equipGlint.remove();
     }
 }
 function setGlintMaskFromBackground(element) {
-    const glint = element.querySelector(':scope > .item-icon-glint');
+    const glint = element.querySelector(':scope > .item-icon-glint, :scope > .equipment-icon-glint');
     if (!glint) return;
 
     const bg = element.style.backgroundImage;
