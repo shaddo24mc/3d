@@ -1160,7 +1160,16 @@ function resolveTexturePath(name, isIconContext = false) {
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
     else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
-
+    else if (name === 'glass_pane') { folder = BLOCK_TEX_DIR; filename = 'glass'}
+    else if (name === 'bucket_of_sulfur_cube') { folder = ITEM_TEX_DIR; filename = 'sulfur_cube_bucket'}
+    else if (name === 'waxed_copper_door') { folder = ITEM_TEX_DIR; filename = 'copper_door'}
+    else if (name === 'waxed_exposed_copper_door') { folder = ITEM_TEX_DIR; filename = 'exposed_copper_door'}
+    else if (name === 'waxed_oxidized_copper_door') { folder = ITEM_TEX_DIR; filename = 'oxidized_copper_door'}
+    else if (name === 'waxed_weathered_copper_door') { folder = ITEM_TEX_DIR; filename = 'weathered_copper_door'}
+    else if (name === 'waxed_copper_chain') { folder = ITEM_TEX_DIR; filename = 'copper_chain'}
+    else if (name === 'waxed_exposed_copper_chain') { folder = ITEM_TEX_DIR; filename = 'exposed_copper_chain'}
+    else if (name === 'waxed_oxidized_copper_chain') { folder = ITEM_TEX_DIR; filename = 'oxidized_copper_chain'}
+    else if (name === 'waxed_weathered_copper_chain') { folder = ITEM_TEX_DIR; filename = 'weathered_copper_chain'}
     return { folder, filename, is2D: false };
 }
 
