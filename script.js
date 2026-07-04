@@ -50,16 +50,16 @@ globalStyles.innerHTML = `
     .item-icon-glint::before,
     .equipment-icon-glint::before {
         transform: rotate(-30deg) scale(1.3);
-        opacity: 0.01;
-        mix-blend-mode: plus-lighter;
+        opacity: 0.85;
+        mix-blend-mode: hard-light;
         animation: mc-glint-a 8s linear infinite;
     }
 
     .item-icon-glint::after,
     .equipment-icon-glint::after {
         transform: rotate(30deg) scale(1.3);
-        opacity: 0.3;
-        mix-blend-mode: plus-lighter;
+        opacity: 0.65;
+        mix-blend-mode: hard-light;
         animation: mc-glint-b 12s linear infinite;
     }
 
