@@ -50,7 +50,7 @@ globalStyles.innerHTML = `
     .item-icon-glint::before,
     .equipment-icon-glint::before {
         transform: rotate(-30deg) scale(1.3);
-        opacity: 0.05;
+        opacity: 0.01;
         mix-blend-mode: plus-lighter;
         animation: mc-glint-a 8s linear infinite;
     }
