@@ -28,7 +28,7 @@ globalStyles.innerHTML = `
         position: absolute;
         inset: -70%;
         background-repeat: repeat;
-        background-size: 48px 48px;
+        background-size: 128px 128px;
         transform-origin: center;
         animation-timing-function: linear;
         animation-iteration-count: infinite;
@@ -50,7 +50,7 @@ globalStyles.innerHTML = `
     .item-icon-glint::before,
     .equipment-icon-glint::before {
         transform: rotate(-30deg) scale(1.3);
-        opacity: 0.9;
+        opacity: 0.45;
         mix-blend-mode: plus-lighter;
         animation: mc-glint-a 8s linear infinite;
     }
@@ -58,19 +58,19 @@ globalStyles.innerHTML = `
     .item-icon-glint::after,
     .equipment-icon-glint::after {
         transform: rotate(30deg) scale(1.3);
-        opacity: 0.75;
+        opacity: 0.3;
         mix-blend-mode: plus-lighter;
         animation: mc-glint-b 12s linear infinite;
     }
 
     @keyframes mc-glint-a {
         0%   { background-position: 0px 0px; }
-        100% { background-position: -48px -48px; }
+        100% { background-position: -128px -128px; }
     }
 
     @keyframes mc-glint-b {
         0%   { background-position: 0px 0px; }
-        100% { background-position: 48px -48px; }
+        100% { background-position: 128px -128px; }
     }
 `;
 document.head.appendChild(globalStyles);
