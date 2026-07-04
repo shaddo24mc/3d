@@ -28,7 +28,7 @@ globalStyles.innerHTML = `
         position: absolute;
         inset: -70%;
         background-repeat: repeat;
-        background-size: 128px 128px;
+        background-size: 48px 48px;
         transform-origin: center;
         animation-timing-function: linear;
         animation-iteration-count: infinite;
@@ -65,12 +65,12 @@ globalStyles.innerHTML = `
 
     @keyframes mc-glint-a {
         0%   { background-position: 0px 0px; }
-        100% { background-position: -128px -128px; }
+        100% { background-position: -48px -48px; }
     }
 
     @keyframes mc-glint-b {
         0%   { background-position: 0px 0px; }
-        100% { background-position: 128px -128px; }
+        100% { background-position: 48px -48px; }
     }
 `;
 document.head.appendChild(globalStyles);
