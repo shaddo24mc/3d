@@ -1265,7 +1265,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
     if (name === 'grass_block') return 'grass_block_side';
-    if (name === 'chest') return 'oak_planks'; 
+    if (name === 'chest') return '../entity/chest/normal'; 
     if (name === 'crafting_table') return 'crafting_table_top';
     if (name === 'furnace') return 'furnace_front';
     if (name.includes('shulker_box')) return 'shulker_box';
@@ -1802,7 +1802,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head']);
+    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest']);
     if (hardcodedModels.has(bName)) {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
@@ -1870,6 +1870,28 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             }
             return mergeBufferGeometries(geos);
         };
+
+        const boxUV = (u, v, w, h, d) => ({
+            uvUp:    [u + d, v],
+            uvDown:  [u + d + w, v],
+            uvEast:  [u, v + d],
+            uvSouth: [u + d, v + d],
+            uvWest:  [u + d + w, v + d],
+            uvNorth: [u + d + w + d, v + d]
+        });
+
+        if (bName === 'chest') {
+            const parts = [
+                { size: [14, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 14) },
+                { size: [14, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 14, 5, 14) },
+                { size: [2, 4, 1], pos: [7, 7, 15], ...boxUV(0, 0, 2, 4, 1) }
+            ];
+            let chestGeo = buildMCModel(parts, 64);
+            chestGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries[key] = chestGeo;
+            return;
+        }
 
         let headGeo;
         if (bName === 'dragon_head') {
