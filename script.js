@@ -1804,6 +1804,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
     const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest']);
     if (hardcodedModels.has(bName)) {
+      try {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
@@ -1917,6 +1918,10 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         materials[key] = mat;
         customGeometries[key] = headGeo;
         return;
+      } catch (e) {
+        console.error("HARDCODED MODEL BUILD FAILED:", bName, e);
+        return;
+      }
     }
 
     try {
