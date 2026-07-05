@@ -1185,6 +1185,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
     ctx.imageSmoothingEnabled = false; 
     
     const t = new THREE.CanvasTexture(cvs);
+    t.flipY = false;
     t.magFilter = THREE.NearestFilter;
     t.minFilter = THREE.NearestFilter;
     t.generateMipmaps = false;
