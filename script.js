@@ -1172,7 +1172,7 @@ function resolveTexturePath(name, isIconContext = false) {
     else if (name === 'waxed_weathered_copper_chain') { folder = ITEM_TEX_DIR; filename = 'weathered_copper_chain'}
     return { folder, filename, is2D: false };
 }
-
+//hh
 const loadTex = (filename, explicitFolder = null, isIconContext = false, originalTypeName = null) => {
     if (!filename) filename = 'missingno';
     
