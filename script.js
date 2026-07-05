@@ -1872,8 +1872,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         };
 
         const boxUV = (u, v, w, h, d) => ({
-            uvUp:    [u + d, v],
-            uvDown:  [u + d + w, v],
+            uvUp:    [u + d + w, v],
+            uvDown:  [u + d, v],
             uvEast:  [u, v + d],
             uvSouth: [u + d, v + d],
             uvWest:  [u + d + w, v + d],
