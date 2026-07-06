@@ -4967,12 +4967,14 @@ document.addEventListener('mousedown', (e) => {
                     if (ry < 0) ry += Math.PI * 2;
                     
                     let facingStr = 'north';
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
-                    else facingStr = 'east';
+                    let rotY = Math.PI;
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) { facingStr = 'north'; rotY = Math.PI; }
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) { facingStr = 'west'; rotY = -Math.PI/2; }
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) { facingStr = 'south'; rotY = 0; }
+                    else { facingStr = 'east'; rotY = Math.PI/2; }
                     
                     blockStateDict = { facing: facingStr };
+                    rotation = [0, rotY, 0];
                 }
 
                 // Two-tall plants parsing logic
