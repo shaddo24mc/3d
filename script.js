@@ -1888,6 +1888,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 { size: [2, 4, 1], pos: [7, 7, 15], ...boxUV(0, 0, 2, 4, 1) }
             ];
             let chestGeo = buildMCModel(parts, 64);
+            chestGeo.clearGroups();
+            chestGeo.addGroup(0, chestGeo.index.count, 0);
             chestGeo.translate(-0.5, -0.5, -0.5);
             materials[key] = mat;
             customGeometries[key] = chestGeo;
