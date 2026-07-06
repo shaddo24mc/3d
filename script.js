@@ -1829,7 +1829,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
+                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false, mirrorV = false) => {
                     if (!uvArr) return; 
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
@@ -1837,6 +1837,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     let v1 = 1 - (v + fh) / tS; let v2 = 1 - v / tS;        
                     
                     if (mirrorU) { const tmp = u1; u1 = u2; u2 = tmp; }
+                    if (mirrorV) { const tmp = v1; v1 = v2; v2 = tmp; }
                     
                     const i = faceIdx * 8;
                     if (rot180) {
@@ -1849,9 +1850,10 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 };
 
                 const m = mirror || false;
-                setF(0, uvEast, d, h, m); setF(1, uvWest, d, h, m);
+                const mv = mirrorV || false;
+                setF(0, uvEast, d, h, m, false, mv); setF(1, uvWest, d, h, m, false, mv);
                 setF(2, uvUp, w, d, m, true); setF(3, uvDown, w, d, m);
-                setF(4, uvSouth, w, h, m); setF(5, uvNorth, w, h, m);
+                setF(4, uvSouth, w, h, m, false, mv); setF(5, uvNorth, w, h, m, false, mv);
 
                 geo.rotateY(Math.PI);
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
@@ -1883,9 +1885,9 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
         if (bName === 'chest') {
             const parts = [
-                { size: [14, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 14) },
-                { size: [14, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 14, 5, 14) },
-                { size: [2, 4, 1], pos: [7, 7, 15], ...boxUV(0, 0, 2, 4, 1) }
+                { size: [14, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 14), mirrorV: true },
+                { size: [14, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 14, 5, 14), mirrorV: true },
+                { size: [2, 4, 1], pos: [7, 7, 15], ...boxUV(0, 0, 2, 4, 1), mirrorV: true }
             ];
             let chestGeo = buildMCModel(parts, 64);
             chestGeo.clearGroups();
