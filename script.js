@@ -1824,7 +1824,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 const physH = h * scaleFactor;
                 const physD = d * scaleFactor;
 
-                const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror } = p;
+                const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror, mirrorV } = p;
                 const geo = new THREE.BoxGeometry(physW * px, physH * px, physD * px);
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
