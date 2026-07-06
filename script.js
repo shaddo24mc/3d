@@ -4987,6 +4987,9 @@ document.addEventListener('mousedown', (e) => {
                 }
                 
                 let placedData = { type: TYPE[placementType], rotation: rotation, state: blockStateDict };
+                if (placementType === 'chest') {
+                    console.log('CHEST PLACE DEBUG:', { facing: blockStateDict.facing, rotation: rotation });
+                }
                 
                 if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
                     // Not enough room
