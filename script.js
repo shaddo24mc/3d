@@ -985,7 +985,7 @@ const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (TRANSPARENT_BLOCKS.has(b) || 
-        ['pale_hanging_moss', 'leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'iron_chain', 'iron_bars', 'carpet', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'trapped_chest', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike',].some(kw => b.includes(kw))) {
+        ['pale_hanging_moss', 'leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'iron_chain', 'iron_bars', 'carpet', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'trapped_chest', 'ender_chest', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike',].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -1815,14 +1815,27 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         const buildMCModel = (parts, tS, scaleFactor = 1.0) => {
             const geos = [];
             const px = 1/16;
-            for (let p of parts) {
+
+            const applyPivotRotation = (geo, pivotArr, rotArr, rotXVal) => {
+                if (!pivotArr) return;
+                const pivX = pivotArr[0] * px; const pivY = pivotArr[1] * px; const pivZ = pivotArr[2] * px;
+                geo.translate(-pivX, -pivY, -pivZ);
+                if (rotArr) {
+                    if (rotArr[0]) geo.rotateX(THREE.MathUtils.degToRad(rotArr[0]));
+                    if (rotArr[1]) geo.rotateY(THREE.MathUtils.degToRad(rotArr[1]));
+                    if (rotArr[2]) geo.rotateZ(THREE.MathUtils.degToRad(rotArr[2]));
+                } else if (rotXVal) geo.rotateX(rotXVal);
+                geo.translate(pivX, pivY, pivZ);
+            };
+
+            const buildPart = (p, ancestors) => {
                 let w = p.to ? p.to[0]-p.from[0] : p.size ? p.size[0] : p.w;
                 let h = p.to ? p.to[1]-p.from[1] : p.size ? p.size[1] : p.h;
                 let d = p.to ? p.to[2]-p.from[2] : p.size ? p.size[2] : p.d;
                 let mcX = p.to ? p.from[0] : p.pos ? p.pos[0] : p.mcX;
                 let mcY = p.to ? p.from[1] : p.pos ? p.pos[1] : p.mcY;
                 let mcZ = p.to ? p.from[2] : p.pos ? p.pos[2] : p.mcZ;
-                
+
                 const physW = w * scaleFactor;
                 const physH = h * scaleFactor;
                 const physD = d * scaleFactor;
@@ -1861,19 +1874,23 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 geo.rotateY(Math.PI);
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
 
-                if (pivot) {
-                    const pivX = pivot[0] * px; const pivY = pivot[1] * px; const pivZ = pivot[2] * px;
-                    geo.translate(-pivX, -pivY, -pivZ);
-                    if (rot) {
-                        if (rot[0]) geo.rotateX(THREE.MathUtils.degToRad(rot[0]));
-                        if (rot[1]) geo.rotateY(THREE.MathUtils.degToRad(rot[1]));
-                        if (rot[2]) geo.rotateZ(THREE.MathUtils.degToRad(rot[2]));
-                    } else if (rotX) geo.rotateX(rotX);
-                    geo.translate(pivX, pivY, pivZ);
+                applyPivotRotation(geo, pivot, rot, rotX);
+                for (let anc of ancestors) {
+                    applyPivotRotation(geo, anc.pivot, anc.rot, anc.rotX);
                 }
 
                 geos.push(geo);
-            }
+
+                if (p.children) {
+                    const childAncestors = [{ pivot, rot, rotX }, ...ancestors];
+                    for (let child of p.children) {
+                        buildPart(child, childAncestors);
+                    }
+                }
+            };
+
+            for (let p of parts) buildPart(p, []);
+
             return mergeBufferGeometries(geos);
         };
 
@@ -1889,8 +1906,12 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         if (bName.includes('chest')) {
             const parts = [
                 { size: [14, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 14), mirrorV: true },
-                { size: [14, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 14, 5, 14), mirrorV: true },
-                { size: [2, 4, 1], pos: [7, 7, 15], ...boxUV(0, 0, 2, 4, 1), mirrorV: true }
+                { 
+                    size: [14, 5, 14], pos: [1, 9, 1], pivot: [0, 9, 1], ...boxUV(0, 0, 14, 5, 14), mirrorV: true,
+                    children: [
+                        { size: [2, 4, 1], pos: [7, 7, 15], ...boxUV(0, 0, 2, 4, 1), mirrorV: true }
+                    ]
+                }
             ];
             let chestGeo = buildMCModel(parts, 64);
             chestGeo.clearGroups();
