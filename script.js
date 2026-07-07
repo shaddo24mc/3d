@@ -1230,6 +1230,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                     cvs.height = isStandardSkin ? 64 : fh;
                     ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(image, 0, 0);
+                    t.dispose();
 
                     if (isIconContext && originalTypeName) {
                         const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
