@@ -1268,7 +1268,7 @@ function resolveFallbackTexture(name) {
     if (name === 'grass_block') return 'grass_block_side';
     if (name === 'chest') return '../entity/chest/normal';
     if (name === 'trapped_chest') return '../entity/chest/trapped';
-    if (name === 'enderchest') return '../entity/chest/ender';
+    if (name === 'ender_chest') return '../entity/chest/ender';
     if (name === 'crafting_table') return 'crafting_table_top';
     if (name === 'furnace') return 'furnace_front';
     if (name.includes('shulker_box')) return 'shulker_box';
@@ -1805,7 +1805,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest']);
+    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest']);
     if (hardcodedModels.has(bName)) {
       try {
         const fallbackName = resolveFallbackTexture(bName);
@@ -4965,7 +4965,7 @@ document.addEventListener('mousedown', (e) => {
                     blockStateDict = { half: 'lower', facing: facingStr, open: 'false', hinge: 'left' };
                     extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0], state: { half: 'upper', facing: facingStr, open: 'false', hinge: 'left' } };
                 }
-                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper' || placementType === 'crafter' || placementType === 'trapped_chest') {
+                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper' || placementType === 'crafter' || placementType === 'trapped_chest' || placementType === 'ender_chest') {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
