@@ -1928,11 +1928,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('left')) {
             const parts = [
-                { size: [15, 10, 14], pos: [0, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true },
+                { size: [15, 10, 14], pos: [0, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true, mirrorU: true },
                 {
-                    size: [15, 5, 14], pos: [0, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true,
+                    size: [15, 5, 14], pos: [0, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true, mirrorU: true,
                     children: [
-                        { size: [1, 4, 1], pos: [0, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true}
+                        { size: [1, 4, 1], pos: [0, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true, mirrorU: true}
                     ] 
                 }
             ];
@@ -1947,11 +1947,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         //heh
         else if (bName.includes('right')) {
             const parts = [
-                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: false },
+                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true, mirrorU: true },
                 {
-                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: false,
+                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true, mirrorU: true,
                     children: [
-                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: false}
+                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true, mirrorU: true}
                     ] 
                 }
             ];
