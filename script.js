@@ -1872,9 +1872,12 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
                 const m = mirror || false;
                 const mv = mirrorV || false;
-                setF(0, uvEast, d, h, m, false, mv); setF(1, uvWest, d, h, m, false, mv);
-                setF(2, uvUp, w, d, m, true); setF(3, uvDown, w, d, m);
-                setF(4, uvSouth, w, h, m, false, mv); setF(5, uvNorth, w, h, m, false, mv);
+                setF(0, uvWest, d, h, m, false, mv);
+                setF(1, uvEast, d, h, m, false, mv);
+                setF(2, uvUp, w, d, m, true);
+                setF(3, uvDown, w, d, m);
+                setF(4, uvNorth, w, h, m, false, mv);
+                setF(5, uvSouth, w, h, m, false, mv);
 
                 geo.rotateY(Math.PI);
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
