@@ -1928,9 +1928,9 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('left')) {
             const parts = [
-                { size: [14, 10, 15], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 15), mirrorV: true },
+                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true },
                 {
-                    size: [14, 5, 15], pos: [1, 9, 1], ...boxUV(0, 0, 14, 5, 15), mirrorV: true,
+                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true,
                     children: [
                         { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true}
                     ] 
