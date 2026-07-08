@@ -1261,7 +1261,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
     });
     return t;
 };
-
+//shi
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
     if (name === 'grass_block') return 'grass_block_side';
