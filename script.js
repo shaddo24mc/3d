@@ -809,6 +809,8 @@ const baseBlocks = [
     'waxed_exposed_copper_chain', 
     'waxed_weathered_copper_chain', 
     'waxed_oxidized_copper_chain',
+    'chest_right', 'chest_left', 'trapped_right', 'trapped_left',
+
     ...ITEMS
 ];
 const cubeAllBlocks = [
@@ -897,7 +899,6 @@ const cubeAllBlocks = [
     'polished_cinnabar',
     'chiseled_cinnabar',
     'cinnabar_bricks', 
-    'chest_right', 'chest_left', 'trapped_right', 'trapped_left',
     'potent_sulfur',
     "oak_planks", "oak_log", "stripped_oak_log", "oak_wood", "stripped_oak_wood",
     "spruce_planks", "spruce_log", "stripped_spruce_log", "spruce_wood", "stripped_spruce_wood",
