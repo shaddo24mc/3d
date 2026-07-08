@@ -1944,6 +1944,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             customGeometries[key] = leftchestGeo;
             return;
         }
+        //heh
         else if (bName.includes('right')) {
             const parts = [
                 { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: false },
