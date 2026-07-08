@@ -1944,6 +1944,24 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             customGeometries[key] = leftchestGeo;
             return;
         }
+        else if (bName.includes('right')) {
+            const parts = [
+                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: false },
+                {
+                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: false,
+                    children: [
+                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: false}
+                    ] 
+                }
+            ];
+            let leftchestGeo = buildMCModel(parts, 64);
+            leftchestGeo.clearGroups();
+            leftchestGeo.addGroup(0, leftchestGeo.index.count, 0);
+            leftchestGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries[key] = leftchestGeo;
+            return;
+        }
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
