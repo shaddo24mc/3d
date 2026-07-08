@@ -289,7 +289,6 @@ const ITEMS = [
     'elytra',
     'emerald',
     'enchanted_golden_apple',
-    'ender_chest',
     'ender_eye',
     'ender_pearl',
     'enderman_spawn_egg',
