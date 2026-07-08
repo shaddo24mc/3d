@@ -897,6 +897,7 @@ const cubeAllBlocks = [
     'polished_cinnabar',
     'chiseled_cinnabar',
     'cinnabar_bricks', 
+    'chest_right', 'chest_left', 'trapped_right', 'trapped_left',
     'potent_sulfur',
     "oak_planks", "oak_log", "stripped_oak_log", "oak_wood", "stripped_oak_wood",
     "spruce_planks", "spruce_log", "stripped_spruce_log", "spruce_wood", "stripped_spruce_wood",
@@ -1017,7 +1018,7 @@ const HIDDEN_CREATIVE_BLOCKS = new Set([
 
     'fire',
     'soul_fire',
-
+    //'chest_right', 'chest_left', 'trapped_right', 'trapped_left',
     'end_portal',
     'end_gateway',
     'nether_portal',
@@ -1261,13 +1262,17 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
     });
     return t;
 };
-//shi
+
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
     if (name === 'grass_block') return 'grass_block_side';
     if (name === 'chest') return '../entity/chest/normal';
     if (name === 'trapped_chest') return '../entity/chest/trapped';
     if (name === 'ender_chest') return '../entity/chest/ender';
+    if (name === 'trapped_left') return '../entity/chest/trapped_left';
+    if (name === 'chest_left') return '../entity/chest/normal_left';
+    if (name === 'trapped_right') return '../entity/chest/trapped_right'
+    if (name === 'chest_right') return '../entity/chest/normal_right'
     if (name === 'crafting_table') return 'crafting_table_top';
     if (name === 'furnace') return 'furnace_front';
     if (name.includes('shulker_box')) return 'shulker_box';
@@ -1804,7 +1809,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest']);
+    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left']);
     if (hardcodedModels.has(bName)) {
       try {
         const fallbackName = resolveFallbackTexture(bName);
@@ -1902,7 +1907,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             uvNorth: [u + d + w + d, v + d]
         });
 
-        if (bName.includes('chest')) {
+        if (bName.includes('chest') && !bName.includes('right') && !bName.includes('left')) {
             const parts = [
                 { size: [14, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 14), mirrorV: true },
                 { 
@@ -1920,7 +1925,24 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             customGeometries[key] = chestGeo;
             return;
         }
-
+        else if (bName.includes('left')) {
+            const parts = [
+                { size: [14, 10, 15], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 15), mirrorV: true },
+                {
+                    size: [14, 5, 15], pos: [1, 9, 1], ...boxUV(0, 0, 14, 5, 15), mirrorV: true,
+                    children: [
+                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true}
+                    ] 
+                }
+            ];
+            let leftchestGeo = buildMCModel(parts, 64);
+            leftchestGeo.clearGroups();
+            leftchestGeo.addGroup(0, leftchestGeo.index.count, 0);
+            leftchestGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries[key] = leftchestGeo;
+            return;
+        }
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
