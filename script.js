@@ -3634,9 +3634,9 @@ function tryMergeChest(x, y, z, baseType, facing, rotY) {
         if (nState.facing !== facing) continue;
         if (nState.type && nState.type !== 'single') continue;
 
-        const isThisRight = (side === rightDir);
-        const thisSide = isThisRight ? 'right' : 'left';
-        const otherSide = isThisRight ? 'left' : 'right';
+        const isNeighborRight = (side === rightDir);
+        const thisSide = isNeighborRight ? 'left' : 'right';
+        const otherSide = isNeighborRight ? 'right' : 'left';
 
         setGlobalBlock(x, y, z, {
             type: TYPE[getChestVariantName(baseType, thisSide)],
