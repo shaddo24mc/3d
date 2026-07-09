@@ -3597,6 +3597,91 @@ function updateStairConnections(x, y, z) {
     evaluateStair(x, y, z-1);
 }
 
+const CHEST_RIGHT_DIR_BY_FACING = { south: 'east', north: 'west', west: 'south', east: 'north' };
+const CHEST_PAIR_AXIS_DIRS = { south: ['east','west'], north: ['east','west'], west: ['north','south'], east: ['north','south'] };
+const CHEST_DIR_OFFSETS = { north: [0,0,-1], south: [0,0,1], east: [1,0,0], west: [-1,0,0] };
+
+function getChestBaseName(name) {
+    if (!name) return null;
+    if (name === 'chest_left' || name === 'chest_right') return 'chest';
+    if (name === 'trapped_left' || name === 'trapped_right') return 'trapped_chest';
+    if (name === 'chest' || name === 'trapped_chest') return name;
+    return null;
+}
+
+function getChestVariantName(baseType, side) {
+    if (baseType === 'chest') return side === 'left' ? 'chest_left' : 'chest_right';
+    if (baseType === 'trapped_chest') return side === 'left' ? 'trapped_left' : 'trapped_right';
+    return baseType;
+}
+
+function tryMergeChest(x, y, z, baseType, facing, rotY) {
+    const rightDir = CHEST_RIGHT_DIR_BY_FACING[facing];
+    const axisDirs = CHEST_PAIR_AXIS_DIRS[facing];
+    const leftDir = axisDirs.find(d => d !== rightDir);
+
+    for (const side of [rightDir, leftDir]) {
+        const [dx, dy, dz] = CHEST_DIR_OFFSETS[side];
+        const nx = x + dx, ny = y, nz = z + dz;
+        const nb = getGlobalBlock(nx, ny, nz);
+        if (!nb) continue;
+        const nName = REVERSE_TYPE[nb];
+        if (getChestBaseName(nName) !== baseType) continue;
+
+        const nKey = `${nx},${ny},${nz}`;
+        const nData = placedBlocks.get(nKey);
+        const nState = (nData && nData.state) ? nData.state : {};
+        if (nState.facing !== facing) continue;
+        if (nState.type && nState.type !== 'single') continue;
+
+        const isThisRight = (side === rightDir);
+        const thisSide = isThisRight ? 'right' : 'left';
+        const otherSide = isThisRight ? 'left' : 'right';
+
+        setGlobalBlock(x, y, z, {
+            type: TYPE[getChestVariantName(baseType, thisSide)],
+            rotation: [0, rotY, 0],
+            state: { facing: facing, type: thisSide }
+        });
+        setGlobalBlock(nx, ny, nz, {
+            type: TYPE[getChestVariantName(baseType, otherSide)],
+            rotation: [0, rotY, 0],
+            state: { facing: facing, type: otherSide }
+        });
+        return true;
+    }
+    return false;
+}
+
+function unmergeChestPartner(x, y, z, blockName, blockState) {
+    if (!blockState || (blockState.type !== 'left' && blockState.type !== 'right')) return;
+    const baseType = getChestBaseName(blockName);
+    const facing = blockState.facing;
+    if (!baseType || !facing) return;
+
+    const rightDir = CHEST_RIGHT_DIR_BY_FACING[facing];
+    const axisDirs = CHEST_PAIR_AXIS_DIRS[facing];
+    const leftDir = axisDirs.find(d => d !== rightDir);
+    const partnerSide = blockState.type === 'right' ? leftDir : rightDir;
+
+    const [dx, dy, dz] = CHEST_DIR_OFFSETS[partnerSide];
+    const nx = x + dx, ny = y, nz = z + dz;
+    const nb = getGlobalBlock(nx, ny, nz);
+    if (!nb) return;
+    const nName = REVERSE_TYPE[nb];
+    if (getChestBaseName(nName) !== baseType) return;
+
+    const nKey = `${nx},${ny},${nz}`;
+    const nData = placedBlocks.get(nKey);
+    const nRotation = (nData && nData.rotation) ? nData.rotation : [0, 0, 0];
+
+    setGlobalBlock(nx, ny, nz, {
+        type: TYPE[baseType],
+        rotation: nRotation,
+        state: { facing: facing }
+    });
+}
+
 function getGlobalBlock(gx, gy, gz) {
     if (gy < minworldY || gy >= minworldY + worldHeight) return null;
     let cx = Math.floor(gx / chunkSize);
@@ -4803,9 +4888,15 @@ function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
     let isUpperHalf = placed && placed.state && placed.state.half === 'upper';
 
     setGlobalBlock(pX, pY, pZ, 0);
+
+    if (placed && placed.state && (placed.state.type === 'left' || placed.state.type === 'right')) {
+        unmergeChestPartner(pX, pY, pZ, blockName, placed.state);
+    }
     
     if (dropItems && !isUpperHalf) {
         let dropName = blockName;
+        if (dropName === 'chest_left' || dropName === 'chest_right') dropName = 'chest';
+        if (dropName === 'trapped_left' || dropName === 'trapped_right') dropName = 'trapped_chest';
         // Fix for weeping and twisting vines explicitly dropping their _plant base types
         if (dropName === 'weeping_vines' || dropName === 'weeping_vines_plant') dropName = 'weeping_vines_plant';
         if (dropName === 'twisting_vines' || dropName === 'twisting_vines_plant') dropName = 'twisting_vines_plant';
@@ -5065,6 +5156,10 @@ document.addEventListener('mousedown', (e) => {
                     // Not enough room
                 } else {
                     setGlobalBlock(placeX, placeY, placeZ, placedData);
+                    
+                    if (placementType === 'chest' || placementType === 'trapped_chest') {
+                        tryMergeChest(placeX, placeY, placeZ, placementType, blockStateDict.facing, rotation[1]);
+                    }
                     
                     if (extraBlock) {
                         setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation, state: extraBlock.state });
