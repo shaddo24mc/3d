@@ -1977,7 +1977,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             customGeometries[key] = leftChestGeo;
             return;
         }
-        //heh
+        //hehheh
         else if (bName.includes('right')) {
             const parts = [
                 {
