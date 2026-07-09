@@ -1931,39 +1931,99 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('left')) {
             const parts = [
-                { size: [15, 10, 14], pos: [0, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true },
                 {
-                    size: [15, 5, 14], pos: [0, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true,
+                    size: [15, 10, 14],
+                    pos: [0, 0, 1],
+                    uvDown:  [29, 19],
+                    uvUp:    [14, 19],
+                    uvNorth: [43, 33],
+                    uvSouth: [14, 33],
+                    uvWest:  [29, 33],
+                    uvEast:  [0, 33],
+                    mirrorV: true
+                },
+                {
+                    size: [15, 5, 14],
+                    pos: [0, 9, 1],
+                    pivot: [8, 9, 1],
+                    uvDown:  [29, 0],
+                    uvUp:    [14, 0],
+                    uvNorth: [43, 14],
+                    uvSouth: [14, 14],
+                    uvWest:  [29, 14],
+                    uvEast:  [0, 14],
+                    mirrorV: true,
                     children: [
-                        { size: [1, 4, 1], pos: [0, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true}
-                    ] 
+                        {
+                            size: [1, 4, 1],
+                            pos: [1, 7, 15],
+                            uvDown:  [2, 0],
+                            uvUp:    [1, 0],
+                            uvNorth: [3, 1],
+                            uvSouth: [1, 1],
+                            uvWest:  [2, 1],
+                            uvEast:  [0, 1],
+                            mirrorV: true
+                        }
+                    ]
                 }
             ];
-            let leftchestGeo = buildMCModel(parts, 64);
-            leftchestGeo.clearGroups();
-            leftchestGeo.addGroup(0, leftchestGeo.index.count, 0);
-            leftchestGeo.translate(-0.5, -0.5, -0.5);
+
+            let leftChestGeo = buildMCModel(parts, 64);
+            leftChestGeo.clearGroups();
+            leftChestGeo.addGroup(0, leftChestGeo.index.count, 0);
+            leftChestGeo.translate(-0.5, -0.5, -0.5);
             materials[key] = mat;
-            customGeometries[key] = leftchestGeo;
+            customGeometries[key] = leftChestGeo;
             return;
         }
         //heh
         else if (bName.includes('right')) {
             const parts = [
-                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true },
                 {
-                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true,
+                    size: [15, 10, 14],
+                    pos: [1, 0, 1],
+                    uvDown:  [29, 19],
+                    uvUp:    [14, 19],
+                    uvNorth: [43, 33],
+                    uvSouth: [14, 33],
+                    uvWest:  [29, 33],
+                    uvEast:  [0, 33],
+                    mirrorV: true
+                },
+                {
+                    size: [15, 5, 14],
+                    pos: [1, 9, 1],
+                    pivot: [8, 9, 1],
+                    uvDown:  [29, 0],
+                    uvUp:    [14, 0],
+                    uvNorth: [43, 14],
+                    uvSouth: [14, 14],
+                    uvWest:  [29, 14],
+                    uvEast:  [0, 14],
+                    mirrorV: true,
                     children: [
-                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true}
-                    ] 
+                        {
+                            size: [1, 4, 1],
+                            pos: [15, 7, 15],
+                            uvDown:  [2, 0],
+                            uvUp:    [1, 0],
+                            uvNorth: [3, 1],
+                            uvSouth: [1, 1],
+                            uvWest:  [2, 1],
+                            uvEast:  [0, 1],
+                            mirrorV: true
+                        }
+                    ]
                 }
             ];
-            let leftchestGeo = buildMCModel(parts, 64);
-            leftchestGeo.clearGroups();
-            leftchestGeo.addGroup(0, leftchestGeo.index.count, 0);
-            leftchestGeo.translate(-0.5, -0.5, -0.5);
+
+            let rightChestGeo = buildMCModel(parts, 64);
+            rightChestGeo.clearGroups();
+            rightChestGeo.addGroup(0, rightChestGeo.index.count, 0);
+            rightChestGeo.translate(-0.5, -0.5, -0.5);
             materials[key] = mat;
-            customGeometries[key] = leftchestGeo;
+            customGeometries[key] = rightChestGeo;
             return;
         }
         let headGeo;
