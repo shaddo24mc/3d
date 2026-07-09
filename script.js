@@ -1845,7 +1845,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 const physH = h * scaleFactor;
                 const physD = d * scaleFactor;
 
-                const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror, mirrorV } = p;
+                const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror, mirrorV, rotSouthNorth, rotDown } = p;
                 const geo = new THREE.BoxGeometry(physW * px, physH * px, physD * px);
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
@@ -1872,12 +1872,14 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
                 const m = mirror || false;
                 const mv = mirrorV || false;
+                const snRot = rotSouthNorth || false;
+                const dRot = rotDown || false;
                 setF(0, uvEast, d, h, m, false, mv);
                 setF(1, uvWest, d, h, m, false, mv);
                 setF(2, uvUp, w, d, m, true);
-                setF(3, uvDown, w, d, m);
-                setF(4, uvSouth, w, h, m, false, mv);
-                setF(5, uvNorth, w, h, m, false, mv);
+                setF(3, uvDown, w, d, m, dRot);
+                setF(4, uvSouth, w, h, m, snRot, snRot ? false : mv);
+                setF(5, uvNorth, w, h, m, snRot, snRot ? false : mv);
 
                 geo.rotateY(Math.PI);
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
@@ -1931,11 +1933,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('left')) {
             const parts = [
-                { size: [15, 10, 14], pos: [0, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true },
+                { size: [15, 10, 14], pos: [0, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true, rotSouthNorth: true, rotDown: true },
                 {
-                    size: [15, 5, 14], pos: [0, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true,
+                    size: [15, 5, 14], pos: [0, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true, rotSouthNorth: true, rotDown: true,
                     children: [
-                        { size: [1, 4, 1], pos: [0, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true}
+                        { size: [1, 4, 1], pos: [0, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true, rotSouthNorth: true, rotDown: true }
                     ] 
                 }
             ];
@@ -1950,11 +1952,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         //heh
         else if (bName.includes('right')) {
             const parts = [
-                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true },
+                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true, rotSouthNorth: true, rotDown: true },
                 {
-                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true,
+                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true, rotSouthNorth: true, rotDown: true,
                     children: [
-                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true}
+                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true, rotSouthNorth: true, rotDown: true }
                     ] 
                 }
             ];
