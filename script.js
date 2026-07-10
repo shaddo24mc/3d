@@ -5319,16 +5319,15 @@ document.addEventListener('mousedown', (e) => {
                     if (ry < 0) ry += Math.PI * 2;
                     
                     let facingStr = 'south';
-                    let rotY = 0;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) { facingStr = 'south'; rotY = 0; }
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) { facingStr = 'east'; rotY = Math.PI/2; }
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) { facingStr = 'north'; rotY = Math.PI; }
-                    else { facingStr = 'west'; rotY = -Math.PI/2; }
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'south';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'east';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'north';
+                    else facingStr = 'west';
                     
                     blockStateDict = { facing: facingStr };
-                    rotation = [0, rotY, 0];
+                    rotation = [0, 0, 0];
                 }
-
+                
                 // Two-tall plants parsing logic
                 const twoTallPlants = ['sunflower', 'lilac', 'rose_bush', 'peony', 'tall_grass', 'large_fern', 'pitcher_plant'];
                 if (twoTallPlants.includes(placementType)) {
