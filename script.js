@@ -2254,8 +2254,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                             }
                             uvs.needsUpdate = true;
                         }
-                        if (xRotDeg) geo.rotateX(-THREE.MathUtils.degToRad(xRotDeg));
-                        if (yRotDeg) geo.rotateY(-THREE.MathUtils.degToRad(yRotDeg - 90));
+                        if (xRotDeg) geo.rotateX(THREE.MathUtils.degToRad(xRotDeg));
+                        if (yRotDeg) geo.rotateY(-THREE.MathUtils.degToRad(yRotDeg));
                     }
 
                     allCompiledGeometries.push(geo);
