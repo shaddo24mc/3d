@@ -3639,14 +3639,14 @@ function tryMergeChest(x, y, z, baseType, facing, rotY) {
         const otherSide = isNeighborRight ? 'right' : 'left';
 
         setGlobalBlock(x, y, z, {
-            type: TYPE[getChestVariantName(baseType, thisSide)],
-            rotation: [0, rotY, 0],
-            state: { facing: facing, type: thisSide }
-        });
-        setGlobalBlock(nx, ny, nz, {
             type: TYPE[getChestVariantName(baseType, otherSide)],
             rotation: [0, rotY, 0],
             state: { facing: facing, type: otherSide }
+        });
+        setGlobalBlock(nx, ny, nz, {
+            type: TYPE[getChestVariantName(baseType, thisSide)],
+            rotation: [0, rotY, 0],
+            state: { facing: facing, type: thisSide }
         });
         return true;
     }
@@ -4983,6 +4983,197 @@ function triggerPlayerAction(type) {
     actionType = type;
     actionSwing = 1;
 }
+const horizontalFacingBlocks = [
+  "furnace",
+  "blast_furnace",
+  "smoker",
+  "crafter",
+  "loom",
+  "stonecutter",
+  "lectern",
+  "grindstone",
+  "bell",
+  "campfire",
+  "soul_campfire",
+  "heavy_core",
+  "chest",
+  "trapped_chest",
+  "ender_chest",
+  "barrel",
+  "chiseled_bookshelf",
+  "repeater",
+  "comparator",
+  "beehive",
+  "bee_nest",
+  "carved_pumpkin",
+  "jack_o_lantern",
+  "cocoa",
+  "anvil",
+  "chipped_anvil",
+  "damaged_anvil",
+  "shulker_box",
+  "white_shulker_box",
+  "orange_shulker_box",
+  "magenta_shulker_box",
+  "light_blue_shulker_box",
+  "yellow_shulker_box",
+  "lime_shulker_box",
+  "pink_shulker_box",
+  "gray_shulker_box",
+  "light_gray_shulker_box",
+  "cyan_shulker_box",
+  "purple_shulker_box",
+  "blue_shulker_box",
+  "brown_shulker_box",
+  "green_shulker_box",
+  "red_shulker_box",
+  "black_shulker_box",
+  "white_bed",
+  "orange_bed",
+  "magenta_bed",
+  "light_blue_bed",
+  "yellow_bed",
+  "lime_bed",
+  "pink_bed",
+  "gray_bed",
+  "light_gray_bed",
+  "cyan_bed",
+  "purple_bed",
+  "blue_bed",
+  "brown_bed",
+  "green_bed",
+  "red_bed",
+  "black_bed",
+  "white_glazed_terracotta",
+  "orange_glazed_terracotta",
+  "magenta_glazed_terracotta",
+  "light_blue_glazed_terracotta",
+  "yellow_glazed_terracotta",
+  "lime_glazed_terracotta",
+  "pink_glazed_terracotta",
+  "gray_glazed_terracotta",
+  "light_gray_glazed_terracotta",
+  "cyan_glazed_terracotta",
+  "purple_glazed_terracotta",
+  "blue_glazed_terracotta",
+  "brown_glazed_terracotta",
+  "green_glazed_terracotta",
+  "red_glazed_terracotta",
+  "black_glazed_terracotta",
+  "oak_fence_gate",
+  "spruce_fence_gate",
+  "birch_fence_gate",
+  "jungle_fence_gate",
+  "acacia_fence_gate",
+  "dark_oak_fence_gate",
+  "mangrove_fence_gate",
+  "cherry_fence_gate",
+  "bamboo_fence_gate",
+  "crimson_fence_gate",
+  "warped_fence_gate",
+  "oak_stairs",
+  "spruce_stairs",
+  "birch_stairs",
+  "jungle_stairs",
+  "acacia_stairs",
+  "dark_oak_stairs",
+  "mangrove_stairs",
+  "cherry_stairs",
+  "bamboo_stairs",
+  "crimson_stairs",
+  "warped_stairs",
+  "stone_stairs",
+  "cobblestone_stairs",
+  "mossy_cobblestone_stairs",
+  "smooth_stone_stairs",
+  "stone_brick_stairs",
+  "mossy_stone_brick_stairs",
+  "granite_stairs",
+  "polished_granite_stairs",
+  "diorite_stairs",
+  "polished_diorite_stairs",
+  "andesite_stairs",
+  "polished_andesite_stairs",
+  "deepslate_stairs",
+  "cobbled_deepslate_stairs",
+  "polished_deepslate_stairs",
+  "deepslate_brick_stairs",
+  "deepslate_tile_stairs",
+  "brick_stairs",
+  "mud_brick_stairs",
+  "resin_brick_stairs",
+  "sandstone_stairs",
+  "smooth_sandstone_stairs",
+  "red_sandstone_stairs",
+  "smooth_red_sandstone_stairs",
+  "prismarine_stairs",
+  "prismarine_brick_stairs",
+  "dark_prismarine_stairs",
+  "nether_brick_stairs",
+  "red_nether_brick_stairs",
+  "quartz_stairs",
+  "smooth_quartz_stairs",
+  "purpur_stairs",
+  "blackstone_stairs",
+  "polished_blackstone_stairs",
+  "polished_blackstone_brick_stairs",
+  "tuff_stairs",
+  "polished_tuff_stairs",
+  "tuff_brick_stairs",
+  "cut_copper_stairs",
+  "exposed_cut_copper_stairs",
+  "weathered_cut_copper_stairs",
+  "oxidized_cut_copper_stairs",
+  "waxed_cut_copper_stairs",
+  "waxed_exposed_cut_copper_stairs",
+  "waxed_weathered_cut_copper_stairs",
+  "waxed_oxidized_cut_copper_stairs",
+  "creeper_wall_head",
+  "dragon_wall_head",
+  "player_wall_head",
+  "zombie_wall_head",
+  "skeleton_wall_skull",
+  "wither_skeleton_wall_skull",
+  "piglin_wall_head",
+  "white_wall_banner",
+  "orange_wall_banner",
+  "magenta_wall_banner",
+  "light_blue_wall_banner",
+  "yellow_wall_banner",
+  "lime_wall_banner",
+  "pink_wall_banner",
+  "gray_wall_banner",
+  "light_gray_wall_banner",
+  "cyan_wall_banner",
+  "purple_wall_banner",
+  "blue_wall_banner",
+  "brown_wall_banner",
+  "green_wall_banner",
+  "red_wall_banner",
+  "black_wall_banner",
+  "oak_wall_sign",
+  "spruce_wall_sign",
+  "birch_wall_sign",
+  "jungle_wall_sign",
+  "acacia_wall_sign",
+  "dark_oak_wall_sign",
+  "mangrove_wall_sign",
+  "cherry_wall_sign",
+  "bamboo_wall_sign",
+  "crimson_wall_sign",
+  "warped_wall_sign",
+  "oak_wall_hanging_sign",
+  "spruce_wall_hanging_sign",
+  "birch_wall_hanging_sign",
+  "jungle_wall_hanging_sign",
+  "acacia_wall_hanging_sign",
+  "dark_oak_wall_hanging_sign",
+  "mangrove_wall_hanging_sign",
+  "cherry_wall_hanging_sign",
+  "bamboo_wall_hanging_sign",
+  "crimson_wall_hanging_sign",
+  "warped_wall_hanging_sign"
+];
 
 document.addEventListener('mousedown', (e) => {
     if (e.target.closest('#creative-inventory-screen') || e.target.closest('#hotbar')) return; 
@@ -5123,16 +5314,16 @@ document.addEventListener('mousedown', (e) => {
                     blockStateDict = { half: 'lower', facing: facingStr, open: 'false', hinge: 'left' };
                     extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0], state: { half: 'upper', facing: facingStr, open: 'false', hinge: 'left' } };
                 }
-                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper' || placementType === 'crafter' || placementType === 'trapped_chest' || placementType === 'ender_chest') {
+                else if (horizontalFacingBlocks.includes(placementType)) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
-                    let facingStr = 'north';
-                    let rotY = Math.PI;
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) { facingStr = 'north'; rotY = Math.PI; }
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) { facingStr = 'west'; rotY = -Math.PI/2; }
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) { facingStr = 'south'; rotY = 0; }
-                    else { facingStr = 'east'; rotY = Math.PI/2; }
+                    let facingStr = 'south';
+                    let rotY = 0;
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) { facingStr = 'south'; rotY = 0; }
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) { facingStr = 'east'; rotY = Math.PI/2; }
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) { facingStr = 'north'; rotY = Math.PI; }
+                    else { facingStr = 'west'; rotY = -Math.PI/2; }
                     
                     blockStateDict = { facing: facingStr };
                     rotation = [0, rotY, 0];
@@ -5148,10 +5339,7 @@ document.addEventListener('mousedown', (e) => {
                 }
                 
                 let placedData = { type: TYPE[placementType], rotation: rotation, state: blockStateDict };
-                if (placementType === 'chest') {
-                    console.log('CHEST PLACE DEBUG:', { facing: blockStateDict.facing, rotation: rotation });
-                }
-                
+
                 if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
                     // Not enough room
                 } else {
