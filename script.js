@@ -2019,7 +2019,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 6, 3, 3, 3)}
             ]
         }
-        else if (bName.includes('bed_foot') {
+
+        else if (bName.includes('bed_foot')) {
             const parts = [
                 {size: [16, 6, 16], pos: [0, 0, 0], uvUp: [6, 28], uvDown: [28, 28], uvNorth: [6, 22], uvSouth: [22, 22], uvEast: [22, 28], uvWest: [0, 28]},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 12, 3, 3, 3)},
