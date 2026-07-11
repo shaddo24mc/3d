@@ -2014,7 +2014,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('bed_head')) {
             const parts = [
-                {size: [16, 6, 16], pos: [0, 0, 0], uvUp: [6, 6], uvDown: [28, 6], uvNorth: [6, 0], uvSouth: [22, 0], uvEast: [22, 6], uvWest: [0, 6]},
+                {size: [16, 6, 16], pos: [0, 3, 0], uvUp: [6, 6], uvDown: [28, 6], uvSouth: [6, 0], uvNorth: [22, 0], uvWest: [22, 6], uvEast: [0, 6]},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 0, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 6, 3, 3, 3)}
             ]
@@ -2029,7 +2029,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
         else if (bName.includes('bed_foot')) {
             const parts = [
-                {size: [16, 6, 16], pos: [0, 0, 0], uvUp: [6, 28], uvDown: [28, 28], uvNorth: [6, 22], uvSouth: [22, 22], uvEast: [22, 28], uvWest: [0, 28]},
+                {size: [16, 6, 16], pos: [0, 3, 0], uvUp: [6, 28], uvDown: [28, 28], uvSouth: [6, 22], uvNorth: [22, 22], uvWest: [22, 28], uvEast: [0, 28]},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 12, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 18, 3, 3, 3)}
             ]
