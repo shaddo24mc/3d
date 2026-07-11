@@ -1767,7 +1767,7 @@ const MODEL_ROTATION_OFFSETS = {
     'grindstone': {x: 180},
     'dispenser': {x: 180},
     'dropper': {x: 180},
-    'observer': {x: -90, y: 90},
+    'observer': {x: -90},
     'lightning_rod': {x: 180},
     'oak_wood': {x: 90},
     'stripped_oak_wood': {x: 90},
@@ -1795,6 +1795,7 @@ const MODEL_ROTATION_OFFSETS = {
     'stripped_warped_stem': {x: 90},
     'warped_hyphae': {x: 90},
     'stripped_warped_hyphae': {x: 90},
+    'polished_basalt': {x: 90},
 };
 
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
@@ -2365,7 +2366,10 @@ async function getBlockIcon(type) {
     if (type.includes('wall')) defaultState = { up: 'true', north: 'none', south: 'none', east: 'none', west: 'none' };
     if (type.includes('log') || type.includes('pillar') || type === 'basalt') defaultState.axis = 'y';
     if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
-    
+    if (type === 'dispenser' || type === 'dropper') defaultState = {facing: 'north'};
+    if (type.includes('fence')) defaultState = {east: 'true'};
+    if (type.includes('wall')) defaultState = {up: 'true', east: 'true', west: 'true'};
+    if (type.includes('gate')) defaultState = {open: 'false'};
     if (type === 'compass_tab') {
         let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
