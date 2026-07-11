@@ -2018,6 +2018,13 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 0, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 6, 3, 3, 3)}
             ]
+            let bedheadGeo = buildMCModel(parts, 64);
+            bedheadGeo.clearGroups();
+            bedheadGeo.addGroup(0, bedheadGeo.index.count, 0);
+            bedheadGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries [key] = bedheadGeo;
+            return;
         }
 
         else if (bName.includes('bed_foot')) {
@@ -2026,6 +2033,13 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 12, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 18, 3, 3, 3)}
             ]
+            let bedfootGeo = buildMCModel(parts, 64);
+            bedfootGeo.clearGroups();
+            bedfootGeo.addGroup(0, bedfootGeo.index.count, 0);
+            bedfootGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries [key] = bedfootGeo;
+            return;
         }
         //heh
         else if (bName.includes('right')) {
