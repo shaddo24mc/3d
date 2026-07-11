@@ -2367,8 +2367,8 @@ async function getBlockIcon(type) {
     if (type.includes('log') || type.includes('pillar') || type === 'basalt') defaultState.axis = 'y';
     if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
     if (type === 'dispenser' || type === 'dropper') defaultState = {facing: 'north'};
-    if (type.includes('fence')) defaultState = {east: 'true'};
-    if (type.includes('wall')) defaultState = {up: 'true', east: 'tall', west: 'tall'};
+    if (type.includes('fence')) defaultState = {south: 'true'};
+    if (type.includes('wall')) defaultState = {up: 'true', north: 'tall', south: 'tall'};
     if (type.includes('gate')) defaultState = {open: 'false'};
     if (type === 'compass_tab') {
         let tex = loadTex('compass_01', ITEM_TEX_DIR);
