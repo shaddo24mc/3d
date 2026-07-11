@@ -2368,7 +2368,8 @@ async function getBlockIcon(type) {
     if (type.includes('fence')) defaultState = {south: 'true'};
     if (type.includes('wall')) defaultState = {up: 'true', north: 'tall', south: 'tall'};
     if (type.includes('gate')) defaultState = {open: 'false'};
-    if (type )
+    if (type.includes('mushroom_block')) defaultState = {east: 'false', west: 'false', north: 'false', south: 'false', north: 'false', south: 'false'};
+    if (type === ('mushroom_stem')) defaultState = {east: 'false', west: 'false', north: 'false', south: 'false', north: 'true', south: 'true'};
     if (type === 'compass_tab') {
         let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
