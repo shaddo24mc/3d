@@ -934,7 +934,7 @@ const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick',
 const generatedBlocks = [...baseBlocks];
 
 COLORS.forEach(c => {
-    generatedBlocks.push(`${c}_wool`, `${c}_stained_glass`, `${c}_concrete`, `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`, `${c}_bed`);
+    generatedBlocks.push(`${c}_wool`, `${c}_stained_glass`, `${c}_concrete`, `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`, `${c}_bed`, `${c}_bed_head`, `${c}_bed_foot`);
 });
 
 WOODS.forEach(w => {
@@ -1995,6 +1995,20 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             materials[key] = mat;
             customGeometries[key] = leftchestGeo;
             return;
+        }
+        else if (bName.includes('bed_head')) {
+            const parts = [
+                {size: [16, 6, 16], pos: [0, 0, 0], uvUp: [6, 6], uvDown: [28, 6], uvNorth: [6, 0], uvSouth: [22, 0], uvEast: [22, 6], uvWest: [0, 6]},
+                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 0, 3, 3, 3)},
+                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 6, 3, 3, 3)}
+            ]
+        }
+        else if (bName.includes('bed_foot')) {
+            const parts = [
+                {size: [16, 6, 16], pos: [0, 0, 0], uvUp: [6, 28], uvDown: [28, 28], uvNorth: [6, 22], uvSouth: [22, 22], uvEast: [22, 28], uvWest: [0, 28]},
+                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 12, 3, 3, 3)},
+                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 18, 3, 3, 3)}
+            ]
         }
         //heh
         else if (bName.includes('right')) {
