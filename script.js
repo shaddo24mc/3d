@@ -1758,7 +1758,16 @@ const DEFAULT_ROTATION_OFFSET = { x: 0, y: -90 };
 
 const MODEL_ROTATION_OFFSETS = {
     'crafter': {x: -90, y: -90},
-    'crafting_table': {x:0, y: 180}
+    'crafting_table': {x:0, y: 180},
+    'bone_block': {x: 90},
+    'hay_block': {x: 90},
+    'bamboo_block': {x:90},
+    'stripped_bamboo_block': {x: 90},
+    'deepslate': {x: 90},
+    'grindstone': {x: 180},
+    'dispenser': {x: 180},
+    'dropper': {x: 180},
+    'observer': {x: -90, y: 90}
 };
 
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
