@@ -2368,7 +2368,7 @@ async function getBlockIcon(type) {
     if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
     if (type === 'dispenser' || type === 'dropper') defaultState = {facing: 'north'};
     if (type.includes('fence')) defaultState = {south: 'true'};
-    if (type.includes('wall')) defaultState = {up: 'true', north: 'tall', south: 'tall', east: 'low', west: 'low'};
+    if (type.includes('wall')) defaultState = {up: 'true', north: 'tall', south: 'tall', east: 'none', west: 'none'};
     if (type.includes('gate')) defaultState = {open: 'false'};
     if (type.includes('mushroom_block')) defaultState = {east: 'false', west: 'false', north: 'false', south: 'false', north: 'false', south: 'false'};
     if (type === ('mushroom_stem')) defaultState = {east: 'false', west: 'false', north: 'false', south: 'false', north: 'true', south: 'true'};
