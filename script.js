@@ -1757,7 +1757,7 @@ const geometry = new THREE.BoxGeometry(1, 1, 1);
 const DEFAULT_ROTATION_OFFSET = { x: 0, y: -90 };
 
 const MODEL_ROTATION_OFFSETS = {
-    'crafter': {x: 90, y: -90}
+    'crafter': {x: -90, y: -90}
 };
 
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
