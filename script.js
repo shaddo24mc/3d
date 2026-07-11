@@ -1797,6 +1797,8 @@ const MODEL_ROTATION_OFFSETS = {
     'stripped_warped_hyphae': {x: 90},
     'polished_basalt': {x: 90},
     'end_rod': {x: 180},
+    'bamboo_block': {x: -90},
+    'stripped_bamboo_block': {x: -90}
 };
 
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
