@@ -1764,7 +1764,7 @@ const MODEL_ROTATION_OFFSETS = {
     'bamboo_block': {x:90},
     'stripped_bamboo_block': {x: 90},
     'deepslate': {x: 90},
-    'grindstone': {x: 180},
+    'grindstone': {x: 180, y: -90},
     'dispenser': {x: 180},
     'dropper': {x: 180},
     'observer': {x: -90},
