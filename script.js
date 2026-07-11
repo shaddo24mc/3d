@@ -1281,6 +1281,22 @@ function resolveFallbackTexture(name) {
     if (name === 'packed_mud') return 'mud';
     if (name === 'conduit') return 'conduit';
     if (name === 'red_bed_head' || name === 'red_bed_foot') return '../entity/bed/red';
+    if (name === 'orange_bed_head' || name === 'orange_bed_foot') return '../entity/bed/orange';
+    if (name === 'magenta_bed_head' || name === 'magenta_bed_foot') return '../entity/bed/magenta';
+    if (name === 'light_blue_bed_head' || name === 'light_blue_bed_foot') return '../entity/bed/light_blue';
+    if (name === 'yellow_bed_head' || name === 'yellow_bed_foot') return '../entity/bed/yellow';
+    if (name === 'lime_bed_head' || name === 'lime_bed_foot') return '../entity/bed/lime';
+    if (name === 'pink_bed_head' || name === 'pink_bed_foot') return '../entity/bed/pink';
+    if (name === 'gray_bed_head' || name === 'gray_bed_foot') return '../entity/bed/gray';
+    if (name === 'light_gray_bed_head' || name === 'light_gray_bed_foot') return '../entity/bed/light_gray';
+    if (name === 'cyan_bed_head' || name === 'cyan_bed_foot') return '../entity/bed/cyan';
+    if (name === 'purple_bed_head' || name === 'purple_bed_foot') return '../entity/bed/purple';
+    if (name === 'blue_bed_head' || name === 'blue_bed_foot') return '../entity/bed/blue';
+    if (name === 'brown_bed_head' || name === 'brown_bed_foot') return '../entity/bed/brown';
+    if (name === 'green_bed_head' || name === 'green_bed_foot') return '../entity/bed/green';
+    if (name === 'white_bed_head' || name === 'white_bed_foot') return '../entity/bed/white';
+    if (name === 'black_bed_head' || name === 'black_bed_foot') return '../entity/bed/black';
+
     if (name === 'creeper_head') return '../entity/creeper/creeper';
     if (name === 'zombie_head') return '../entity/zombie/zombie';
     if (name === 'skeleton_skull') return '../entity/skeleton/skeleton';
@@ -1857,7 +1873,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot']);
+    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'orange_bed_head', 'orange_bed_foot', 'magenta_bed_head', 'magenta_bed_foot', 'light_blue_bed_head', 'light_blue_bed_foot', 'yellow_bed_head', 'yellow_bed_foot', 'lime_bed_head', 'lime_bed_foot', 'pink_bed_head', 'pink_bed_foot', 'gray_bed_head', 'gray_bed_foot', 'light_gray_bed_head', 'light_gray_bed_foot', 'cyan_bed_head', 'cyan_bed_foot', 'purple_bed_head', 'purple_bed_foot', 'blue_bed_head', 'blue_bed_foot', 'brown_bed_head', 'brown_bed_foot', 'green_bed_head', 'green_bed_foot', 'white_bed_head', 'white_bed_foot', 'black_bed_head', 'black_bed_foot']);
     if (hardcodedModels.has(bName)) {
       try {
         const fallbackName = resolveFallbackTexture(bName);
@@ -1996,14 +2012,14 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             customGeometries[key] = leftchestGeo;
             return;
         }
-        else if (bName === 'red_bed_head') {
+        else if (bName.includes('bed_head')) {
             const parts = [
                 {size: [16, 6, 16], pos: [0, 0, 0], uvUp: [6, 6], uvDown: [28, 6], uvNorth: [6, 0], uvSouth: [22, 0], uvEast: [22, 6], uvWest: [0, 6]},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 0, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(53, 6, 3, 3, 3)}
             ]
         }
-        else if (bName === 'red_bed_foot') {
+        else if (bName.includes('bed_foot') {
             const parts = [
                 {size: [16, 6, 16], pos: [0, 0, 0], uvUp: [6, 28], uvDown: [28, 28], uvNorth: [6, 22], uvSouth: [22, 22], uvEast: [22, 28], uvWest: [0, 28]},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(53, 12, 3, 3, 3)},
