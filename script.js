@@ -1754,6 +1754,12 @@ function getBlockContext(gx, gy, gz, bName) {
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
+const DEFAULT_ROTATION_OFFSET = { x: 0, y: -90 };
+
+const MODEL_ROTATION_OFFSETS = {
+    'crafter': {x: 90, y: -90}
+};
+
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
     let key = cacheKey || bName;
     if (customGeometries[key]) return; 
@@ -2227,10 +2233,13 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     if (p.x || p.y) {
                         const uvs = geo.attributes.uv;
                         const hasUVLock = !!p.uvlock;
-                        const yRotDeg = p.y || 0;
-                        const xRotDeg = p.x || 0;
-                        if (hasUVLock && yRotDeg !== 0) {
-                            const counterRad = THREE.MathUtils.degToRad(-yRotDeg);
+                        const modelYRotDeg = p.y || 0;
+                        const modelXRotDeg = p.x || 0;
+                        const rotOffset = MODEL_ROTATION_OFFSETS[baseName] || DEFAULT_ROTATION_OFFSET;
+                        const yRotDeg = modelYRotDeg + (rotOffset.y || 0);
+                        const xRotDeg = modelXRotDeg + (rotOffset.x || 0);
+                        if (hasUVLock && modelYRotDeg !== 0) {
+                            const counterRad = THREE.MathUtils.degToRad(-modelYRotDeg);
                             for (const faceIdx of [2, 3]) {
                                 const base = faceIdx * 4;
                                 const u0 = uvs.getX(base+0), v0 = uvs.getY(base+0);
@@ -2255,7 +2264,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                             uvs.needsUpdate = true;
                         }
                         if (xRotDeg) geo.rotateX(THREE.MathUtils.degToRad(xRotDeg));
-                        if (yRotDeg) geo.rotateY(-THREE.MathUtils.degToRad(yRotDeg - 90)); // - 90
+                        if (yRotDeg) geo.rotateY(-THREE.MathUtils.degToRad(yRotDeg));
                     }
 
                     allCompiledGeometries.push(geo);
