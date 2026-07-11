@@ -809,7 +809,7 @@ const baseBlocks = [
     'waxed_exposed_copper_chain', 
     'waxed_weathered_copper_chain', 
     'waxed_oxidized_copper_chain',
-    'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head',
+    'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot',
 
     ...ITEMS
 ];
@@ -1280,7 +1280,7 @@ function resolveFallbackTexture(name) {
     if (name.includes('anvil')) return 'anvil_base';
     if (name === 'packed_mud') return 'mud';
     if (name === 'conduit') return 'conduit';
-    
+    if (name === 'red_bed_head' || name === 'red_bed_foot') return '../entity/bed/red';
     if (name === 'creeper_head') return '../entity/creeper/creeper';
     if (name === 'zombie_head') return '../entity/zombie/zombie';
     if (name === 'skeleton_skull') return '../entity/skeleton/skeleton';
@@ -1857,7 +1857,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head']);
+    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot']);
     if (hardcodedModels.has(bName)) {
       try {
         const fallbackName = resolveFallbackTexture(bName);
