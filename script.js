@@ -1796,6 +1796,7 @@ const MODEL_ROTATION_OFFSETS = {
     'warped_hyphae': {x: 90},
     'stripped_warped_hyphae': {x: 90},
     'polished_basalt': {x: 90},
+    'end_rod': {x: 180},
 };
 
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
@@ -2361,15 +2362,13 @@ async function getBlockIcon(type) {
     
     let defaultState = {};
     if (type.includes('stairs')) defaultState = { shape: 'straight', half: 'bottom', facing: 'east' };
-    if (type.includes('fence') && !type.includes('fence_gate')) defaultState = { north: 'false', south: 'false', east: 'false', west: 'false', waterlogged: 'false' };
-    if (type.includes('fence_gate')) defaultState = { facing: 'south', in_wall: 'false', open: 'false', powered: 'false' };
-    if (type.includes('wall')) defaultState = { up: 'true', north: 'none', south: 'none', east: 'none', west: 'none' };
     if (type.includes('log') || type.includes('pillar') || type === 'basalt') defaultState.axis = 'y';
     if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
     if (type === 'dispenser' || type === 'dropper') defaultState = {facing: 'north'};
     if (type.includes('fence')) defaultState = {south: 'true'};
     if (type.includes('wall')) defaultState = {up: 'true', north: 'tall', south: 'tall'};
     if (type.includes('gate')) defaultState = {open: 'false'};
+    if (type )
     if (type === 'compass_tab') {
         let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
