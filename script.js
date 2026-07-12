@@ -1937,7 +1937,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 const mv = mirrorV || false;
                 const snRot = rotSouthNorth || false;
                 const dRot = rotDown || false;
-                const mvTB = mirrorV_TB || false;
+                const mvTB = p.mirrorV_TB || false;
 
                 setF(0, uvEast, d, h, m, false, mv);
                 setF(1, uvWest, d, h, m, false, mv);
