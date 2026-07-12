@@ -1933,19 +1933,15 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     }
                 };
 
-                const m = p.mirror || false;
-                const mv = p.mirrorV || false;
-                const snRot = p.rotSouthNorth || false;
-                const dRot = p.rotDown || false;
-
-                // Add independent controls for the side textures:
-                const mSides = p.mirror_Sides !== undefined ? p.mirror_Sides : m;
-                const mvSides = p.mirrorV_Sides !== undefined ? p.mirrorV_Sides : mv;
-                const mvTB = p.mirrorV_TB || false; // For Top and Bottom
-                setF(0, uvEast, d, h, mSides, false, mvSides);
-                setF(1, uvWest, d, h, mSides, false, mvSides);
-                setF(2, uvUp, w, d, m, true, mvTB); 
-                setF(3, uvDown, w, d, m, dRot, mvTB);
+                const m = mirror || false;
+                const mv = mirrorV || false;
+                const snRot = rotSouthNorth || false;
+                const dRot = rotDown || false;
+                
+                setF(0, uvEast, d, h, m, false, mv);
+                setF(1, uvWest, d, h, m, false, mv);
+                setF(2, uvUp, w, d, m, true);
+                setF(3, uvDown, w, d, m, dRot);
                 setF(4, uvSouth, w, h, m, snRot, snRot ? false : mv);
                 setF(5, uvNorth, w, h, m, snRot, snRot ? false : mv);
 
@@ -2019,7 +2015,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('bed_head')) {
             const parts = [
-                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV_TB: true, mirrorV_Sides: false},
+                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3)}
             ]
@@ -2034,7 +2030,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
         else if (bName.includes('bed_foot')) {
             const parts = [
-                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV_TB: true, mirrorV_Sides: false},
+                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 12, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 18, 3, 3, 3)}
             ]
