@@ -1943,14 +1943,15 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 const topV = p.topV !== undefined ? p.topV : mv;
                 const botU = p.botU !== undefined ? p.botU : m;
                 const botV = p.botV !== undefined ? p.botV : mv;
-
+                const nsU = p.nsU !== undefined ? p.nsU : m;
+                const nsV = p.nsV !== undefined ? p.nsV : (snRot ? false : mv);
                 // The mapping calls:
                 setF(0, uvEast, d, h, m, false, mv);
                 setF(1, uvWest, d, h, m, false, mv);
-                setF(2, uvUp, w, d, topU, true, topV);                // Top Face
-                setF(3, uvDown, w, d, botU, dRot, botV);              // Bottom Face
-                setF(4, uvSouth, w, h, m, snRot, snRot ? false : mv);
-                setF(5, uvNorth, w, h, m, snRot, snRot ? false : mv);
+                setF(2, uvUp, w, d, topU, true, topV);
+                setF(3, uvDown, w, d, botU, dRot, botV);
+                setF(4, uvSouth, w, h, nsU, snRot, nsV);
+                setF(5, uvNorth, w, h, nsU, snRot, nsV);
 
                 geo.rotateY(Math.PI);
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
@@ -2023,8 +2024,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         else if (bName.includes('bed_head')) {
             const parts = [
                 {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true},
-                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3), pivot: [1.5, 1.5, 1.5], rot: [180, -90, 0], rotSouthNorth: true},
-                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3), pivot: [14.5, 1.5, 1.5], rot: [180, -180, 0], rotSouthNorth: true}
+                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3), pivot: [1.5, 1.5, 1.5], rot: [180, -90, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true},
+                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3), pivot: [14.5, 1.5, 1.5], rot: [180, -180, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true}
             ]
             let bedheadGeo = buildMCModel(parts, 64);
             bedheadGeo.clearGroups();
@@ -2038,8 +2039,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         else if (bName.includes('bed_foot')) {
             const parts = [
                 {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
-                {size: [3, 3, 3], pos: [0, 0, 13], ...boxUV(50, 12, 3, 3, 3), pivot: [1.5, 1.5, 14.5], rot: [180, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
-                {size: [3, 3, 3], pos: [13, 0, 13], ...boxUV(50, 18, 3, 3, 3), pivot: [14.5, 1.5, 14.5], rot: [180, 90, 0], rotSouthNorth: true}
+                {size: [3, 3, 3], pos: [0, 0, 13], ...boxUV(50, 12, 3, 3, 3), pivot: [1.5, 1.5, 14.5], rot: [180, 0, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true},
+                {size: [3, 3, 3], pos: [13, 0, 13], ...boxUV(50, 18, 3, 3, 3), pivot: [14.5, 1.5, 14.5], rot: [180, 90, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true}
             ]
             let bedfootGeo = buildMCModel(parts, 64);
             bedfootGeo.clearGroups();
