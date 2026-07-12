@@ -1933,14 +1933,22 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     }
                 };
 
-                const m = mirror || false;
-                const mv = mirrorV || false;
-                const snRot = rotSouthNorth || false;
-                const dRot = rotDown || false;
+                const m = p.mirror || false;
+                const mv = p.mirrorV || false;
+                const snRot = p.rotSouthNorth || false;
+                const dRot = p.rotDown || false;
+
+                // Simple, direct overrides for Top and Bottom
+                const topU = p.topU !== undefined ? p.topU : m;
+                const topV = p.topV !== undefined ? p.topV : mv;
+                const botU = p.botU !== undefined ? p.botU : m;
+                const botV = p.botV !== undefined ? p.botV : mv;
+
+                // The mapping calls:
                 setF(0, uvEast, d, h, m, false, mv);
                 setF(1, uvWest, d, h, m, false, mv);
-                setF(2, uvUp, w, d, m, true);
-                setF(3, uvDown, w, d, m, dRot);
+                setF(2, uvUp, w, d, topU, true, topV);                // Top Face
+                setF(3, uvDown, w, d, botU, dRot, botV);              // Bottom Face
                 setF(4, uvSouth, w, h, m, snRot, snRot ? false : mv);
                 setF(5, uvNorth, w, h, m, snRot, snRot ? false : mv);
 
@@ -2014,7 +2022,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('bed_head')) {
             const parts = [
-                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
+                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, topU: true, topV: true, botV: true, botU: true},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3)}
             ]
