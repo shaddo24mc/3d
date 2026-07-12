@@ -2038,8 +2038,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         else if (bName.includes('bed_foot')) {
             const parts = [
                 {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
-                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 12, 3, 3, 3)},
-                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 18, 3, 3, 3)}
+                {size: [3, 3, 3], pos: [0, 0, 13], ...boxUV(50, 12, 3, 3, 3)},
+                {size: [3, 3, 3], pos: [13, 0, 13], ...boxUV(50, 18, 3, 3, 3)}
             ]
             let bedfootGeo = buildMCModel(parts, 64);
             bedfootGeo.clearGroups();
