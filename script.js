@@ -1913,14 +1913,14 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false, mirrorV = false) => {
+                const setF = (faceIdx, uvArr, fw, fh, mirror = false, rot180 = false, mirrorV = false) => {
                     if (!uvArr) return; 
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
                     let u1 = u / tS; let u2 = (u + fw) / tS;
                     let v1 = 1 - (v + fh) / tS; let v2 = 1 - v / tS;        
                     
-                    if (mirrorU) { const tmp = u1; u1 = u2; u2 = tmp; }
+                    if (mirror) { const tmp = u1; u1 = u2; u2 = tmp; }
                     if (mirrorV) { const tmp = v1; v1 = v2; v2 = tmp; }
                     
                     const i = faceIdx * 8;
@@ -2014,7 +2014,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         }
         else if (bName.includes('bed_head')) {
             const parts = [
-                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirrorU: true, mirrorV: true},
+                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3)}
             ]
@@ -2029,7 +2029,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
         else if (bName.includes('bed_foot')) {
             const parts = [
-                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirrorU: false, mirrorV: true},
+                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: false, mirrorV: true},
                 {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 12, 3, 3, 3)},
                 {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 18, 3, 3, 3)}
             ]
