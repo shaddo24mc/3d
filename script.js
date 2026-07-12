@@ -1941,7 +1941,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 // Add independent controls for the side textures:
                 const mSides = p.mirror_Sides !== undefined ? p.mirror_Sides : m;
                 const mvSides = p.mirrorV_Sides !== undefined ? p.mirrorV_Sides : mv;
-
+                const mvTB = p.mirrorV_TB || false; // For Top and Bottom
                 setF(0, uvEast, d, h, mSides, false, mvSides);
                 setF(1, uvWest, d, h, mSides, false, mvSides);
                 setF(2, uvUp, w, d, m, true, mvTB); 
