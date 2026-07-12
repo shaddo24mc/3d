@@ -2024,8 +2024,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         else if (bName.includes('bed_head')) {
             const parts = [
                 {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true},
-                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3), pivot: [1.5, 1.5, 1.5], rot: [180, -90, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true},
-                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3), pivot: [14.5, 1.5, 1.5], rot: [180, -180, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true}
+                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3), pivot: [1.5, 1.5, 1.5], rot: [180, -90, 0], mirror: true, mirrorV: true, nsV: true, nsU: false, rotSouthNorth: true},
+                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3), pivot: [14.5, 1.5, 1.5], rot: [180, -180, 0], mirror: true, mirrorV: true, nsV: true, nsU: false, rotSouthNorth: true}
             ]
             let bedheadGeo = buildMCModel(parts, 64);
             bedheadGeo.clearGroups();
@@ -2039,8 +2039,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         else if (bName.includes('bed_foot')) {
             const parts = [
                 {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
-                {size: [3, 3, 3], pos: [0, 0, 13], ...boxUV(50, 12, 3, 3, 3), pivot: [1.5, 1.5, 14.5], rot: [180, 0, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true},
-                {size: [3, 3, 3], pos: [13, 0, 13], ...boxUV(50, 18, 3, 3, 3), pivot: [14.5, 1.5, 14.5], rot: [180, 90, 0], mirror: true, mirrorV: true, nsV: true, rotSouthNorth: true}
+                {size: [3, 3, 3], pos: [0, 0, 13], ...boxUV(50, 12, 3, 3, 3), pivot: [1.5, 1.5, 14.5], rot: [180, 0, 0], mirror: true, mirrorV: true, nsV: true, nsU: false, rotSouthNorth: true},
+                {size: [3, 3, 3], pos: [13, 0, 13], ...boxUV(50, 18, 3, 3, 3), pivot: [14.5, 1.5, 14.5], rot: [180, 90, 0], mirror: true, mirrorV: true, nsV: true, nsU: false, rotSouthNorth: true}
             ]
             let bedfootGeo = buildMCModel(parts, 64);
             bedfootGeo.clearGroups();
