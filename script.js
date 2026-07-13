@@ -5450,11 +5450,21 @@ document.addEventListener('mousedown', (e) => {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
 
-                    let facingStr = 'south';
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'south';
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'east';
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'north';
-                    else facingStr = 'west';
+                    let viewFacing = 'south';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) viewFacing = 'south';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) viewFacing = 'east';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) viewFacing = 'north';
+                    else viewFacing = 'west';
+
+                    const OPPOSITE_FACING = { north: 'south', south: 'north', east: 'west', west: 'east' };
+
+                    const dx = (placeX + 0.5) - playerEyePosition.x;
+                    const dz = (placeZ + 0.5) - playerEyePosition.z;
+                    const horizDist = Math.sqrt(dx*dx + dz*dz);
+
+                    // Close placement (block right in front of you): bed's head extends away from you.
+                    // Farther placement: bed's head extends back toward you.
+                    const facingStr = horizDist <= 1.5 ? viewFacing : OPPOSITE_FACING[viewFacing];
 
                     const bedColor = placementType.slice(0, -'_bed'.length);
                     const headOffset = CHEST_DIR_OFFSETS[facingStr];
