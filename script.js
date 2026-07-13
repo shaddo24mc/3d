@@ -734,7 +734,7 @@ const baseBlocks = [
     'waxed_copper_door', 'waxed_exposed_copper_door', 'waxed_weathered_copper_door', 'waxed_oxidized_copper_door',
     'copper_trapdoor', 'exposed_copper_trapdoor', 'weathered_copper_trapdoor', 'oxidized_copper_trapdoor',
     'waxed_copper_trapdoor', 'waxed_exposed_copper_trapdoor', 'waxed_weathered_copper_trapdoor', 'waxed_oxidized_copper_trapdoor',
-    'heavy_core', 'cobbled_deepslate', 'deepslate', 'chiseled_deepslate',
+    'heavy_core', 'decorated_pot', 'cobbled_deepslate', 'deepslate', 'chiseled_deepslate',
     'deepslate_bricks', 'cracked_deepslate_bricks', 'deepslate_tiles', 'cracked_deepslate_tiles',
     'reinforced_deepslate',
     'sweet_berry_bush',
@@ -1877,7 +1877,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'orange_bed_head', 'orange_bed_foot', 'magenta_bed_head', 'magenta_bed_foot', 'light_blue_bed_head', 'light_blue_bed_foot', 'yellow_bed_head', 'yellow_bed_foot', 'lime_bed_head', 'lime_bed_foot', 'pink_bed_head', 'pink_bed_foot', 'gray_bed_head', 'gray_bed_foot', 'light_gray_bed_head', 'light_gray_bed_foot', 'cyan_bed_head', 'cyan_bed_foot', 'purple_bed_head', 'purple_bed_foot', 'blue_bed_head', 'blue_bed_foot', 'brown_bed_head', 'brown_bed_foot', 'green_bed_head', 'green_bed_foot', 'white_bed_head', 'white_bed_foot', 'black_bed_head', 'black_bed_foot']);
+    const hardcodedModels = new Set(['decorated_pot', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'orange_bed_head', 'orange_bed_foot', 'magenta_bed_head', 'magenta_bed_foot', 'light_blue_bed_head', 'light_blue_bed_foot', 'yellow_bed_head', 'yellow_bed_foot', 'lime_bed_head', 'lime_bed_foot', 'pink_bed_head', 'pink_bed_foot', 'gray_bed_head', 'gray_bed_foot', 'light_gray_bed_head', 'light_gray_bed_foot', 'cyan_bed_head', 'cyan_bed_foot', 'purple_bed_head', 'purple_bed_foot', 'blue_bed_head', 'blue_bed_foot', 'brown_bed_head', 'brown_bed_foot', 'green_bed_head', 'green_bed_foot', 'white_bed_head', 'white_bed_foot', 'black_bed_head', 'black_bed_foot']);
     if (hardcodedModels.has(bName)) {
       try {
         const fallbackName = resolveFallbackTexture(bName);
@@ -2025,6 +2025,36 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             customGeometries[key] = leftchestGeo;
             return;
         }
+        else if (bName === 'decorated_pot') {
+            const potBaseTex = loadTex('decorated_pot_base', 'assets/minecraft/textures/entity/decorated_pot/');
+            const potSideTex = loadTex('decorated_pot_side', 'assets/minecraft/textures/entity/decorated_pot/');
+            const potBaseMat = new THREE.MeshLambertMaterial({ map: potBaseTex, transparent: false, alphaTest: 0.5 });
+            const potSideMat = new THREE.MeshLambertMaterial({ map: potSideTex, transparent: false, alphaTest: 0.5 });
+
+            const neckBaseParts = [
+                { size: [8, 3, 8], pos: [4, 17, 4], uvNorth: [4, 0], uvSouth: [4, 0], uvEast: [4, 0], uvWest: [4, 0], uvUp: [4, 4], uvDown: [4, 4] },
+                { size: [8, 3, 8], pos: [4, 0, 4], uvNorth: [4, 13], uvSouth: [4, 13], uvEast: [4, 13], uvWest: [4, 13], uvUp: [4, 4], uvDown: [4, 4] }
+            ];
+            const bodyParts = [
+                { size: [14, 14, 14], pos: [1, 3, 1], uvNorth: [1, 3], uvSouth: [1, 3], uvEast: [1, 3], uvWest: [1, 3], uvUp: [1, 1], uvDown: [1, 1] }
+            ];
+
+            let neckBaseGeo = buildMCModel(neckBaseParts, 32);
+            neckBaseGeo.clearGroups();
+            neckBaseGeo.addGroup(0, neckBaseGeo.index.count, 0);
+
+            let bodyGeo = buildMCModel(bodyParts, 32);
+            bodyGeo.clearGroups();
+            bodyGeo.addGroup(0, bodyGeo.index.count, 1);
+
+            let potGeo = mergeBufferGeometries([neckBaseGeo, bodyGeo]);
+            potGeo.translate(-0.5, -0.5, -0.5);
+
+            materials[key] = [potBaseMat, potSideMat];
+            customGeometries[key] = potGeo;
+            return;
+        }
+        let headGeo;
         else if (bName.includes('bed_head')) {
             const parts = [
                 {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true},
@@ -5497,7 +5527,7 @@ document.addEventListener('mousedown', (e) => {
                     else facingStr = 'west';
                     
                     blockStateDict = { facing: facingStr };
-                    if (placementType === 'chest' || placementType === 'trapped_chest') {
+                    if (placementType === 'chest' || placementType === 'trapped_chest' || placementType === 'decorated_pot') {
                         rotation = [0, HORIZONTAL_FACING_YROTATION[facingStr], 0];
                     } else {
                         rotation = [0, 0, 0];
