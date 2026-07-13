@@ -5467,22 +5467,22 @@ document.addEventListener('mousedown', (e) => {
                     const facingStr = horizDist > 1.5 ? viewFacing : OPPOSITE_FACING[viewFacing];
 
                     const bedColor = placementType.slice(0, -'_bed'.length);
-                    const headOffset = CHEST_DIR_OFFSETS[facingStr];
-                    const headX = placeX + headOffset[0];
-                    const headY = placeY + headOffset[1];
-                    const headZ = placeZ + headOffset[2];
+                    const footOffset = CHEST_DIR_OFFSETS[facingStr];
+                    const footX = placeX + footOffset[0];
+                    const footY = placeY + footOffset[1];
+                    const footZ = placeZ + footOffset[2];
 
-                    if (getGlobalBlock(headX, headY, headZ) !== 0) return;
+                    if (getGlobalBlock(footX, footY, footZ) !== 0) return;
 
-                    const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr];
+                    const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr] + Math.PI;
                     rotation = [0, bedRotY, 0];
-                    blockStateDict = { facing: facingStr, part: 'foot', occupied: 'false' };
-                    placementType = `${bedColor}_bed_foot`;
+                    blockStateDict = { facing: facingStr, part: 'head', occupied: 'false' };
+                    placementType = `${bedColor}_bed_head`;
                     extraBlock = {
-                        x: headX, y: headY, z: headZ,
-                        type: TYPE[`${bedColor}_bed_head`],
+                        x: footX, y: footY, z: footZ,
+                        type: TYPE[`${bedColor}_bed_foot`],
                         rotation: [0, bedRotY, 0],
-                        state: { facing: facingStr, part: 'head', occupied: 'false' }
+                        state: { facing: facingStr, part: 'foot', occupied: 'false' }
                     };
                 }
                 else if (horizontalFacingBlocks.includes(placementType)) {
