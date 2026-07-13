@@ -5464,7 +5464,7 @@ document.addEventListener('mousedown', (e) => {
 
                     // Close placement (block right in front of you): bed's head extends away from you.
                     // Farther placement: bed's head extends back toward you.
-                    const facingStr = horizDist <= 1.5 ? viewFacing : OPPOSITE_FACING[viewFacing];
+                    const facingStr = horizDist > 1.5 ? viewFacing : OPPOSITE_FACING[viewFacing];
 
                     const bedColor = placementType.slice(0, -'_bed'.length);
                     const headOffset = CHEST_DIR_OFFSETS[facingStr];
