@@ -1073,6 +1073,10 @@ const HIDDEN_CREATIVE_BLOCKS = new Set([
     'chain_command_block',
     'repeating_command'
 ]);
+COLORS.forEach(c => {
+    HIDDEN_CREATIVE_BLOCKS.add(`${c}_bed_head`);
+    HIDDEN_CREATIVE_BLOCKS.add(`${c}_bed_foot`);
+});
 ALL_BLOCKS.forEach(b => {
     if (
         HIDDEN_CREATIVE_BLOCKS.has(b) ||
@@ -3509,7 +3513,8 @@ function canHarvestBlock(blockName, heldItemType) {
 }
 
 function calculateMiningTime(blockName, heldItemType) {
-    const hardness = REAL_MINECRAFT_HARDNESS[blockName] !== undefined ? REAL_MINECRAFT_HARDNESS[blockName] : 1.5;
+    let hardness = REAL_MINECRAFT_HARDNESS[blockName] !== undefined ? REAL_MINECRAFT_HARDNESS[blockName] : 1.5;
+    if (blockName.endsWith('_bed_head') || blockName.endsWith('_bed_foot')) hardness = 0.2;
     if (hardness < 0) return Infinity; 
     if (hardness === 0) return 0; 
     
@@ -3706,6 +3711,7 @@ function updateStairConnections(x, y, z) {
 const CHEST_RIGHT_DIR_BY_FACING = { south: 'east', north: 'west', west: 'south', east: 'north' };
 const CHEST_PAIR_AXIS_DIRS = { south: ['east','west'], north: ['east','west'], west: ['north','south'], east: ['north','south'] };
 const CHEST_DIR_OFFSETS = { north: [0,0,-1], south: [0,0,1], east: [1,0,0], west: [-1,0,0] };
+const HORIZONTAL_FACING_YROTATION = { south: 0, east: Math.PI / 2, north: Math.PI, west: -Math.PI / 2 };
 
 function getChestBaseName(name) {
     if (!name) return null;
@@ -4998,11 +5004,31 @@ function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
     if (placed && placed.state && (placed.state.type === 'left' || placed.state.type === 'right')) {
         unmergeChestPartner(pX, pY, pZ, blockName, placed.state);
     }
+
+    if (placed && placed.state && placed.state.facing && (blockName.endsWith('_bed_head') || blockName.endsWith('_bed_foot'))) {
+        const facing = placed.state.facing;
+        const off = CHEST_DIR_OFFSETS[facing];
+        const isHead = blockName.endsWith('_bed_head');
+        const partnerX = isHead ? pX - off[0] : pX + off[0];
+        const partnerY = isHead ? pY - off[1] : pY + off[1];
+        const partnerZ = isHead ? pZ - off[2] : pZ + off[2];
+        const partnerBlock = getGlobalBlock(partnerX, partnerY, partnerZ);
+        if (partnerBlock !== null && partnerBlock !== 0) {
+            const bedColor = blockName.replace('_bed_head', '').replace('_bed_foot', '');
+            const partnerName = REVERSE_TYPE[partnerBlock];
+            if (partnerName === `${bedColor}_bed_head` || partnerName === `${bedColor}_bed_foot`) {
+                breakBlockRecursive(partnerX, partnerY, partnerZ, false);
+            }
+        }
+    }
     
     if (dropItems && !isUpperHalf) {
         let dropName = blockName;
         if (dropName === 'chest_left' || dropName === 'chest_right') dropName = 'chest';
         if (dropName === 'trapped_left' || dropName === 'trapped_right') dropName = 'trapped_chest';
+        if (dropName.endsWith('_bed_head') || dropName.endsWith('_bed_foot')) {
+            dropName = dropName.replace('_bed_head', '_bed').replace('_bed_foot', '_bed');
+        }
         // Fix for weeping and twisting vines explicitly dropping their _plant base types
         if (dropName === 'weeping_vines' || dropName === 'weeping_vines_plant') dropName = 'weeping_vines_plant';
         if (dropName === 'twisting_vines' || dropName === 'twisting_vines_plant') dropName = 'twisting_vines_plant';
@@ -5420,6 +5446,35 @@ document.addEventListener('mousedown', (e) => {
                     blockStateDict = { half: 'lower', facing: facingStr, open: 'false', hinge: 'left' };
                     extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0], state: { half: 'upper', facing: facingStr, open: 'false', hinge: 'left' } };
                 }
+                else if (placementType.endsWith('_bed')) {
+                    let ry = yaw % (Math.PI * 2);
+                    if (ry < 0) ry += Math.PI * 2;
+
+                    let facingStr = 'south';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'south';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'east';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'north';
+                    else facingStr = 'west';
+
+                    const bedColor = placementType.slice(0, -'_bed'.length);
+                    const footOffset = CHEST_DIR_OFFSETS[facingStr];
+                    const footX = placeX - footOffset[0];
+                    const footY = placeY - footOffset[1];
+                    const footZ = placeZ - footOffset[2];
+
+                    if (getGlobalBlock(footX, footY, footZ) !== 0) return;
+
+                    const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr];
+                    rotation = [0, bedRotY, 0];
+                    blockStateDict = { facing: facingStr, part: 'head', occupied: 'false' };
+                    placementType = `${bedColor}_bed_head`;
+                    extraBlock = {
+                        x: footX, y: footY, z: footZ,
+                        type: TYPE[`${bedColor}_bed_foot`],
+                        rotation: [0, bedRotY, 0],
+                        state: { facing: facingStr, part: 'foot', occupied: 'false' }
+                    };
+                }
                 else if (horizontalFacingBlocks.includes(placementType)) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
@@ -5431,7 +5486,11 @@ document.addEventListener('mousedown', (e) => {
                     else facingStr = 'west';
                     
                     blockStateDict = { facing: facingStr };
-                    rotation = [0, 0, 0];
+                    if (placementType === 'chest' || placementType === 'trapped_chest') {
+                        rotation = [0, HORIZONTAL_FACING_YROTATION[facingStr], 0];
+                    } else {
+                        rotation = [0, 0, 0];
+                    }
                 }
                 
                 // Two-tall plants parsing logic
