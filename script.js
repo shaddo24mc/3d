@@ -5009,9 +5009,9 @@ function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
         const facing = placed.state.facing;
         const off = CHEST_DIR_OFFSETS[facing];
         const isHead = blockName.endsWith('_bed_head');
-        const partnerX = isHead ? pX - off[0] : pX + off[0];
-        const partnerY = isHead ? pY - off[1] : pY + off[1];
-        const partnerZ = isHead ? pZ - off[2] : pZ + off[2];
+        const partnerX = isHead ? pX + off[0] : pX - off[0];
+        const partnerY = isHead ? pY + off[1] : pY - off[1];
+        const partnerZ = isHead ? pZ + off[2] : pZ - off[2];
         const partnerBlock = getGlobalBlock(partnerX, partnerY, partnerZ);
         if (partnerBlock !== null && partnerBlock !== 0) {
             const bedColor = blockName.replace('_bed_head', '').replace('_bed_foot', '');
