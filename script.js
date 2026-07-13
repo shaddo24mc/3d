@@ -5476,7 +5476,7 @@ document.addEventListener('mousedown', (e) => {
                     if (getGlobalBlock(footX, footY, footZ) !== 0) return;
 
                     const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr] + BED_MODEL_YAW_OFFSET;
-                    rotation = [0, bedRotY, 0];
+                    rotation = [0, bedRotY + Math.PI, 0];
                     blockStateDict = { facing: facingStr, part: 'head', occupied: 'false' };
                     placementType = `${bedColor}_bed_head`;
                     extraBlock = {
