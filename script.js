@@ -5457,22 +5457,22 @@ document.addEventListener('mousedown', (e) => {
                     else facingStr = 'west';
 
                     const bedColor = placementType.slice(0, -'_bed'.length);
-                    const footOffset = CHEST_DIR_OFFSETS[facingStr];
-                    const footX = placeX - footOffset[0];
-                    const footY = placeY - footOffset[1];
-                    const footZ = placeZ - footOffset[2];
+                    const headOffset = CHEST_DIR_OFFSETS[facingStr];
+                    const headX = placeX + headOffset[0];
+                    const headY = placeY + headOffset[1];
+                    const headZ = placeZ + headOffset[2];
 
-                    if (getGlobalBlock(footX, footY, footZ) !== 0) return;
+                    if (getGlobalBlock(headX, headY, headZ) !== 0) return;
 
                     const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr];
                     rotation = [0, bedRotY, 0];
-                    blockStateDict = { facing: facingStr, part: 'head', occupied: 'false' };
-                    placementType = `${bedColor}_bed_head`;
+                    blockStateDict = { facing: facingStr, part: 'foot', occupied: 'false' };
+                    placementType = `${bedColor}_bed_foot`;
                     extraBlock = {
-                        x: footX, y: footY, z: footZ,
-                        type: TYPE[`${bedColor}_bed_foot`],
+                        x: headX, y: headY, z: headZ,
+                        type: TYPE[`${bedColor}_bed_head`],
                         rotation: [0, bedRotY, 0],
-                        state: { facing: facingStr, part: 'foot', occupied: 'false' }
+                        state: { facing: facingStr, part: 'head', occupied: 'false' }
                     };
                 }
                 else if (horizontalFacingBlocks.includes(placementType)) {
