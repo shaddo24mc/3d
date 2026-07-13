@@ -3712,6 +3712,7 @@ const CHEST_RIGHT_DIR_BY_FACING = { south: 'east', north: 'west', west: 'south',
 const CHEST_PAIR_AXIS_DIRS = { south: ['east','west'], north: ['east','west'], west: ['north','south'], east: ['north','south'] };
 const CHEST_DIR_OFFSETS = { north: [0,0,-1], south: [0,0,1], east: [1,0,0], west: [-1,0,0] };
 const HORIZONTAL_FACING_YROTATION = { south: 0, east: Math.PI / 2, north: Math.PI, west: -Math.PI / 2 };
+const BED_MODEL_YAW_OFFSET = Math.PI; // extra Y rotation (radians) applied to BOTH bed halves' meshes
 
 function getChestBaseName(name) {
     if (!name) return null;
@@ -5474,7 +5475,7 @@ document.addEventListener('mousedown', (e) => {
 
                     if (getGlobalBlock(footX, footY, footZ) !== 0) return;
 
-                    const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr] + Math.PI;
+                    const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr] + BED_MODEL_YAW_OFFSET;
                     rotation = [0, bedRotY, 0];
                     blockStateDict = { facing: facingStr, part: 'head', occupied: 'false' };
                     placementType = `${bedColor}_bed_head`;
