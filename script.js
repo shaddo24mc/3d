@@ -2054,7 +2054,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             customGeometries[key] = potGeo;
             return;
         }
-        let headGeo;
+        
         else if (bName.includes('bed_head')) {
             const parts = [
                 {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true},
