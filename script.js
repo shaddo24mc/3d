@@ -4170,20 +4170,24 @@ function applyEntityUVs(geometry, faceUVs, texW, texH) {
     uv.needsUpdate = true;
 }
 
-// One cube: {size:[w,h,d], pos:[x,y,z], uv:[u,v] (optional)}.
+// One cube: {size:[w,h,d], pos:[x,y,z], uv:[u,v] (optional), overlayUv:[u,v] (optional)}.
 // pos is the box's min-corner, relative to the part's own pivot -
 // same idea as size/pos in loadCustomModel's hardcoded parts.
-function buildEntityCubeGeometry(cube, texW, texH) {
+// inflate (pixels) grows the cube outward on all sides, keeping it centered -
+// used for the overlay/2nd-layer pass so it doesn't z-fight with the base mesh.
+// uvOverride lets the overlay pass use a different uv than the base cube's own.
+function buildEntityCubeGeometry(cube, texW, texH, inflate = 0, uvOverride = null) {
     const [w, h, d] = cube.size;
     const [x, y, z] = cube.pos;
-    const geo = new THREE.BoxGeometry(w / 16, h / 16, d / 16);
-    if (cube.uv) applyEntityUVs(geo, entityBoxUV(cube.uv[0], cube.uv[1], w, h, d), texW, texH);
+    const geo = new THREE.BoxGeometry((w + inflate * 2) / 16, (h + inflate * 2) / 16, (d + inflate * 2) / 16);
+    const uv = uvOverride || cube.uv;
+    if (uv) applyEntityUVs(geo, entityBoxUV(uv[0], uv[1], w, h, d), texW, texH);
     geo.translate((x + w / 2) / 16, (y + h / 2) / 16, (z + d / 2) / 16);
     return geo;
 }
 
-// One part = one pivoted THREE.Group (head, body, a leg, etc).
-function buildEntityPart(partDef, material, texW, texH) {
+\
+function buildEntityPart(partDef, material, texW, texH, overlayOptions = null) {
     const group = new THREE.Group();
     if (partDef.pivot) group.position.set(partDef.pivot[0] / 16, partDef.pivot[1] / 16, partDef.pivot[2] / 16);
     const geos = partDef.cubes.map(c => buildEntityCubeGeometry(c, texW, texH));
@@ -4191,23 +4195,65 @@ function buildEntityPart(partDef, material, texW, texH) {
     const mesh = new THREE.Mesh(merged, material);
     group.add(mesh);
     group.userData.mesh = mesh;
+
+    if (overlayOptions && partDef.overlay) {
+        const inflate = partDef.overlayInflate !== undefined ? partDef.overlayInflate : overlayOptions.defaultInflate;
+        const overlayGeos = partDef.cubes.map(c =>
+            buildEntityCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate, c.overlayUv || c.uv)
+        );
+        const overlayMerged = overlayGeos.length > 1 ? mergeBufferGeometries(overlayGeos) : overlayGeos[0];
+        const overlayMesh = new THREE.Mesh(overlayMerged, overlayOptions.material);
+        overlayMesh.renderOrder = 1;
+        group.add(overlayMesh);
+        group.userData.overlayMesh = overlayMesh;
+    }
     return group;
 }
 
 // ---- Mob registry -------------------------------------------------------
-// Add new mobs here. "parts" is name -> {pivot, cubes[], color?}.
+// Add new mobs here. "parts" is name -> {pivot, cubes[], color?, overlay?, overlayInflate?}.
 // "hierarchy" says which part each part attaches to (null = attaches to root).
 // To texture a mob instead of using flat colors: add texture/texW/texH to
 // the mob def, and give each cube a uv:[u,v] (see entityBoxUV above).
+//
+// OVERLAY LAYER (wolf collar, zombie villager clothes, charged creeper's
+// glow, etc. - any mob with a 2nd "skin" drawn over the base):
+// 1. Add overlayTexture/overlayTexW/overlayTexH to the mob def (same shape
+//    as texture/texW/texH, just for the second layer's own image file).
+// 2. Set overlay: true on any part that should get the second mesh.
+// 3. Each cube can add overlayUv:[u,v] if the overlay art sits at different
+//    coordinates than that cube's own uv - if omitted, it reuses the base uv.
+// 4. partDef.overlayInflate overrides the mob-level default (0.25, matching
+//    vanilla's standard 2nd-layer gap) if one part needs a different amount.
+//
+// Example shape (illustrative only - not wired to a real mob or texture yet;
+// fill in real uv's once you upload the actual textures, same process used
+// for piglin_head/cow):
+//   wolf: {
+//       texture: 'assets/minecraft/textures/entity/wolf/wolf.png', texW: 64, texH: 32,
+//       overlayTexture: 'assets/minecraft/textures/entity/wolf/wolf_collar.png', overlayTexW: 64, overlayTexH: 32,
+//       parts: {
+//           body: { pivot: [0, 10, 0], overlay: true, cubes: [ { size: [6, 9, 6], pos: [-3, 0, -3], uv: [0, 0] } ] }
+//       },
+//       hierarchy: { body: null }
+//   }
 const MOB_MODELS = {
     cow: {
+        texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
+        texW: 64,
+        texH: 64,
         parts: {
-            body:  { pivot: [0, 10, 0],   color: 0x5b3a29, cubes: [ { size: [8, 8, 14], pos: [-4, 0, -7] } ] },
-            head:  { pivot: [0, 14, -7],  color: 0x5b3a29, cubes: [ { size: [6, 6, 6], pos: [-3, -2, -6] } ] },
-            legFL: { pivot: [-3, 10, -5], color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-            legFR: { pivot: [3, 10, -5],  color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-            legBL: { pivot: [-3, 10, 5],  color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-            legBR: { pivot: [3, 10, 5],   color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] }
+            body:  { pivot: [8, 19, 9], cubes: [ { size: [12, 10, 18], pos: [2, 12, -1], uvUp: [52, 14], uvDown: [28, 14], uvNorth: [28, 4], uvSouth: [40, 4], uvEast: [18, 14], uvWest: [40, 14]} ] },
+
+            head:  { pivot: [8, 20, 17], cubes: [ { size: [8, 8, 6], pos: [4, 16, 17] } ] },
+
+            legFL: { pivot: [-3, 10, -5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+
+            legFR: { pivot: [3, 10, -5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+
+            legBL: { pivot: [-3, 10, 5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+
+            legBR: { pivot: [3, 10, 5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] }
         },
         hierarchy: { body: null, head: 'body', legFL: 'body', legFR: 'body', legBL: 'body', legBR: 'body' }
     }
@@ -4223,11 +4269,22 @@ function buildMobModel(type) {
         sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
     }
 
+    let overlayOptions = null;
+    if (def.overlayTexture) {
+        const overlayTex = getMobTexture(def.overlayTexture);
+        overlayOptions = {
+            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.1 }),
+            texW: def.overlayTexW || def.texW,
+            texH: def.overlayTexH || def.texH,
+            defaultInflate: def.overlayInflate !== undefined ? def.overlayInflate : 0.25
+        };
+    }
+
     const groups = {};
     for (const name in def.parts) {
         const partDef = def.parts[name];
         const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff });
-        groups[name] = buildEntityPart(partDef, mat, def.texW, def.texH);
+        groups[name] = buildEntityPart(partDef, mat, def.texW, def.texH, overlayOptions);
     }
     const root = new THREE.Group();
     for (const name in groups) {
