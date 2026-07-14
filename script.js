@@ -2140,7 +2140,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 {size: [4, 5, 1], pos: [3, 5, 6], ...boxUV(55, 6, 4, 5, 1), pivot: [3, 6, 8], rot: [0, 0, 30]}
             ]
             let pigheadGeo = buildMCModel(parts, 64);
-            bpigheadGeo.clearGroups();
+            pigheadGeo.clearGroups();
             pigheadGeo.addGroup(0, pigheadGeo.index.count, 0);
             pigheadGeo.translate(-0.5, -0.5, -0.5);
             materials[key] = mat;
