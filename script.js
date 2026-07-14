@@ -2132,12 +2132,12 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         //heh
         else if (bName === 'piglin_head') {
             const parts = [
-                {size: [10, 8, 8], pos: [3, 0, 4], ...boxUV(8, 0, 10, 8, 8)},
-                {size: [4, 4, 1], pos: [6, 0, 12], ...boxUV(32, 1, 4, 4, 1)},
-                {size: [1, 2, 1], pos: [5, 0, 12], ...boxUV(3, 0, 1, 2, 1)},
-                {size: [1, 2, 1], pos: [10, 0, 12], ...boxUV(3, 4, 1, 2, 1)},
-                {size: [1, 5, 4], pos: [13, 5, 6], ...boxUV(43, 6, 1, 5, 4), pivot: [13, 6, 8], rot: [0, 0, 0]},
-                {size: [1, 5, 4], pos: [2, 5, 6], ...boxUV(55, 6, 1, 5, 4), pivot: [3, 6, 8], rot: [0, 0, 0]}
+                {size: [10, 8, 8], pos: [3, 0, 4], ...boxUV(7, 0, 10, 8, 8)},
+                {size: [4, 4, 1], pos: [6, 0, 12], ...boxUV(31, 1, 4, 4, 1)},
+                {size: [1, 2, 1], pos: [5, 0, 12], ...boxUV(2, 0, 1, 2, 1)},
+                {size: [1, 2, 1], pos: [10, 0, 12], ...boxUV(2, 4, 1, 2, 1)},
+                {size: [1, 5, 4], pos: [12, 1, 6], ...boxUV(42, 6, 1, 5, 4), pivot: [13, 6, 8], rot: [0, 0, 0]},
+                {size: [1, 5, 4], pos: [2, 1, 6], ...boxUV(54, 6, 1, 5, 4), pivot: [3, 6, 8], rot: [0, 0, 0]}
             ]
             let pigheadGeo = buildMCModel(parts, 64);
             pigheadGeo.clearGroups();
