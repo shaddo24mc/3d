@@ -4101,6 +4101,176 @@ function mergeBufferGeometries(geos) {
     return mergedGeo;
 }
 
+// ============================================================================
+// MOB MODEL SYSTEM - code mob models here, kinda like the hardcoded block
+// models. Spawn eggs named "<type>_spawn_egg" spawn MOB_MODELS[type].
+// ============================================================================
+
+// Same box-UV math as your hardcoded block models use (loadCustomModel's
+// boxUV), kept as its own copy here since that one is scoped locally.
+function boxUVShared(u, v, w, h, d) {
+    return {
+        uvUp:    [u + d, v],
+        uvDown:  [u + d + w, v],
+        uvEast:  [u, v + d],
+        uvNorth: [u + d, v + d],
+        uvWest:  [u + d + w, v + d],
+        uvSouth: [u + d + w + d, v + d]
+    };
+}
+
+// Converts a boxUV(u,v,w,h,d) origin into the {front,back,left,right,top,bottom}
+// rectangle format used below - only needed once you give a part a real texture.
+function entityBoxUV(u, v, w, h, d) {
+    const r = boxUVShared(u, v, w, h, d);
+    return {
+        top:    [r.uvUp[0],    r.uvUp[1],    w, d],
+        bottom: [r.uvDown[0],  r.uvDown[1],  w, d],
+        right:  [r.uvEast[0],  r.uvEast[1],  d, h],
+        left:   [r.uvWest[0],  r.uvWest[1],  d, h],
+        front:  [r.uvSouth[0], r.uvSouth[1], w, h],
+        back:   [r.uvNorth[0], r.uvNorth[1], w, h]
+    };
+}
+
+const MOB_TEXTURE_CACHE = {};
+function getMobTexture(path) {
+    if (MOB_TEXTURE_CACHE[path]) return MOB_TEXTURE_CACHE[path];
+    const tex = new THREE.TextureLoader().load(path);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace; else tex.encoding = 3001;
+    MOB_TEXTURE_CACHE[path] = tex;
+    return tex;
+}
+
+function applyEntityUVs(geometry, faceUVs, texW, texH) {
+    const uv = geometry.attributes.uv;
+    const order = ['left', 'right', 'top', 'bottom', 'front', 'back'];
+    order.forEach((faceName, faceIdx) => {
+        const r = faceUVs[faceName];
+        if (!r) return;
+        const u1 = r[0] / texW;
+        const v1 = 1 - (r[1] + r[3]) / texH;
+        const u2 = (r[0] + r[2]) / texW;
+        const v2 = 1 - r[1] / texH;
+        const i = faceIdx * 4;
+        if (faceName === 'bottom') {
+            uv.setXY(i,   u2, v1);
+            uv.setXY(i+1, u1, v1);
+            uv.setXY(i+2, u2, v2);
+            uv.setXY(i+3, u1, v2);
+        } else {
+            uv.setXY(i,   u1, v2);
+            uv.setXY(i+1, u2, v2);
+            uv.setXY(i+2, u1, v1);
+            uv.setXY(i+3, u2, v1);
+        }
+    });
+    uv.needsUpdate = true;
+}
+
+// One cube: {size:[w,h,d], pos:[x,y,z], uv:[u,v] (optional)}.
+// pos is the box's min-corner, relative to the part's own pivot -
+// same idea as size/pos in loadCustomModel's hardcoded parts.
+function buildEntityCubeGeometry(cube, texW, texH) {
+    const [w, h, d] = cube.size;
+    const [x, y, z] = cube.pos;
+    const geo = new THREE.BoxGeometry(w / 16, h / 16, d / 16);
+    if (cube.uv) applyEntityUVs(geo, entityBoxUV(cube.uv[0], cube.uv[1], w, h, d), texW, texH);
+    geo.translate((x + w / 2) / 16, (y + h / 2) / 16, (z + d / 2) / 16);
+    return geo;
+}
+
+// One part = one pivoted THREE.Group (head, body, a leg, etc).
+function buildEntityPart(partDef, material, texW, texH) {
+    const group = new THREE.Group();
+    if (partDef.pivot) group.position.set(partDef.pivot[0] / 16, partDef.pivot[1] / 16, partDef.pivot[2] / 16);
+    const geos = partDef.cubes.map(c => buildEntityCubeGeometry(c, texW, texH));
+    const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
+    const mesh = new THREE.Mesh(merged, material);
+    group.add(mesh);
+    group.userData.mesh = mesh;
+    return group;
+}
+
+// ---- Mob registry -------------------------------------------------------
+// Add new mobs here. "parts" is name -> {pivot, cubes[], color?}.
+// "hierarchy" says which part each part attaches to (null = attaches to root).
+// To texture a mob instead of using flat colors: add texture/texW/texH to
+// the mob def, and give each cube a uv:[u,v] (see entityBoxUV above).
+const MOB_MODELS = {
+    cow: {
+        parts: {
+            body:  { pivot: [0, 10, 0],   color: 0x5b3a29, cubes: [ { size: [8, 8, 14], pos: [-4, 0, -7] } ] },
+            head:  { pivot: [0, 14, -7],  color: 0x5b3a29, cubes: [ { size: [6, 6, 6], pos: [-3, -2, -6] } ] },
+            legFL: { pivot: [-3, 10, -5], color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+            legFR: { pivot: [3, 10, -5],  color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+            legBL: { pivot: [-3, 10, 5],  color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+            legBR: { pivot: [3, 10, 5],   color: 0x2b1b12, cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] }
+        },
+        hierarchy: { body: null, head: 'body', legFL: 'body', legFR: 'body', legBL: 'body', legBR: 'body' }
+    }
+};
+
+function buildMobModel(type) {
+    const def = MOB_MODELS[type];
+    if (!def) return null;
+
+    let sharedMat = null;
+    if (def.texture) {
+        const tex = getMobTexture(def.texture);
+        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+    }
+
+    const groups = {};
+    for (const name in def.parts) {
+        const partDef = def.parts[name];
+        const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff });
+        groups[name] = buildEntityPart(partDef, mat, def.texW, def.texH);
+    }
+    const root = new THREE.Group();
+    for (const name in groups) {
+        const parentName = def.hierarchy ? def.hierarchy[name] : null;
+        if (parentName && groups[parentName]) groups[parentName].add(groups[name]);
+        else root.add(groups[name]);
+    }
+    return { root, parts: groups, def };
+}
+
+const mobs = [];
+
+function spawnMob(type, x, y, z) {
+    const model = buildMobModel(type);
+    if (!model) { console.warn('No MOB_MODELS entry for', type); return; }
+    model.root.position.set(x, y, z);
+    scene.add(model.root);
+    mobs.push({ type, model, position: new THREE.Vector3(x, y, z), velocity: new THREE.Vector3(0, 0, 0), onGround: false, bobTime: Math.random() * 10 });
+}
+
+function updateMobs(delta) {
+    for (const mob of mobs) {
+        mob.velocity.y -= 15 * delta;
+        let nx = mob.position.x;
+        let ny = mob.position.y + mob.velocity.y * delta;
+        let nz = mob.position.z;
+
+        const feetBlock = getGlobalBlock(Math.floor(nx), Math.floor(ny - 0.05), Math.floor(nz));
+        if (feetBlock !== null && feetBlock !== 0 && !isTransparent[feetBlock]) {
+            ny = Math.floor(ny) + 1;
+            mob.velocity.y = 0;
+            mob.onGround = true;
+        } else {
+            mob.onGround = false;
+        }
+
+        mob.position.set(nx, ny, nz);
+        mob.bobTime += delta;
+        const bob = mob.onGround ? Math.sin(mob.bobTime * 3) * 0.02 : 0;
+        mob.model.root.position.set(nx, ny + bob, nz);
+    }
+}
+
 const sharedLightMap = new Uint8Array(16 * 16 * 256);
 const sharedLightQueue = new Int32Array(16 * 16 * 256 * 2);
 
@@ -5423,6 +5593,16 @@ document.addEventListener('mousedown', (e) => {
             const selectedItem = inventory[selectedSlot];
             
             let placementType = selectedItem.type;
+
+            if (placementType && placementType.endsWith('_spawn_egg')) {
+                const mobType = placementType.slice(0, -'_spawn_egg'.length);
+                spawnMob(mobType, placeX + 0.5, placeY, placeZ + 0.5);
+                selectedItem.count--;
+                if (selectedItem.count <= 0) { selectedItem.type = null; selectedItem.count = 0; }
+                updateInventoryUI();
+                return;
+            }
+
             if (placementType === 'sweet_berries') placementType = 'sweet_berry_bush';
             
             const explicit2DItems = new Set([
@@ -5933,6 +6113,7 @@ function animate() {
 
     updateMining();
     doRandomTicks();
+    updateMobs(delta);
 
     if (chunksToRebuild.size > 0 && !isRebuildingChunk) {
         isRebuildingChunk = true;
