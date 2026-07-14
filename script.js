@@ -2132,7 +2132,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         //heh
         else if (bName === 'piglin_head') {
             const parts = [
-                {size: [10, 8, 8], pos: [3, 0, 4], ...boxUV(8, 0, 10, 8, 8), pivot: [8, 8, 8], rot: [0, 0, 0]},
+                {size: [10, 8, 8], pos: [3, 0, 4], ...boxUV(8, 0, 10, 8, 8)},
                 {size: [4, 4, 1], pos: [6, 0, 12], ...boxUV(32, 1, 4, 4, 1)},
                 {size: [1, 2, 1], pos: [5, 0, 12], ...boxUV(3, 0, 1, 2, 1)},
                 {size: [1, 2, 1], pos: [10, 0, 12], ...boxUV(3, 4, 1, 2, 1)},
