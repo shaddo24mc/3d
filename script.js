@@ -809,7 +809,7 @@ const baseBlocks = [
     'waxed_exposed_copper_chain', 
     'waxed_weathered_copper_chain', 
     'waxed_oxidized_copper_chain',
-    'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot',
+    'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'piglin_head'
 
     ...ITEMS
 ];
@@ -1877,7 +1877,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['decorated_pot', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'orange_bed_head', 'orange_bed_foot', 'magenta_bed_head', 'magenta_bed_foot', 'light_blue_bed_head', 'light_blue_bed_foot', 'yellow_bed_head', 'yellow_bed_foot', 'lime_bed_head', 'lime_bed_foot', 'pink_bed_head', 'pink_bed_foot', 'gray_bed_head', 'gray_bed_foot', 'light_gray_bed_head', 'light_gray_bed_foot', 'cyan_bed_head', 'cyan_bed_foot', 'purple_bed_head', 'purple_bed_foot', 'blue_bed_head', 'blue_bed_foot', 'brown_bed_head', 'brown_bed_foot', 'green_bed_head', 'green_bed_foot', 'white_bed_head', 'white_bed_foot', 'black_bed_head', 'black_bed_foot']);
+    const hardcodedModels = new Set(['piglin_head', 'decorated_pot', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'orange_bed_head', 'orange_bed_foot', 'magenta_bed_head', 'magenta_bed_foot', 'light_blue_bed_head', 'light_blue_bed_foot', 'yellow_bed_head', 'yellow_bed_foot', 'lime_bed_head', 'lime_bed_foot', 'pink_bed_head', 'pink_bed_foot', 'gray_bed_head', 'gray_bed_foot', 'light_gray_bed_head', 'light_gray_bed_foot', 'cyan_bed_head', 'cyan_bed_foot', 'purple_bed_head', 'purple_bed_foot', 'blue_bed_head', 'blue_bed_foot', 'brown_bed_head', 'brown_bed_foot', 'green_bed_head', 'green_bed_foot', 'white_bed_head', 'white_bed_foot', 'black_bed_head', 'black_bed_foot']);
     if (hardcodedModels.has(bName)) {
       try {
         const fallbackName = resolveFallbackTexture(bName);
@@ -2130,6 +2130,24 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             return;
         }
         //heh
+        else if (bName === 'piglin_head') {
+            const parts = [
+                {size: [8, 8, 10], pos: [3, 0, 4], ...boxUV(8, 0, 8, 8, 8), pivot: [8, 8, 8], rot: [0, 0, 0]},
+                {size: [1, 4, 4], pos: [5, 0, 12], ...boxUV(32, 1, 1, 4, 4)},
+                {size: [1, 2, 1], pos: [5, 0, 11], ...boxUV(3, 0, 1, 2, 1)},
+                {size: [1, 2, 1], pos: [5, 0, 15], ...boxUV(3, 4, 1, 2, 1)},
+                {size: [4, 5, 1], pos: [13, 5, 6], ...boxUV(43, 6, 4, 5, 1), pivot: [13, 6, 8], rot: [0, 0, -30]},
+                {size: [4, 5, 1], pos: [3, 5, 6], ...boxUV(55, 6, 4, 5, 1), pivot: [3, 6, 8], rot: [0, 0, 30]}
+            ]
+            let pigheadGeo = buildMCModel(parts, 64);
+            bpigheadGeo.clearGroups();
+            pigheadGeo.addGroup(0, pigheadGeo.index.count, 0);
+            pigheadGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries [key] = pigheadGeo;
+            return;
+        }
+
         else if (bName.includes('right')) {
             const parts = [
                 { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true, rotSouthNorth: true, rotDown: true },
