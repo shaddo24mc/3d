@@ -2057,9 +2057,9 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             // NOTE: side.png / base.png are standalone 16x16 textures, NOT part of the
             // 32-wide sheet used by the neck/foot rings above — hence the separate bodyTS here.
             const bodyTS = 16;
-            const setBodyFaceUV = (uvAttr, faceIdx, u, v, w, h) => {
-                const u1 = u / bodyTS, u2 = (u + w) / bodyTS;
-                const v1 = 1 - (v + h) / bodyTS, v2 = 1 - v / bodyTS;
+            const setBodyFaceUV = (uvAttr, faceIdx, u, v, w, h, ts) => {
+                const u1 = u / ts, u2 = (u + w) / ts;
+                const v1 = 1 - (v + h) / ts, v2 = 1 - v / ts;
                 const i = faceIdx * 8;
                 uvAttr[i] = u1;   uvAttr[i+1] = v2;
                 uvAttr[i+2] = u2; uvAttr[i+3] = v2;
@@ -2070,13 +2070,19 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             const bodyGeo = new THREE.BoxGeometry(14 * px, 16 * px, 14 * px);
             bodyGeo.clearGroups();
             const bodyUVs = bodyGeo.attributes.uv.array;
-            // Face order in a non-indexed BoxGeometry: 0=+X(east) 1=-X(west) 2=+Y(up) 3=-Y(down) 4=+Z(south) 5=-Z(north)
-            setBodyFaceUV(bodyUVs, 0, 1, 0, 14, 16); // east  -> side.png
-            setBodyFaceUV(bodyUVs, 1, 1, 0, 14, 16); // west  -> side.png
-            setBodyFaceUV(bodyUVs, 2, 1, 1, 14, 14); // up    -> base.png
-            setBodyFaceUV(bodyUVs, 3, 1, 1, 14, 14); // down  -> base.png
-            setBodyFaceUV(bodyUVs, 4, 1, 0, 14, 16); // south -> side.png
-            setBodyFaceUV(bodyUVs, 5, 1, 0, 14, 16); // north -> side.png
+
+            // Face order: 0=+X(east) 1=-X(west) 2=+Y(up) 3=-Y(down) 4=+Z(south) 5=-Z(north)
+
+            // 1. SIDES use the 16x16 side.png (Pass 16 at the end)
+            setBodyFaceUV(bodyUVs, 0, 1, 0, 14, 16, 16); // east  
+            setBodyFaceUV(bodyUVs, 1, 1, 0, 14, 16, 16); // west  
+            setBodyFaceUV(bodyUVs, 4, 1, 0, 14, 16, 16); // south 
+            setBodyFaceUV(bodyUVs, 5, 1, 0, 14, 16, 16); // north 
+
+            // 2. TOP and BOTTOM use the 32x32 base.png (Pass 32 at the end!)
+            // Note: You will need to change the '1, 1' to wherever the 14x14 cap actually sits on the 32x32 image!
+            setBodyFaceUV(bodyUVs, 2, 1, 1, 14, 14, 32); // up    
+            setBodyFaceUV(bodyUVs, 3, 1, 1, 14, 14, 32); // down
             bodyGeo.rotateY(Math.PI);
             bodyGeo.translate(8 * px, 8 * px, 8 * px);
             bodyGeo.addGroup(0, 6, 1);
