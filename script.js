@@ -2031,21 +2031,47 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             const potBaseMat = new THREE.MeshLambertMaterial({ map: potBaseTex, transparent: false, alphaTest: 0.5 });
             const potSideMat = new THREE.MeshLambertMaterial({ map: potSideTex, transparent: false, alphaTest: 0.5 });
 
+            const px = 1 / 16;
+            const tS = 32;
+
+            const setFaceUV = (uvAttr, faceIdx, u, v, w, h) => {
+                const u1 = u / tS, u2 = (u + w) / tS;
+                const v1 = 1 - (v + h) / tS, v2 = 1 - v / tS;
+                const i = faceIdx * 8;
+                uvAttr[i] = u1;   uvAttr[i+1] = v2;
+                uvAttr[i+2] = u2; uvAttr[i+3] = v2;
+                uvAttr[i+4] = u1; uvAttr[i+5] = v1;
+                uvAttr[i+6] = u2; uvAttr[i+7] = v1;
+            };
+
             const neckBaseParts = [
-                { size: [8, 3, 8], pos: [4, 13, 4], uvNorth: [0, 8], uvSouth: [16, 8], uvEast: [24, 8], uvWest: [8, 8], uvUp: [8, 0], uvDown: [16, 0] },
-                { size: [6, 1, 6], pos: [5, 12, 5], uvNorth: [0, 11], uvSouth: [12, 11], uvEast: [18, 11], uvWest: [6, 11], uvUp: [0, 0], uvDown: [24, 0] }
-            ];
-            const bodyParts = [
-                { size: [14, 14, 14], pos: [1, 0, 1], uvNorth: [1, 3], uvSouth: [1, 3], uvEast: [1, 3], uvWest: [1, 3], uvUp: [1, 1], uvDown: [1, 1] }
+                { size: [8, 3, 8], pos: [4, 17, 4], uvNorth: [0, 8], uvSouth: [16, 8], uvEast: [24, 8], uvWest: [8, 8], uvUp: [8, 0], uvDown: [16, 0] },
+                { size: [6, 1, 6], pos: [5, 16, 5], uvNorth: [0, 11], uvSouth: [12, 11], uvEast: [18, 11], uvWest: [6, 11], uvUp: [0, 0], uvDown: [24, 0] }
             ];
 
-            let neckBaseGeo = buildMCModel(neckBaseParts, 32);
+            let neckBaseGeo = buildMCModel(neckBaseParts, tS);
             neckBaseGeo.clearGroups();
             neckBaseGeo.addGroup(0, neckBaseGeo.index.count, 0);
 
-            let bodyGeo = buildMCModel(bodyParts, 32);
+            // Body (14x14x14): top/bottom caps from base.png, 4 walls from side.png
+            const bodyGeo = new THREE.BoxGeometry(14 * px, 14 * px, 14 * px);
             bodyGeo.clearGroups();
-            bodyGeo.addGroup(0, bodyGeo.index.count, 1);
+            const bodyUVs = bodyGeo.attributes.uv.array;
+            // Face order in a non-indexed BoxGeometry: 0=+X(east) 1=-X(west) 2=+Y(up) 3=-Y(down) 4=+Z(south) 5=-Z(north)
+            setFaceUV(bodyUVs, 0, 1, 0, 14, 16); // east  -> side.png
+            setFaceUV(bodyUVs, 1, 1, 0, 14, 16); // west  -> side.png
+            setFaceUV(bodyUVs, 2, 0, 13, 14, 14); // up    -> base.png
+            setFaceUV(bodyUVs, 3, 14, 13, 14, 14); // down  -> base.png
+            setFaceUV(bodyUVs, 4, 1, 0, 14, 16); // south -> side.png
+            setFaceUV(bodyUVs, 5, 1, 0, 14, 16); // north -> side.png
+            bodyGeo.rotateY(Math.PI);
+            bodyGeo.translate(8 * px, 7 * px, 8 * px);
+            bodyGeo.addGroup(0, 6, 1);
+            bodyGeo.addGroup(6, 6, 1);
+            bodyGeo.addGroup(12, 6, 0);
+            bodyGeo.addGroup(18, 6, 0);
+            bodyGeo.addGroup(24, 6, 1);
+            bodyGeo.addGroup(30, 6, 1);
 
             let potGeo = mergeBufferGeometries([neckBaseGeo, bodyGeo]);
             potGeo.translate(-0.5, -0.5, -0.5);
