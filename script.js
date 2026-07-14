@@ -2081,8 +2081,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
             // 2. TOP and BOTTOM use the 32x32 base.png (Pass 32 at the end!)
             // Note: You will need to change the '1, 1' to wherever the 14x14 cap actually sits on the 32x32 image!
-            setBodyFaceUV(bodyUVs, 2, 1, 1, 14, 14, 32); // up    
-            setBodyFaceUV(bodyUVs, 3, 1, 1, 14, 14, 32); // down
+            setBodyFaceUV(bodyUVs, 2, 0, 13, 14, 14, 32); // up    
+            setBodyFaceUV(bodyUVs, 3, 14, 13, 14, 14, 32); // down
             bodyGeo.rotateY(Math.PI);
             bodyGeo.translate(8 * px, 8 * px, 8 * px);
             bodyGeo.addGroup(0, 6, 1);
