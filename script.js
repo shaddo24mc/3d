@@ -809,7 +809,7 @@ const baseBlocks = [
     'waxed_exposed_copper_chain', 
     'waxed_weathered_copper_chain', 
     'waxed_oxidized_copper_chain',
-    'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'piglin_head'
+    'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'piglin_head',
 
     ...ITEMS
 ];
