@@ -2053,19 +2053,32 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             neckBaseGeo.clearGroups();
             neckBaseGeo.addGroup(0, neckBaseGeo.index.count, 0);
 
-            // Body (14x14x14): top/bottom caps from base.png, 4 walls from side.png
-            const bodyGeo = new THREE.BoxGeometry(14 * px, 14 * px, 14 * px);
+            // Body (14x16x14): top/bottom caps from base.png, 4 walls from side.png
+            // NOTE: side.png / base.png are standalone 16x16 textures, NOT part of the
+            // 32-wide sheet used by the neck/foot rings above — hence the separate bodyTS here.
+            const bodyTS = 16;
+            const setBodyFaceUV = (uvAttr, faceIdx, u, v, w, h) => {
+                const u1 = u / bodyTS, u2 = (u + w) / bodyTS;
+                const v1 = 1 - (v + h) / bodyTS, v2 = 1 - v / bodyTS;
+                const i = faceIdx * 8;
+                uvAttr[i] = u1;   uvAttr[i+1] = v2;
+                uvAttr[i+2] = u2; uvAttr[i+3] = v2;
+                uvAttr[i+4] = u1; uvAttr[i+5] = v1;
+                uvAttr[i+6] = u2; uvAttr[i+7] = v1;
+            };
+
+            const bodyGeo = new THREE.BoxGeometry(14 * px, 16 * px, 14 * px);
             bodyGeo.clearGroups();
             const bodyUVs = bodyGeo.attributes.uv.array;
             // Face order in a non-indexed BoxGeometry: 0=+X(east) 1=-X(west) 2=+Y(up) 3=-Y(down) 4=+Z(south) 5=-Z(north)
-            setFaceUV(bodyUVs, 0, 1, 0, 14, 16); // east  -> side.png
-            setFaceUV(bodyUVs, 1, 1, 0, 14, 16); // west  -> side.png
-            setFaceUV(bodyUVs, 2, 0, 13, 14, 14); // up    -> base.png
-            setFaceUV(bodyUVs, 3, 14, 13, 14, 14); // down  -> base.png
-            setFaceUV(bodyUVs, 4, 1, 0, 14, 16); // south -> side.png
-            setFaceUV(bodyUVs, 5, 1, 0, 14, 16); // north -> side.png
+            setBodyFaceUV(bodyUVs, 0, 1, 0, 14, 16); // east  -> side.png
+            setBodyFaceUV(bodyUVs, 1, 1, 0, 14, 16); // west  -> side.png
+            setBodyFaceUV(bodyUVs, 2, 1, 1, 14, 14); // up    -> base.png
+            setBodyFaceUV(bodyUVs, 3, 1, 1, 14, 14); // down  -> base.png
+            setBodyFaceUV(bodyUVs, 4, 1, 0, 14, 16); // south -> side.png
+            setBodyFaceUV(bodyUVs, 5, 1, 0, 14, 16); // north -> side.png
             bodyGeo.rotateY(Math.PI);
-            bodyGeo.translate(8 * px, 7 * px, 8 * px);
+            bodyGeo.translate(8 * px, 8 * px, 8 * px);
             bodyGeo.addGroup(0, 6, 1);
             bodyGeo.addGroup(6, 6, 1);
             bodyGeo.addGroup(12, 6, 0);
