@@ -1308,7 +1308,7 @@ function resolveFallbackTexture(name) {
     if (name === 'dragon_head') return '../entity/enderdragon/dragon';
     if (name === 'player_head') return '../entity/player/wide/steve';
     if (name === 'decorated_pot') return '../entity/decorated_pot/decorated_pot_side';
-    if (name === 'piglin_head') return '../entity/piglin/piglin.png';
+    if (name === 'piglin_head') return '../entity/piglin/piglin';
     return resolveTexturePath(name).filename;
 }
 
