@@ -1308,7 +1308,7 @@ function resolveFallbackTexture(name) {
     if (name === 'dragon_head') return '../entity/enderdragon/dragon';
     if (name === 'player_head') return '../entity/player/wide/steve';
     if (name === 'decorated_pot') return '../entity/decorated_pot/decorated_pot_side';
-    if (name === 'piglin_head') return '../entity/decorated_pot/piglin/piglin.png';
+    if (name === 'piglin_head') return '../entity/piglin/piglin.png';
     return resolveTexturePath(name).filename;
 }
 
@@ -2133,9 +2133,9 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         else if (bName === 'piglin_head') {
             const parts = [
                 {size: [8, 8, 10], pos: [3, 0, 4], ...boxUV(8, 0, 8, 8, 8), pivot: [8, 8, 8], rot: [0, 0, 0]},
-                {size: [1, 4, 4], pos: [5, 0, 12], ...boxUV(32, 1, 1, 4, 4)},
-                {size: [1, 2, 1], pos: [5, 0, 11], ...boxUV(3, 0, 1, 2, 1)},
-                {size: [1, 2, 1], pos: [5, 0, 16], ...boxUV(3, 4, 1, 2, 1)},
+                {size: [1, 4, 4], pos: [12, 0, 5], ...boxUV(32, 1, 1, 4, 4)},
+                {size: [1, 2, 1], pos: [11, 0, 5], ...boxUV(3, 0, 1, 2, 1)},
+                {size: [1, 2, 1], pos: [16, 0, 5], ...boxUV(3, 4, 1, 2, 1)},
                 {size: [4, 5, 1], pos: [6, 5, 13], ...boxUV(43, 6, 4, 5, 1), pivot: [13, 6, 8], rot: [0, 0, -30]},
                 {size: [4, 5, 1], pos: [6, 5, 3], ...boxUV(55, 6, 4, 5, 1), pivot: [3, 6, 8], rot: [0, 0, 30]}
             ]
