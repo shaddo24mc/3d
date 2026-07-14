@@ -4186,7 +4186,7 @@ function buildEntityCubeGeometry(cube, texW, texH, inflate = 0, uvOverride = nul
     return geo;
 }
 
-\
+
 function buildEntityPart(partDef, material, texW, texH, overlayOptions = null) {
     const group = new THREE.Group();
     if (partDef.pivot) group.position.set(partDef.pivot[0] / 16, partDef.pivot[1] / 16, partDef.pivot[2] / 16);
