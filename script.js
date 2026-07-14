@@ -2135,9 +2135,9 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 {size: [8, 8, 10], pos: [3, 0, 4], ...boxUV(8, 0, 8, 8, 8), pivot: [8, 8, 8], rot: [0, 0, 0]},
                 {size: [1, 4, 4], pos: [5, 0, 12], ...boxUV(32, 1, 1, 4, 4)},
                 {size: [1, 2, 1], pos: [5, 0, 11], ...boxUV(3, 0, 1, 2, 1)},
-                {size: [1, 2, 1], pos: [5, 0, 15], ...boxUV(3, 4, 1, 2, 1)},
-                {size: [4, 5, 1], pos: [13, 5, 6], ...boxUV(43, 6, 4, 5, 1), pivot: [13, 6, 8], rot: [0, 0, -30]},
-                {size: [4, 5, 1], pos: [3, 5, 6], ...boxUV(55, 6, 4, 5, 1), pivot: [3, 6, 8], rot: [0, 0, 30]}
+                {size: [1, 2, 1], pos: [5, 0, 16], ...boxUV(3, 4, 1, 2, 1)},
+                {size: [4, 5, 1], pos: [6, 5, 13], ...boxUV(43, 6, 4, 5, 1), pivot: [13, 6, 8], rot: [0, 0, -30]},
+                {size: [4, 5, 1], pos: [6, 5, 3], ...boxUV(55, 6, 4, 5, 1), pivot: [3, 6, 8], rot: [0, 0, 30]}
             ]
             let pigheadGeo = buildMCModel(parts, 64);
             pigheadGeo.clearGroups();
