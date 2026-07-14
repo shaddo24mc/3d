@@ -1124,7 +1124,7 @@ const INVENTORY_SIZE = 9;
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
 inventory[0] = { type: 'netherite_shovel', count: 1 };
-inventory[1] = { type: 'snow', count: 64 };
+inventory[1] = { type: 'decorated_pot', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
 inventory[3] = { type: 'tall_grass', count: 64 };
 inventory[4] = { type: 'sunflower', count: 64 };
@@ -2032,11 +2032,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             const potSideMat = new THREE.MeshLambertMaterial({ map: potSideTex, transparent: false, alphaTest: 0.5 });
 
             const neckBaseParts = [
-                { size: [8, 3, 8], pos: [4, 16, 4], uvNorth: [0, 8], uvSouth: [16, 8], uvEast: [24, 8], uvWest: [8, 8], uvUp: [8, 0], uvDown: [16, 0] },
-                { size: [6, 1, 6], pos: [5, 13, 5], uvNorth: [0, 11], uvSouth: [12, 11], uvEast: [18, 11], uvWest: [6, 11], uvUp: [0, 0], uvDown: [24, 0] }
+                { size: [8, 3, 8], pos: [4, 13, 4], uvNorth: [0, 8], uvSouth: [16, 8], uvEast: [24, 8], uvWest: [8, 8], uvUp: [8, 0], uvDown: [16, 0] },
+                { size: [6, 1, 6], pos: [5, 12, 5], uvNorth: [0, 11], uvSouth: [12, 11], uvEast: [18, 11], uvWest: [6, 11], uvUp: [0, 0], uvDown: [24, 0] }
             ];
             const bodyParts = [
-                { size: [14, 14, 14], pos: [2, 0, 2], uvNorth: [1, 3], uvSouth: [1, 3], uvEast: [1, 3], uvWest: [1, 3], uvUp: [1, 1], uvDown: [1, 1] }
+                { size: [14, 14, 14], pos: [1, 0, 1], uvNorth: [1, 3], uvSouth: [1, 3], uvEast: [1, 3], uvWest: [1, 3], uvUp: [1, 1], uvDown: [1, 1] }
             ];
 
             let neckBaseGeo = buildMCModel(neckBaseParts, 32);
