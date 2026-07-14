@@ -2132,12 +2132,12 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         //heh
         else if (bName === 'piglin_head') {
             const parts = [
-                {size: [10, 8, 8], pos: [3, 0, 4],uvNorth: [8, 8], uvSouth: [28, 8], uvEast: [0, 8], uvWest: [18, 8], uvUp: [8, 0], uvDown: [18, 0]},
+                {size: [10, 8, 8], pos: [3, 0, 4],uvNorth: [8, 8], uvSouth: [26, 8], uvEast: [0, 8], uvWest: [18, 8], uvUp: [8, 0], uvDown: [18, 0]},
                 {size: [4, 4, 1], pos: [6, 0, 12], uvNorth: [32, 2], uvSouth: [37, 2], uvEast: [31, 2], uvWest: [36, 2], uvUp: [32, 1], uvDown: [36, 1]},
                 {size: [1, 2, 1], pos: [5, 0, 12], uvNorth: [3, 1], uvSouth: [5, 1], uvEast: [2, 1], uvWest: [4, 1], uvUp: [3, 0], uvDown: [4, 0]},
                 {size: [1, 2, 1], pos: [10, 0, 12], uvNorth: [3, 5], uvSouth: [5, 5], uvEast: [2, 5], uvWest: [4, 5], uvUp: [3, 4], uvDown: [4, 4]},
                 {size: [1, 5, 4], pos: [12, 1, 6], uvNorth: [43, 10], uvSouth: [48, 10], uvEast: [39, 10], uvWest: [44, 10], uvUp: [43, 6], uvDown: [44, 6], pivot: [12, 6, 8], rot: [0, 0, 30]},
-                {size: [1, 5, 4], pos: [2, 1, 6], uvNorth: [55, 10], uvSouth: [60, 10], uvEast: [51, 10], uvWest: [56, 10], uvUp: [55, 6], uvDown: [56, 6], pivot: [3, 6, 8], rot: [0, 0, 30]}
+                {size: [1, 5, 4], pos: [3, 1, 6], uvNorth: [55, 10], uvSouth: [60, 10], uvEast: [56, 10], uvWest: [51, 10], uvUp: [55, 6], uvDown: [56, 6], pivot: [3, 6, 8], rot: [0, 0, -30]}
             ]
             let pigheadGeo = buildMCModel(parts, 64);
             pigheadGeo.clearGroups();
