@@ -4281,7 +4281,7 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [0, 5, 2],
                 rot: [-90, 0, 0],
-                cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 18, 10] } mirrorU: ['north', 'south'], mirrorV: ['north']]
+                cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 18, 10], mirrorU: ['north', 'south'], mirrorV: ['north']}]
             },
             head: {
                 parent: null,
@@ -4289,7 +4289,8 @@ const MOB_MODELS = {
                 cubes: [
                     { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6] },
                     { texOffs: [22, 0], from: [-5, -5, -4], size: [1, 3, 1] },
-                    { texOffs: [22, 0], from: [4, -5, -4],  size: [1, 3, 1] }
+                    { texOffs: [22, 0], from: [4, -5, -4],  size: [1, 3, 1] },
+                    { texOffs: [0, 32], from: [-3, -4, -7], size: [6, 3, 1]},
                 ]
             },
             legFrontRight: { parent: null, pivot: [-4, 12, -6], cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
