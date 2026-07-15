@@ -4238,7 +4238,7 @@ const MOB_MODELS = {
     cow: {
         texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
         texW: 64,
-        texH: 32,
+        texH: 64,
         parts: {
             body: {
                 parent: null,
