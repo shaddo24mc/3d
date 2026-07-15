@@ -4208,10 +4208,20 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
 // overlayOptions (optional) = {material, texW, texH, defaultInflate}.
 function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
     const group = new THREE.Group();
+
     if (partDef.pivot) {
         const [px, py, pz] = partDef.pivot;
         group.position.set(-px / 16, -py / 16, pz / 16);
     }
+
+    if (partDef.rot) {
+        group.rotation.set(
+            THREE.MathUtils.degToRad(partDef.rot[0]),
+            THREE.MathUtils.degToRad(partDef.rot[1]),
+            THREE.MathUtils.degToRad(partDef.rot[2])
+        );
+    }
+
     const geos = partDef.cubes.map(c => buildMcCubeGeometry(c, texW, texH));
     const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
     const mesh = new THREE.Mesh(merged, material);
@@ -4253,7 +4263,8 @@ const MOB_MODELS = {
             body: {
                 parent: null,
                 pivot: [0, 5, 2],
-                cubes: [ { uvUp: [50, 14], uvDown: [28, 14], uvEast: [18, 14], uvNorth: [28, 4], uvWest: [40, 14], uvSouth: [], from: [-6, -10, -7], size: [12, 10, 18] } ]
+                rot: [0, 0, 90],
+                cubes: [ { uvNorth: [50, 14], uvSouth: [28, 14], uvEast: [18, 14], uvUp: [28, 4], uvWest: [40, 14], uvDown: [40, 4], from: [-6, -10, -7], size: [12, 18, 10] } ]
             },
             head: {
                 parent: 'body',
