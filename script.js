@@ -4102,12 +4102,23 @@ function mergeBufferGeometries(geos) {
 }
 
 // ============================================================================
-// MOB MODEL SYSTEM - code mob models here, kinda like the hardcoded block
-// models. Spawn eggs named "<type>_spawn_egg" spawn MOB_MODELS[type].
+// MOB MODEL SYSTEM - mirrors real Minecraft's entity model format 1:1, so you
+// can transcribe decompiled Java model classes (e.g. CowModel.java) directly:
+//   Java: CubeListBuilder.create().texOffs(u,v).addBox(x,y,z,dx,dy,dz)
+//   Here: { texOffs:[u,v], from:[x,y,z], size:[dx,dy,dz] }
+//   Java: PartPose.offset(x,y,z)   ->  Here: pivot:[x,y,z]
+//   Java: .mirror().addBox(...)    ->  Here: add mirror:true to that cube
+// All numbers are the SAME raw Minecraft model units (1/16 block, Y
+// increasing DOWNWARD) as real source - paste them straight in, no manual
+// conversion. The engine applies the same coordinate flip Minecraft's own
+// renderer applies (poseStack.scale(-1,-1,1)) so parts end up positioned
+// exactly like they do in-game.
 // ============================================================================
 
-// Same box-UV math as your hardcoded block models use (loadCustomModel's
-// boxUV), kept as its own copy here since that one is scoped locally.
+// Same box-UV formula as blocks' boxUV (verified against real vanilla
+// head/skull UVs) - this is the layout texOffs() actually produces:
+//   [blank(d)][ Top(w) ][Bottom(w)][blank(d)]   <- row v .. v+d-1
+//   [East(d)][ North(w)][ West(d)][South(w)]    <- row v+d .. v+d+h-1
 function boxUVShared(u, v, w, h, d) {
     return {
         uvUp:    [u + d, v],
@@ -4117,15 +4128,6 @@ function boxUVShared(u, v, w, h, d) {
         uvWest:  [u + d + w, v + d],
         uvSouth: [u + d + w + d, v + d]
     };
-}
-
-// Converts a box origin (u,v,w,h,d) into uvUp/uvDown/uvEast/uvWest/uvNorth/
-// uvSouth rectangles - same East=+X West=-X Up=+Y Down=-Y South=+Z North=-Z
-// convention as loadCustomModel's boxUV for blocks. Used automatically when
-// a cube has uv:[u,v]; the named uvUp/uvNorth/etc below use this same
-// convention manually, so both paths behave identically.
-function entityBoxUV(u, v, w, h, d) {
-    return boxUVShared(u, v, w, h, d);
 }
 
 const MOB_TEXTURE_CACHE = {};
@@ -4139,66 +4141,68 @@ function getMobTexture(path) {
     return tex;
 }
 
-// Applies {uvUp, uvDown, uvEast, uvWest, uvNorth, uvSouth} [u,v] origins to a
-// BoxGeometry's faces. Matches loadCustomModel's setF exactly:
-// face index 0=+X(East) 1=-X(West) 2=+Y(Up) 3=-Y(Down) 4=+Z(South) 5=-Z(North).
-function applyEntityCubeUVs(geometry, faces, w, h, d, texW, texH) {
+// Applies one cube's UV rectangles to its BoxGeometry.
+// THREE.BoxGeometry face order: 0=+X 1=-X 2=+Y 3=-Y 4=+Z 5=-Z.
+// Because buildMcCubeGeometry negates X and Y (matching Minecraft's render
+// flip) while leaving Z alone, the mapping from raw Minecraft face labels to
+// THREE's local face indices works out to (derived from first principles,
+// not copied from the block system):
+//   +X -> West   -X -> East   (X was negated -> East/West swap)
+//   +Y -> Up     -Y -> Down   (Y was negated, but "Up" is already the MIN-y
+//                              side in Minecraft's down-increasing convention,
+//                              so the two negations cancel out - no swap)
+//   +Z -> South  -Z -> North  (Z untouched -> same as block convention)
+function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror) {
     const uv = geometry.attributes.uv;
     const setFace = (faceIdx, rect, fw, fh) => {
         if (!rect) return;
-        const u1 = rect[0] / texW, u2 = (rect[0] + fw) / texW;
+        let u1 = rect[0] / texW, u2 = (rect[0] + fw) / texW;
         const v1 = 1 - (rect[1] + fh) / texH, v2 = 1 - rect[1] / texH;
+        if (mirror) { const t = u1; u1 = u2; u2 = t; }
         const i = faceIdx * 4;
         uv.setXY(i,   u1, v2);
         uv.setXY(i+1, u2, v2);
         uv.setXY(i+2, u1, v1);
         uv.setXY(i+3, u2, v1);
     };
-    setFace(0, faces.uvEast,  d, h);
-    setFace(1, faces.uvWest,  d, h);
+    setFace(0, faces.uvWest,  d, h);
+    setFace(1, faces.uvEast,  d, h);
     setFace(2, faces.uvUp,    w, d);
     setFace(3, faces.uvDown,  w, d);
     setFace(4, faces.uvSouth, w, h);
     setFace(5, faces.uvNorth, w, h);
-    uv.needsUpdate = true;
 }
 
-// One cube: {size:[w,h,d], pos:[x,y,z], ...UV}.
-// pos is the box's min-corner, relative to the part's own pivot (a SMALL
-// offset, e.g. [-w/2, 0, -d/2] to center it under the pivot) - NOT an
-// absolute/world position. See the pivot/pos note above MOB_MODELS below.
-// UV can be given two ways (same convention either way):
-//   1) uv:[u,v]  -> auto box-UV layout, identical math to blocks' boxUV
-//   2) uvUp/uvDown/uvNorth/uvSouth/uvEast/uvWest: [u,v] each -> manual,
-//      same per-face style as loadCustomModel's hardcoded block parts.
-// overlayUv:[u,v] (optional) lets the 2nd-layer pass use different art.
-// inflate (pixels) grows the cube outward on all sides, keeping it centered -
-// used for the overlay/2nd-layer pass so it doesn't z-fight with the base mesh.
-// uvOverride lets the overlay pass use a different uv than the base cube's own.
-function buildEntityCubeGeometry(cube, texW, texH, inflate = 0, uvOverride = null) {
-    const [w, h, d] = cube.size;
-    const [x, y, z] = cube.pos;
-    const geo = new THREE.BoxGeometry((w + inflate * 2) / 16, (h + inflate * 2) / 16, (d + inflate * 2) / 16);
+// Builds one cube exactly like Minecraft's ModelPart.Cube: "from" is the
+// corner in raw Minecraft model-space (Y down), "size" is [dx,dy,dz].
+// Applies the same flip the real renderer's poseStack.scale(-1,-1,1) does,
+// so numbers pasted straight from Java land in the same visual place.
+function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
+    const [x, y, z] = cube.from;
+    const [dx, dy, dz] = cube.size;
+    const geo = new THREE.BoxGeometry((dx + inflate * 2) / 16, (dy + inflate * 2) / 16, (dz + inflate * 2) / 16);
 
-    let faces = null;
-    if (uvOverride) {
-        faces = entityBoxUV(uvOverride[0], uvOverride[1], w, h, d);
-    } else if (cube.uv) {
-        faces = entityBoxUV(cube.uv[0], cube.uv[1], w, h, d);
-    } else if (cube.uvUp || cube.uvDown || cube.uvNorth || cube.uvSouth || cube.uvEast || cube.uvWest) {
-        faces = { uvUp: cube.uvUp, uvDown: cube.uvDown, uvNorth: cube.uvNorth, uvSouth: cube.uvSouth, uvEast: cube.uvEast, uvWest: cube.uvWest };
+    if (cube.texOffs) {
+        const faces = boxUVShared(cube.texOffs[0], cube.texOffs[1], dx, dy, dz);
+        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror);
     }
-    if (faces) applyEntityCubeUVs(geo, faces, w, h, d, texW, texH);
 
-    geo.translate((x + w / 2) / 16, (y + h / 2) / 16, (z + d / 2) / 16);
+    const cx = -(x + dx / 2);
+    const cy = -(y + dy / 2);
+    const cz =  (z + dz / 2);
+    geo.translate(cx / 16, cy / 16, cz / 16);
     return geo;
 }
 
-
-function buildEntityPart(partDef, material, texW, texH, overlayOptions = null) {
+// One part = one pivoted THREE.Group, matching a Minecraft PartDefinition.
+// overlayOptions (optional) = {material, texW, texH, defaultInflate}.
+function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
     const group = new THREE.Group();
-    if (partDef.pivot) group.position.set(partDef.pivot[0] / 16, partDef.pivot[1] / 16, partDef.pivot[2] / 16);
-    const geos = partDef.cubes.map(c => buildEntityCubeGeometry(c, texW, texH));
+    if (partDef.pivot) {
+        const [px, py, pz] = partDef.pivot;
+        group.position.set(-px / 16, -py / 16, pz / 16);
+    }
+    const geos = partDef.cubes.map(c => buildMcCubeGeometry(c, texW, texH));
     const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
     const mesh = new THREE.Mesh(merged, material);
     group.add(mesh);
@@ -4206,9 +4210,7 @@ function buildEntityPart(partDef, material, texW, texH, overlayOptions = null) {
 
     if (overlayOptions && partDef.overlay) {
         const inflate = partDef.overlayInflate !== undefined ? partDef.overlayInflate : overlayOptions.defaultInflate;
-        const overlayGeos = partDef.cubes.map(c =>
-            buildEntityCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate, c.overlayUv || c.uv)
-        );
+        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate));
         const overlayMerged = overlayGeos.length > 1 ? mergeBufferGeometries(overlayGeos) : overlayGeos[0];
         const overlayMesh = new THREE.Mesh(overlayMerged, overlayOptions.material);
         overlayMesh.renderOrder = 1;
@@ -4218,57 +4220,48 @@ function buildEntityPart(partDef, material, texW, texH, overlayOptions = null) {
     return group;
 }
 
-// ---- Mob registry -------------------------------------------------------
-// Add new mobs here. "parts" is name -> {pivot, cubes[], color?, overlay?, overlayInflate?}.
-// "hierarchy" says which part each part attaches to (null = attaches to root).
-// To texture a mob instead of using flat colors: add texture/texW/texH to
-// the mob def, and give each cube a uv:[u,v] (see entityBoxUV above).
+// ---- Mob registry ---------------------------------------------------------
+// Add mobs using the exact same shape as decompiled Minecraft model classes.
+// Each part: { parent: 'otherPartName' | null, pivot:[x,y,z], cubes:[...] }.
+// cubes: { texOffs:[u,v], from:[x,y,z], size:[dx,dy,dz], mirror?:true }.
+// "color" (NOT a real Minecraft field, our own fallback) renders a part as a
+// flat color when you haven't wired up a texture yet.
 //
-// OVERLAY LAYER (wolf collar, zombie villager clothes, charged creeper's
-// glow, etc. - any mob with a 2nd "skin" drawn over the base):
-// 1. Add overlayTexture/overlayTexW/overlayTexH to the mob def (same shape
-//    as texture/texW/texH, just for the second layer's own image file).
-// 2. Set overlay: true on any part that should get the second mesh.
-// 3. Each cube can add overlayUv:[u,v] if the overlay art sits at different
-//    coordinates than that cube's own uv - if omitted, it reuses the base uv.
-// 4. partDef.overlayInflate overrides the mob-level default (0.25, matching
-//    vanilla's standard 2nd-layer gap) if one part needs a different amount.
-//
-// Example shape (illustrative only - not wired to a real mob or texture yet;
-// fill in real uv's once you upload the actual textures, same process used
-// for piglin_head/cow):
-//   wolf: {
-//       texture: 'assets/minecraft/textures/entity/wolf/wolf.png', texW: 64, texH: 32,
-//       overlayTexture: 'assets/minecraft/textures/entity/wolf/wolf_collar.png', overlayTexW: 64, overlayTexH: 32,
-//       parts: {
-//           body: { pivot: [0, 10, 0], overlay: true, cubes: [ { size: [6, 9, 6], pos: [-3, 0, -3], uv: [0, 0] } ] }
-//       },
-//       hierarchy: { body: null }
-//   }
+// HONESTY NOTE on the numbers below: this is the FORMAT used by real
+// CowModel.java, transcribed as best I can recall the actual source (I do
+// not have decompiled source open to verify against in this session). Treat
+// these specific digits as "should be close" rather than confirmed. Upload
+// cow.png (real vanilla file is 64x32, not 64x64) and I'll verify the
+// texOffs regions against actual pixel data the same way piglin_head's UVs
+// were verified.
 const MOB_MODELS = {
     cow: {
-        texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
+        texture: 'assets/minecraft/textures/entity/cow/cow.png',
         texW: 64,
-        texH: 64, // NOTE: vanilla cow.png is traditionally 64x32 - verify this once you upload the real file
+        texH: 32,
         parts: {
-            // pos values below = your original pos MINUS pivot, so the box
-            // keeps the same size/location you intended, just expressed
-            // relative to its own pivot like the system expects.
-            body:  { pivot: [8, 19, 9],  cubes: [ { size: [12, 10, 18], pos: [-6, -7, -10], uvUp: [52, 14], uvDown: [28, 14], uvNorth: [28, 4], uvSouth: [40, 4], uvEast: [18, 14], uvWest: [40, 14] } ] },
-
-            head:  { pivot: [8, 20, 17], cubes: [ { size: [8, 8, 6], pos: [-4, -4, 0], uv: [0, 0] } ] },
-
-            // TODO: these legs still have no uv/uvUp/etc at all, so with the
-            // cow now textured they'll show the "whole texture squished on
-            // one face" bug until you add real coordinates here (same as
-            // body/head) - upload cow_temperate.png and I'll compute them.
-            legFL: { pivot: [-3, 10, -5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-            legFR: { pivot: [3, 10, -5],  cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-            legBL: { pivot: [-3, 10, 5],  cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-            legBR: { pivot: [3, 10, 5],   cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] }
-        },
-        hierarchy: { body: null, head: 'body', legFL: 'body', legFR: 'body', legBL: 'body', legBR: 'body' }
+            body: {
+                parent: null,
+                pivot: [0, 5, 2],
+                cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 18, 10] } ]
+            },
+            head: {
+                parent: 'body',
+                pivot: [0, 4, -8],
+                cubes: [
+                    { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6] },
+                    { texOffs: [22, 0], from: [-5, -5, -4], size: [1, 3, 1] },
+                    { texOffs: [22, 0], from: [4, -5, -4],  size: [1, 3, 1] }
+                ]
+            },
+            legFrontRight: { parent: null, pivot: [-4, 12, -6], cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
+            legFrontLeft:  { parent: null, pivot: [4, 12, -6],  cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
+            legBackRight:  { parent: null, pivot: [-4, 12, 7],  cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
+            legBackLeft:   { parent: null, pivot: [4, 12, 7],   cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] }
+        }
     }
+    // Add more mobs the same way - e.g. paste in a real decompiled
+    // ZombieModel/WolfModel/etc, matching part.parent to the real hierarchy.
 };
 
 function buildMobModel(type) {
@@ -4296,15 +4289,23 @@ function buildMobModel(type) {
     for (const name in def.parts) {
         const partDef = def.parts[name];
         const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff });
-        groups[name] = buildEntityPart(partDef, mat, def.texW, def.texH, overlayOptions);
+        groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions);
     }
     const root = new THREE.Group();
     for (const name in groups) {
-        const parentName = def.hierarchy ? def.hierarchy[name] : null;
+        const parentName = def.parts[name].parent;
         if (parentName && groups[parentName]) groups[parentName].add(groups[name]);
         else root.add(groups[name]);
     }
-    return { root, parts: groups, def };
+
+    // Ground the model: find its lowest point so spawnMob can place it
+    // feet-first on the clicked block, without needing to know Mojang's
+    // internal render-anchor offset (which this engine doesn't replicate).
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
+    const feetOffset = box.min.y; // negative: how far below root's origin the lowest point sits
+
+    return { root, parts: groups, def, feetOffset };
 }
 
 const mobs = [];
@@ -4312,7 +4313,7 @@ const mobs = [];
 function spawnMob(type, x, y, z) {
     const model = buildMobModel(type);
     if (!model) { console.warn('No MOB_MODELS entry for', type); return; }
-    model.root.position.set(x, y, z);
+    model.root.position.set(x, y - model.feetOffset, z);
     scene.add(model.root);
     mobs.push({ type, model, position: new THREE.Vector3(x, y, z), velocity: new THREE.Vector3(0, 0, 0), onGround: false, bobTime: Math.random() * 10 });
 }
@@ -4336,7 +4337,7 @@ function updateMobs(delta) {
         mob.position.set(nx, ny, nz);
         mob.bobTime += delta;
         const bob = mob.onGround ? Math.sin(mob.bobTime * 3) * 0.02 : 0;
-        mob.model.root.position.set(nx, ny + bob, nz);
+        mob.model.root.position.set(nx, ny - mob.model.feetOffset + bob, nz);
     }
 }
 
