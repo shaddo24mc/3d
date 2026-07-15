@@ -4254,6 +4254,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
 // cow.png (real vanilla file is 64x32, not 64x64) and I'll verify the
 // texOffs regions against actual pixel data the same way piglin_head's UVs
 // were verified.
+//uvNorth: [50, 14], uvSouth: [28, 14], uvEast: [18, 14], uvUp: [28, 4], uvWest: [40, 14], uvDown: [40, 4], from: [-6, -10, -7], size: [12, 18, 10] } ]
 const MOB_MODELS = {
     cow: {
         texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
@@ -4264,7 +4265,7 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [0, 5, 2],
                 rot: [0, 0, 0],
-                cubes: [ { uvNorth: [50, 14], uvSouth: [28, 14], uvEast: [18, 14], uvUp: [28, 4], uvWest: [40, 14], uvDown: [40, 4], from: [-6, -10, -7], size: [12, 18, 10] } ]
+                cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 18, 10] } ]
             },
             head: {
                 parent: 'body',
