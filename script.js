@@ -4279,22 +4279,22 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [0, 5, 2],
+                pivot: [0, 19, 1],
                 rot: [-90, 0, 0],
                 cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']}]
             },
             head: {
                 parent: null,
-                pivot: [0, 4, -8],
+                pivot: [0, 20, -9],
                 cubes: [
-                    { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6], mirrorU: ['up, down'], mirrorV: ['up'] },
+                    { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6], mirrorU: ['up, down'] },
                     { texOffs: [22, 0], from: [-5, -5, -4], size: [1, 3, 1] },
                     { texOffs: [22, 0], from: [4, -5, -4],  size: [1, 3, 1] },
                     { texOffs: [0, 32], from: [-3, -4, -7], size: [6, 3, 2] },
                 ]
             },
-            legFrontRight: { parent: null, pivot: [-4, 12, -5], cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
-            legFrontLeft:  { parent: null, pivot: [4, 12, -5],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 0, -2], size: [4, 12, 4], mirrorU: ['north'] } ] },
+            legFrontRight: { parent: null, pivot: [-4, 12, -7], cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
+            legFrontLeft:  { parent: null, pivot: [4, 12, -7],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 0, -2], size: [4, 12, 4], mirrorU: ['north'] } ] },
             legBackRight:  { parent: null, pivot: [-4, 12, 6],  cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
             legBackLeft:   { parent: null, pivot: [4, 12, 6],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 0, -2], size: [4, 12, 4], mirrorU: ['north'] } ] }
         }
