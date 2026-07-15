@@ -4119,18 +4119,13 @@ function boxUVShared(u, v, w, h, d) {
     };
 }
 
-// Converts a boxUV(u,v,w,h,d) origin into the {front,back,left,right,top,bottom}
-// rectangle format used below - only needed once you give a part a real texture.
+// Converts a box origin (u,v,w,h,d) into uvUp/uvDown/uvEast/uvWest/uvNorth/
+// uvSouth rectangles - same East=+X West=-X Up=+Y Down=-Y South=+Z North=-Z
+// convention as loadCustomModel's boxUV for blocks. Used automatically when
+// a cube has uv:[u,v]; the named uvUp/uvNorth/etc below use this same
+// convention manually, so both paths behave identically.
 function entityBoxUV(u, v, w, h, d) {
-    const r = boxUVShared(u, v, w, h, d);
-    return {
-        top:    [r.uvUp[0],    r.uvUp[1],    w, d],
-        bottom: [r.uvDown[0],  r.uvDown[1],  w, d],
-        right:  [r.uvEast[0],  r.uvEast[1],  d, h],
-        left:   [r.uvWest[0],  r.uvWest[1],  d, h],
-        front:  [r.uvSouth[0], r.uvSouth[1], w, h],
-        back:   [r.uvNorth[0], r.uvNorth[1], w, h]
-    };
+    return boxUVShared(u, v, w, h, d);
 }
 
 const MOB_TEXTURE_CACHE = {};
@@ -4144,35 +4139,39 @@ function getMobTexture(path) {
     return tex;
 }
 
-function applyEntityUVs(geometry, faceUVs, texW, texH) {
+// Applies {uvUp, uvDown, uvEast, uvWest, uvNorth, uvSouth} [u,v] origins to a
+// BoxGeometry's faces. Matches loadCustomModel's setF exactly:
+// face index 0=+X(East) 1=-X(West) 2=+Y(Up) 3=-Y(Down) 4=+Z(South) 5=-Z(North).
+function applyEntityCubeUVs(geometry, faces, w, h, d, texW, texH) {
     const uv = geometry.attributes.uv;
-    const order = ['left', 'right', 'top', 'bottom', 'front', 'back'];
-    order.forEach((faceName, faceIdx) => {
-        const r = faceUVs[faceName];
-        if (!r) return;
-        const u1 = r[0] / texW;
-        const v1 = 1 - (r[1] + r[3]) / texH;
-        const u2 = (r[0] + r[2]) / texW;
-        const v2 = 1 - r[1] / texH;
+    const setFace = (faceIdx, rect, fw, fh) => {
+        if (!rect) return;
+        const u1 = rect[0] / texW, u2 = (rect[0] + fw) / texW;
+        const v1 = 1 - (rect[1] + fh) / texH, v2 = 1 - rect[1] / texH;
         const i = faceIdx * 4;
-        if (faceName === 'bottom') {
-            uv.setXY(i,   u2, v1);
-            uv.setXY(i+1, u1, v1);
-            uv.setXY(i+2, u2, v2);
-            uv.setXY(i+3, u1, v2);
-        } else {
-            uv.setXY(i,   u1, v2);
-            uv.setXY(i+1, u2, v2);
-            uv.setXY(i+2, u1, v1);
-            uv.setXY(i+3, u2, v1);
-        }
-    });
+        uv.setXY(i,   u1, v2);
+        uv.setXY(i+1, u2, v2);
+        uv.setXY(i+2, u1, v1);
+        uv.setXY(i+3, u2, v1);
+    };
+    setFace(0, faces.uvEast,  d, h);
+    setFace(1, faces.uvWest,  d, h);
+    setFace(2, faces.uvUp,    w, d);
+    setFace(3, faces.uvDown,  w, d);
+    setFace(4, faces.uvSouth, w, h);
+    setFace(5, faces.uvNorth, w, h);
     uv.needsUpdate = true;
 }
 
-// One cube: {size:[w,h,d], pos:[x,y,z], uv:[u,v] (optional), overlayUv:[u,v] (optional)}.
-// pos is the box's min-corner, relative to the part's own pivot -
-// same idea as size/pos in loadCustomModel's hardcoded parts.
+// One cube: {size:[w,h,d], pos:[x,y,z], ...UV}.
+// pos is the box's min-corner, relative to the part's own pivot (a SMALL
+// offset, e.g. [-w/2, 0, -d/2] to center it under the pivot) - NOT an
+// absolute/world position. See the pivot/pos note above MOB_MODELS below.
+// UV can be given two ways (same convention either way):
+//   1) uv:[u,v]  -> auto box-UV layout, identical math to blocks' boxUV
+//   2) uvUp/uvDown/uvNorth/uvSouth/uvEast/uvWest: [u,v] each -> manual,
+//      same per-face style as loadCustomModel's hardcoded block parts.
+// overlayUv:[u,v] (optional) lets the 2nd-layer pass use different art.
 // inflate (pixels) grows the cube outward on all sides, keeping it centered -
 // used for the overlay/2nd-layer pass so it doesn't z-fight with the base mesh.
 // uvOverride lets the overlay pass use a different uv than the base cube's own.
@@ -4180,8 +4179,17 @@ function buildEntityCubeGeometry(cube, texW, texH, inflate = 0, uvOverride = nul
     const [w, h, d] = cube.size;
     const [x, y, z] = cube.pos;
     const geo = new THREE.BoxGeometry((w + inflate * 2) / 16, (h + inflate * 2) / 16, (d + inflate * 2) / 16);
-    const uv = uvOverride || cube.uv;
-    if (uv) applyEntityUVs(geo, entityBoxUV(uv[0], uv[1], w, h, d), texW, texH);
+
+    let faces = null;
+    if (uvOverride) {
+        faces = entityBoxUV(uvOverride[0], uvOverride[1], w, h, d);
+    } else if (cube.uv) {
+        faces = entityBoxUV(cube.uv[0], cube.uv[1], w, h, d);
+    } else if (cube.uvUp || cube.uvDown || cube.uvNorth || cube.uvSouth || cube.uvEast || cube.uvWest) {
+        faces = { uvUp: cube.uvUp, uvDown: cube.uvDown, uvNorth: cube.uvNorth, uvSouth: cube.uvSouth, uvEast: cube.uvEast, uvWest: cube.uvWest };
+    }
+    if (faces) applyEntityCubeUVs(geo, faces, w, h, d, texW, texH);
+
     geo.translate((x + w / 2) / 16, (y + h / 2) / 16, (z + d / 2) / 16);
     return geo;
 }
@@ -4241,19 +4249,23 @@ const MOB_MODELS = {
     cow: {
         texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
         texW: 64,
-        texH: 64,
+        texH: 64, // NOTE: vanilla cow.png is traditionally 64x32 - verify this once you upload the real file
         parts: {
-            body:  { pivot: [8, 19, 9], cubes: [ { size: [12, 10, 18], pos: [2, 12, -1], uvUp: [52, 14], uvDown: [28, 14], uvNorth: [28, 4], uvSouth: [40, 4], uvEast: [18, 14], uvWest: [40, 14]} ] },
+            // pos values below = your original pos MINUS pivot, so the box
+            // keeps the same size/location you intended, just expressed
+            // relative to its own pivot like the system expects.
+            body:  { pivot: [8, 19, 9],  cubes: [ { size: [12, 10, 18], pos: [-6, -7, -10], uvUp: [52, 14], uvDown: [28, 14], uvNorth: [28, 4], uvSouth: [40, 4], uvEast: [18, 14], uvWest: [40, 14] } ] },
 
-            head:  { pivot: [8, 20, 17], cubes: [ { size: [8, 8, 6], pos: [4, 16, 17], uv: [0, 0] } ] },
+            head:  { pivot: [8, 20, 17], cubes: [ { size: [8, 8, 6], pos: [-4, -4, 0], uv: [0, 0] } ] },
 
+            // TODO: these legs still have no uv/uvUp/etc at all, so with the
+            // cow now textured they'll show the "whole texture squished on
+            // one face" bug until you add real coordinates here (same as
+            // body/head) - upload cow_temperate.png and I'll compute them.
             legFL: { pivot: [-3, 10, -5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-
-            legFR: { pivot: [3, 10, -5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-
-            legBL: { pivot: [-3, 10, 5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
-
-            legBR: { pivot: [3, 10, 5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] }
+            legFR: { pivot: [3, 10, -5],  cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+            legBL: { pivot: [-3, 10, 5],  cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
+            legBR: { pivot: [3, 10, 5],   cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] }
         },
         hierarchy: { body: null, head: 'body', legFL: 'body', legFR: 'body', legBL: 'body', legBR: 'body' }
     }
