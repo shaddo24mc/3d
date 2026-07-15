@@ -4123,9 +4123,9 @@ function boxUVShared(u, v, w, h, d) {
     return {
         uvUp:    [u + d, v],
         uvDown:  [u + d + w, v],
-        uvEast:  [u, v + d],
+        uvEast:  [u + d + w, v + d],
         uvNorth: [u + d, v + d],
-        uvWest:  [u + d + w, v + d],
+        uvWest:  [u, v + d],
         uvSouth: [u + d + w + d, v + d]
     };
 }
@@ -4152,13 +4152,29 @@ function getMobTexture(path) {
 //                              side in Minecraft's down-increasing convention,
 //                              so the two negations cancel out - no swap)
 //   +Z -> South  -Z -> North  (Z untouched -> same as block convention)
-function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror) {
+// NOTE: per-face mirrorU/mirrorV is NOT a real Minecraft feature. Vanilla's
+// CubeListBuilder.mirror() is one global flag that flips U on every face of a
+// cube - real texture sheets are laid out so that's always sufficient. This
+// per-face override is a custom engine-only convenience layered on top; it
+// does not correspond to anything in decompiled Java source.
+function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFaces, mirrorVFaces) {
     const uv = geometry.attributes.uv;
+    // THREE.BoxGeometry face order 0=+X 1=-X 2=+Y 3=-Y 4=+Z 5=-Z, which
+    // (per the flip explained above applyMcCubeUVs's call site) corresponds
+    // to west/east/up/down/south/north in that order.
+    const faceNameByIdx = ['west', 'east', 'up', 'down', 'south', 'north'];
     const setFace = (faceIdx, rect, fw, fh) => {
         if (!rect) return;
         let u1 = rect[0] / texW, u2 = (rect[0] + fw) / texW;
-        const v1 = 1 - (rect[1] + fh) / texH, v2 = 1 - rect[1] / texH;
-        if (mirror) { const t = u1; u1 = u2; u2 = t; }
+        let v1 = 1 - (rect[1] + fh) / texH, v2 = 1 - rect[1] / texH;
+
+        const faceName = faceNameByIdx[faceIdx];
+        const mirrorU = mirror || (mirrorUFaces && mirrorUFaces.includes(faceName));
+        const mirrorV = mirrorVFaces && mirrorVFaces.includes(faceName);
+
+        if (mirrorU) { const t = u1; u1 = u2; u2 = t; }
+        if (mirrorV) { const t = v1; v1 = v2; v2 = t; }
+
         const i = faceIdx * 4;
         uv.setXY(i,   u1, v2);
         uv.setXY(i+1, u2, v2);
@@ -4184,7 +4200,7 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
 
     if (cube.texOffs) {
         const faces = boxUVShared(cube.texOffs[0], cube.texOffs[1], dx, dy, dz);
-        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror);
+        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, cube.mirrorV);
     }
     else {
         const faces = {
@@ -4195,7 +4211,7 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
             uvNorth: cube.uvNorth,
             uvSouth: cube.uvSouth
         };
-        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror);
+        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, cube.mirrorV);
     }
     const cx = -(x + dx / 2);
     const cy = -(y + dy / 2);
