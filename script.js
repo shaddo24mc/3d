@@ -4245,7 +4245,7 @@ const MOB_MODELS = {
         parts: {
             body:  { pivot: [8, 19, 9], cubes: [ { size: [12, 10, 18], pos: [2, 12, -1], uvUp: [52, 14], uvDown: [28, 14], uvNorth: [28, 4], uvSouth: [40, 4], uvEast: [18, 14], uvWest: [40, 14]} ] },
 
-            head:  { pivot: [8, 20, 17], cubes: [ { size: [8, 8, 6], pos: [4, 16, 17] } ] },
+            head:  { pivot: [8, 20, 17], cubes: [ { size: [8, 8, 6], pos: [4, 16, 17], uv: [0, 0] } ] },
 
             legFL: { pivot: [-3, 10, -5], cubes: [ { size: [3, 10, 3], pos: [-1.5, -10, -1.5] } ] },
 
