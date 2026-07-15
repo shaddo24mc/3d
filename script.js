@@ -4236,7 +4236,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
 // were verified.
 const MOB_MODELS = {
     cow: {
-        texture: 'assets/minecraft/textures/entity/cow/cow.png',
+        texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
         texW: 64,
         texH: 32,
         parts: {
