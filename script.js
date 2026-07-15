@@ -4268,7 +4268,7 @@ const MOB_MODELS = {
                 cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 18, 10] } ]
             },
             head: {
-                parent: 'body',
+                parent: null,
                 pivot: [0, 4, -8],
                 cubes: [
                     { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6] },
