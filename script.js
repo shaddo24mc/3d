@@ -4186,7 +4186,10 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
         const faces = boxUVShared(cube.texOffs[0], cube.texOffs[1], dx, dy, dz);
         applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror);
     }
-
+    else {
+        const faces = (uvUp, uvDown, uvEast, uvNorth, uvWest, uvSouth)
+        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror)
+    }
     const cx = -(x + dx / 2);
     const cy = -(y + dy / 2);
     const cz =  (z + dz / 2);
@@ -4243,7 +4246,7 @@ const MOB_MODELS = {
             body: {
                 parent: null,
                 pivot: [0, 5, 2],
-                cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 10, 18] } ]
+                cubes: [ { uvUp: [50, 14], uvDown: [28, 14], uvEast: [18, 14], uvNorth: [28, 4], uvWest: [40, 14], uvSouth: [], from: [-6, -10, -7], size: [12, 10, 18] } ]
             },
             head: {
                 parent: 'body',
