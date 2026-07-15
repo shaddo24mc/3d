@@ -4187,7 +4187,7 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
         applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror);
     }
     else {
-        const faces = (uvUp, uvDown, uvEast, uvNorth, uvWest, uvSouth)
+        const faces = (cube.uvUp, cube.uvDown, cube.uvEast, cube.uvNorth, cube.uvWest, cube.uvSouth)
         applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror)
     }
     const cx = -(x + dx / 2);
