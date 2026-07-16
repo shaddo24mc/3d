@@ -4387,7 +4387,9 @@ function updateMobs(delta) {
         mob.position.set(nx, ny, nz);
         mob.bobTime += delta;
         const bob = mob.onGround ? Math.sin(mob.bobTime * 3) * 0.02 : 0;
-        mob.model.root.position.set(nx, ny - mob.model.feetOffset + bob, nz);
+        // Matches the mob-engine reference frame fix in spawnMob: local (0,0,0)
+        // is the center-bottom anchor directly, no feetOffset correction.
+        mob.model.root.position.set(nx, ny + bob, nz);
     }
 }
 
