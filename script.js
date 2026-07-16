@@ -4388,7 +4388,12 @@ function updateMobs(delta) {
         mob.position.set(nx, ny, nz);
         // Matches the mob-engine reference frame fix in spawnMob: local (0,0,0)
         // is the center-bottom anchor directly, no feetOffset correction.
-        mob.model.root.position.set(nx, ny - mob.model.feetOffset, nz);
+        const renderY = ny - mob.model.feetOffset;
+        if (!mob._loggedOnce) {
+            console.log(`[${mob.type}] ny=`, ny, 'feetOffset=', mob.model.feetOffset, 'renderY=', renderY, 'root.position.y=', mob.model.root.position.y);
+            mob._loggedOnce = true;
+        }
+        mob.model.root.position.set(nx, renderY, nz);
     }
 }
 
