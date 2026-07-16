@@ -4219,8 +4219,8 @@ const MOB_MODELS = {
                 pivot: [0, 19, 1],
                 rot: [-90, 0, 0],
                 cubes: [ 
-                    { texOffs: [18, 4], from: [-6, -10, -17], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']},
-                    {texOffs: [52, 0], from: [-2, 2, -18], size: [4, 6, 1]}
+                    { texOffs: [18, 4], from: [-6, -10, -14], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']},
+                    {texOffs: [52, 0], from: [-2, 2, -15], size: [4, 6, 1]}
                 ]
             },
             head: {
@@ -4228,9 +4228,9 @@ const MOB_MODELS = {
                 pivot: [0, 20, -9],
                 cubes: [
                     { texOffs: [0, 0],  from: [-4, -2, -6], size: [8, 8, 6], mirrorU: ['up', 'down'], mirrorV: ['up'] },
-                    { texOffs: [22, 0], from: [-5, -4, -5], size: [1, 3, 1] },
-                    { texOffs: [22, 0], from: [4, -4, -5],  size: [1, 3, 1] },
-                    { texOffs: [0, 32], from: [-3, 2, -7], size: [6, 3, 2] },
+                    { texOffs: [22, 0], from: [-5, -3, -5], size: [1, 3, 1] },
+                    { texOffs: [22, 0], from: [4, -3, -5],  size: [1, 3, 1] },
+                    { texOffs: [0, 32], from: [-3, 3, -7], size: [6, 3, 2] },
                 ]
             },
             legFrontRight: { parent: null, pivot: [-4, 12, -7], cubes: [ { texOffs: [0, 16], from: [-2, 18, -1], size: [4, 12, 4] } ] },
