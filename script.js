@@ -4285,7 +4285,7 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [0, 19, 1],
                 rot: [-90, 0, 0],
-                cubes: [ { texOffs: [18, 4], from: [-6, -10, -7], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']}]
+                cubes: [ { texOffs: [18, 4], from: [-6, -10, -8], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']}]
             },
             head: {
                 parent: null,
@@ -4356,7 +4356,14 @@ const mobs = [];
 function spawnMob(type, x, y, z) {
     const model = buildMobModel(type);
     if (!model) { console.warn('No MOB_MODELS entry for', type); return; }
-    model.root.position.set(x, y - model.feetOffset, z);
+    // Mob-engine-only reference frame: the model's own local (0,0,0) IS the
+    // anchor point directly - no bounding-box feetOffset correction applied.
+    // Whatever a part's pivot/cube math places at local (0,0,0) lands exactly
+    // at the given (x,y,z) in the world. This does NOT touch buildMcCubeGeometry
+    // or buildMcPart (cube/pivot math stays literal, vanilla-corner-based, as
+    // already confirmed correct) and does NOT touch the hardcoded block-model
+    // system (loadCustomModel/buildMCModel) at all - only mob placement.
+    model.root.position.set(x, y, z);
     scene.add(model.root);
     mobs.push({ type, model, position: new THREE.Vector3(x, y, z), velocity: new THREE.Vector3(0, 0, 0), onGround: false, bobTime: Math.random() * 10 });
 }
