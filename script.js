@@ -4315,12 +4315,12 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [8, -2, 8],
+                pivot: [8, 4, 8],
                 cubes: [ {texOffs: [16, 16], from: [-4, 6, -2], size: [8, 12, 4]}]
             },
             head: {
                 parent: 'body',
-                pivot: [0, -18, 0],
+                pivot: [0, 6, 0],
                 cubes: [ {texOffs: [0, 0], from: [-4, 0, -4], size: [8, 8, 8]}]
             },
             legFrontRight: {parent: 'body', pivot: [6, 6, 12], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
