@@ -4347,6 +4347,7 @@ function buildMobModel(type) {
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
     const feetOffset = box.min.y; // negative: how far below root's origin the lowest point sits
+    console.log(`[${type}] feetOffset =`, feetOffset, 'box.min =', box.min, 'box.max =', box.max);
 
     return { root, parts: groups, def, feetOffset };
 }
