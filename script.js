@@ -4291,16 +4291,16 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [8, 15, -17],
                 cubes: [
-                    { texOffs: [0, 0],  from: [-4, -5, -6], size: [8, 8, 6], mirrorU: ['up, down'], mirrorV: ['up'] },
-                    { texOffs: [22, 0], from: [-5, -5, -5], size: [1, 3, 1] },
-                    { texOffs: [22, 0], from: [4, -5, -5],  size: [1, 3, 1] },
-                    { texOffs: [0, 32], from: [-3, 1, -7], size: [6, 3, 2] },
+                    { texOffs: [0, 0],  from: [-4, -5, -6], size: [8, 8, 6], mirrorU: ['down'], mirrorV: ['up'] },
+                    { texOffs: [22, 0], from: [-5, -4, -5], size: [1, 3, 1] },
+                    { texOffs: [22, 0], from: [4, -4, -5],  size: [1, 3, 1] },
+                    { texOffs: [0, 32], from: [-3, 2, -7], size: [6, 3, 2] },
                 ]
             },
-            legFrontRight: { parent: null, pivot: [4, 4, -14], cubes: [ { texOffs: [0, 16], from: [-2, 12, -2], size: [4, -6, 4] } ] },
-            legFrontLeft:  { parent: null, pivot: [12, 4, -14],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 12, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] },
-            legBackRight:  { parent: null, pivot: [4, 4, -2],  cubes: [ { texOffs: [0, 16], from: [-2, 12, -2], size: [4, -6, 4] } ] },
-            legBackLeft:   { parent: null, pivot: [12, 4, -2],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 12, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] }
+            legFrontRight: { parent: null, pivot: [4, 4, -14], cubes: [ { texOffs: [0, 16], from: [-2, -6, -2], size: [4, 12, 4] } ] },
+            legFrontLeft:  { parent: null, pivot: [12, 4, -14],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, -6, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] },
+            legBackRight:  { parent: null, pivot: [4, 4, -2],  cubes: [ { texOffs: [0, 16], from: [-2, -6, -2], size: [4, 12, 4] } ] },
+            legBackLeft:   { parent: null, pivot: [12, 4, -2],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, -6, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] }
         }
     }
     // Add more mobs the same way - e.g. paste in a real decompiled
