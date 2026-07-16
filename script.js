@@ -4263,7 +4263,7 @@ const MOB_MODELS = {
 
 
         }
-    }
+    },
     wolf: {
         texture: 'assets/minecraft/textures/entity/wolf/wolf.png',
         texW: 64,
@@ -4279,6 +4279,22 @@ const MOB_MODELS = {
                     {texOffs: [16, 14], from: [1, -3, -1], size: [2, 2, 1]}
                 ]
             },
+            upperBody: {
+                parent: null,
+                pivot: [1, 10, 2],
+                rot: [-90, 0, 0],
+                cubes: [
+                    {texOffs: [21, 0], from: [-4, -2, -4], size: [8, 6, 7]},
+                ]
+            },
+            body: {
+                parent: null,
+                pivot: [0, 10, 2],
+                rot: [-90, 0, 0],
+                cubes: [
+                    {texOffs: [18, 14], from: [-4, 7, -3], size: [6, 9, 6]},
+                ]
+            }
         }
     }
 };
