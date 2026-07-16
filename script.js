@@ -4291,10 +4291,10 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [8, 15, -17],
                 cubes: [
-                    { texOffs: [0, 0],  from: [-4, -5, -6], size: [8, 8, 6], mirrorU: ['down'], mirrorV: ['up'] },
-                    { texOffs: [22, 0], from: [-5, -4, -5], size: [1, 3, 1] },
-                    { texOffs: [22, 0], from: [4, -4, -5],  size: [1, 3, 1] },
-                    { texOffs: [0, 32], from: [-3, -1, -7], size: [6, 3, 2] },
+                    { texOffs: [0, 0],  from: [-4, -5, -6], size: [8, 8, 6], mirrorU: ['up', 'down'], mirrorV: ['up'] },
+                    { texOffs: [22, 0], from: [-5, -6, -5], size: [1, 3, 1] },
+                    { texOffs: [22, 0], from: [4, -6, -5],  size: [1, 3, 1] },
+                    { texOffs: [0, 32], from: [-3, 0, -7], size: [6, 3, 2] },
                 ]
             },
             legFrontRight: { parent: null, pivot: [4, 4, -14], cubes: [ { texOffs: [0, 16], from: [-2, 18, -2], size: [4, 12, 4] } ] },
