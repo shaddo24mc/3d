@@ -4247,7 +4247,7 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [8, 0, 8],
+                pivot: [0, 0, 0],
                 cubes: [ {texOffs: [16, 16], from: [-4, 0, -2], size: [8, 12, 4]}]
             },
             head: {
