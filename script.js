@@ -4195,15 +4195,11 @@ function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFac
 // so numbers pasted straight from Java land in the same visual place.
 function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
     const [dx, dy, dz] = cube.size;
-    // NOTE: cube.from here is ALWAYS treated as bottom-center (centered on
-    // X/Z, sitting at the bottom edge on Y) - matching Blockbench's default
-    // cube origin gizmo, NOT raw vanilla Java's literal minimum-corner
-    // `addBox` convention. There is only this one interpretation; no
-    // alternate fields or per-cube flags. Read coordinates straight off
-    // Blockbench and drop them into `from` as-is.
-    const x = cube.from[0] - dx / 2;
-    const y = cube.from[1];
-    const z = cube.from[2] - dz / 2;
+    // cube.from is the literal minimum corner in raw Minecraft model space -
+    // the same convention real vanilla Java's addBox(x,y,z,dx,dy,dz) uses.
+    // No centering adjustment is applied; paste from/size straight from
+    // decompiled Java (or Blockbench's raw Position field) as-is.
+    const [x, y, z] = cube.from;
     const geo = new THREE.BoxGeometry((dx + inflate * 2) / 16, (dy + inflate * 2) / 16, (dz + inflate * 2) / 16);
 
     if (cube.texOffs) {
