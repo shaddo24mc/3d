@@ -4320,7 +4320,7 @@ const MOB_MODELS = {
             },
             head: {
                 parent: 'body',
-                pivot: [0, 6, 0],
+                pivot: [0, -2, 0],
                 cubes: [ {texOffs: [0, 0], from: [-4, 0, -4], size: [8, 8, 8]}]
             },
             legFrontRight: {parent: 'body', pivot: [6, 6, 12], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
