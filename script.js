@@ -4252,7 +4252,7 @@ const MOB_MODELS = {
             },
             head: {
                 parent: 'body',
-                pivot: [0, -2, 0],
+                pivot: [0, -8, 0],
                 cubes: [ {texOffs: [0, 0], from: [-4, 0, -4], size: [8, 8, 8]}]
             },
             legFrontRight: {parent: 'body', pivot: [-2, 6, -4], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
@@ -5672,8 +5672,13 @@ document.addEventListener('mousedown', (e) => {
             let placementType = selectedItem.type;
 
             if (placementType && placementType.endsWith('_spawn_egg')) {
+                // Block meshes are centered exactly at their integer coordinate
+                // (matrix.makeTranslation(startX+x, ...) uses no +0.5 offset), so
+                // the mob's X/Z should match that same integer coordinate directly -
+                // not be shifted by +0.5, which would spawn it off-center toward
+                // one corner of the block instead of centered on it.
                 const mobType = placementType.slice(0, -'_spawn_egg'.length);
-                spawnMob(mobType, placeX + 0.5, placeY, placeZ + 0.5);
+                spawnMob(mobType, placeX, placeY, placeZ);
                 selectedItem.count--;
                 if (selectedItem.count <= 0) { selectedItem.type = null; selectedItem.count = 0; }
                 updateInventoryUI();
