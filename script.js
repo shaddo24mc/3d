@@ -4376,9 +4376,13 @@ function updateMobs(delta) {
         let ny = mob.position.y + mob.velocity.y * delta;
         let nz = mob.position.z;
 
-        const feetBlock = getGlobalBlock(Math.floor(nx), Math.floor(ny - 0.05), Math.floor(nz));
+        const feetBlockY = Math.floor(ny - 0.05);
+        const feetBlock = getGlobalBlock(Math.floor(nx), feetBlockY, Math.floor(nz));
         if (feetBlock !== null && feetBlock !== 0 && !isTransparent[feetBlock]) {
-            ny = Math.floor(ny) + 1;
+            // Block meshes use a centered THREE.BoxGeometry(1,1,1), so a block
+            // at integer height blockY visually spans blockY-0.5 to blockY+0.5 -
+            // its real top surface is blockY + 0.5, not blockY + 1.
+            ny = feetBlockY + 0.5;
             mob.velocity.y = 0;
             mob.onGround = true;
         } else {
