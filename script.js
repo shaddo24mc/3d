@@ -4283,13 +4283,13 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [0, 19, 1],
+                pivot: [8, 19, 9],
                 rot: [-90, 0, 0],
                 cubes: [ { texOffs: [18, 4], from: [-6, -10, -8], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']}]
             },
             head: {
                 parent: null,
-                pivot: [0, 20, -9],
+                pivot: [8, 20, -1],
                 cubes: [
                     { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6], mirrorU: ['up, down'] },
                     { texOffs: [22, 0], from: [-5, -5, -4], size: [1, 3, 1] },
@@ -4297,10 +4297,10 @@ const MOB_MODELS = {
                     { texOffs: [0, 32], from: [-3, -4, -7], size: [6, 3, 2] },
                 ]
             },
-            legFrontRight: { parent: null, pivot: [-4, 12, -7], cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
-            legFrontLeft:  { parent: null, pivot: [4, 12, -7],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 0, -2], size: [4, 12, 4], mirrorU: ['north'] } ] },
-            legBackRight:  { parent: null, pivot: [-4, 12, 6],  cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
-            legBackLeft:   { parent: null, pivot: [4, 12, 6],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 0, -2], size: [4, 12, 4], mirrorU: ['north'] } ] }
+            legFrontRight: { parent: null, pivot: [4, 12, 1], cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
+            legFrontLeft:  { parent: null, pivot: [12, 12, 1],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 0, -2], size: [4, 12, 4], mirrorU: ['north'] } ] },
+            legBackRight:  { parent: null, pivot: [4, 12, 14],  cubes: [ { texOffs: [0, 16], from: [-2, 0, -2], size: [4, 12, 4] } ] },
+            legBackLeft:   { parent: null, pivot: [12, 12, 14],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 0, -2], size: [4, 12, 4], mirrorU: ['north'] } ] }
         }
     }
     // Add more mobs the same way - e.g. paste in a real decompiled
@@ -4387,9 +4387,7 @@ function updateMobs(delta) {
         mob.position.set(nx, ny, nz);
         mob.bobTime += delta;
         const bob = mob.onGround ? Math.sin(mob.bobTime * 3) * 0.02 : 0;
-        // Matches the mob-engine reference frame fix in spawnMob: local (0,0,0)
-        // is the center-bottom anchor directly, no feetOffset correction.
-        mob.model.root.position.set(nx, ny + bob, nz);
+        mob.model.root.position.set(nx, ny - mob.model.feetOffset + bob, nz);
     }
 }
 
