@@ -2053,9 +2053,6 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             neckBaseGeo.clearGroups();
             neckBaseGeo.addGroup(0, neckBaseGeo.index.count, 0);
 
-            // Body (14x16x14): top/bottom caps from base.png, 4 walls from side.png
-            // NOTE: side.png / base.png are standalone 16x16 textures, NOT part of the
-            // 32-wide sheet used by the neck/foot rings above — hence the separate bodyTS here.
             const bodyTS = 16;
             const setBodyFaceUV = (uvAttr, faceIdx, u, v, w, h, ts) => {
                 const u1 = u / ts, u2 = (u + w) / ts;
@@ -2071,16 +2068,11 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
             bodyGeo.clearGroups();
             const bodyUVs = bodyGeo.attributes.uv.array;
 
-            // Face order: 0=+X(east) 1=-X(west) 2=+Y(up) 3=-Y(down) 4=+Z(south) 5=-Z(north)
-
-            // 1. SIDES use the 16x16 side.png (Pass 16 at the end)
             setBodyFaceUV(bodyUVs, 0, 1, 0, 14, 16, 16); // east  
             setBodyFaceUV(bodyUVs, 1, 1, 0, 14, 16, 16); // west  
             setBodyFaceUV(bodyUVs, 4, 1, 0, 14, 16, 16); // south 
             setBodyFaceUV(bodyUVs, 5, 1, 0, 14, 16, 16); // north 
 
-            // 2. TOP and BOTTOM use the 32x32 base.png (Pass 32 at the end!)
-            // Note: You will need to change the '1, 1' to wherever the 14x14 cap actually sits on the 32x32 image!
             setBodyFaceUV(bodyUVs, 2, 0, 13, 14, 14, 32); // up    
             setBodyFaceUV(bodyUVs, 3, 14, 13, 14, 14, 32); // down
             bodyGeo.rotateY(Math.PI);
@@ -4101,24 +4093,7 @@ function mergeBufferGeometries(geos) {
     return mergedGeo;
 }
 
-// ============================================================================
-// MOB MODEL SYSTEM - mirrors real Minecraft's entity model format 1:1, so you
-// can transcribe decompiled Java model classes (e.g. CowModel.java) directly:
-//   Java: CubeListBuilder.create().texOffs(u,v).addBox(x,y,z,dx,dy,dz)
-//   Here: { texOffs:[u,v], from:[x,y,z], size:[dx,dy,dz] }
-//   Java: PartPose.offset(x,y,z)   ->  Here: pivot:[x,y,z]
-//   Java: .mirror().addBox(...)    ->  Here: add mirror:true to that cube
-// All numbers are the SAME raw Minecraft model units (1/16 block, Y
-// increasing DOWNWARD) as real source - paste them straight in, no manual
-// conversion. The engine applies the same coordinate flip Minecraft's own
-// renderer applies (poseStack.scale(-1,-1,1)) so parts end up positioned
-// exactly like they do in-game.
-// ============================================================================
 
-// Same box-UV formula as blocks' boxUV (verified against real vanilla
-// head/skull UVs) - this is the layout texOffs() actually produces:
-//   [blank(d)][ Top(w) ][Bottom(w)][blank(d)]   <- row v .. v+d-1
-//   [East(d)][ North(w)][ West(d)][South(w)]    <- row v+d .. v+d+h-1
 function boxUVShared(u, v, w, h, d) {
     return {
         uvUp:    [u + d, v],
@@ -4141,27 +4116,9 @@ function getMobTexture(path) {
     return tex;
 }
 
-// Applies one cube's UV rectangles to its BoxGeometry.
-// THREE.BoxGeometry face order: 0=+X 1=-X 2=+Y 3=-Y 4=+Z 5=-Z.
-// Because buildMcCubeGeometry negates X and Y (matching Minecraft's render
-// flip) while leaving Z alone, the mapping from raw Minecraft face labels to
-// THREE's local face indices works out to (derived from first principles,
-// not copied from the block system):
-//   +X -> West   -X -> East   (X was negated -> East/West swap)
-//   +Y -> Up     -Y -> Down   (Y was negated, but "Up" is already the MIN-y
-//                              side in Minecraft's down-increasing convention,
-//                              so the two negations cancel out - no swap)
-//   +Z -> South  -Z -> North  (Z untouched -> same as block convention)
-// NOTE: per-face mirrorU/mirrorV is NOT a real Minecraft feature. Vanilla's
-// CubeListBuilder.mirror() is one global flag that flips U on every face of a
-// cube - real texture sheets are laid out so that's always sufficient. This
-// per-face override is a custom engine-only convenience layered on top; it
-// does not correspond to anything in decompiled Java source.
 function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFaces, mirrorVFaces) {
     const uv = geometry.attributes.uv;
-    // THREE.BoxGeometry face order 0=+X 1=-X 2=+Y 3=-Y 4=+Z 5=-Z, which
-    // (per the flip explained above applyMcCubeUVs's call site) corresponds
-    // to west/east/up/down/south/north in that order.
+
     const faceNameByIdx = ['west', 'east', 'up', 'down', 'south', 'north'];
     const setFace = (faceIdx, rect, fw, fh) => {
         if (!rect) return;
@@ -4189,16 +4146,9 @@ function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFac
     setFace(5, faces.uvNorth, w, h);
 }
 
-// Builds one cube exactly like Minecraft's ModelPart.Cube: "from" is the
-// corner in raw Minecraft model-space (Y down), "size" is [dx,dy,dz].
-// Applies the same flip the real renderer's poseStack.scale(-1,-1,1) does,
-// so numbers pasted straight from Java land in the same visual place.
 function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
     const [dx, dy, dz] = cube.size;
-    // cube.from is the literal minimum corner in raw Minecraft model space -
-    // the same convention real vanilla Java's addBox(x,y,z,dx,dy,dz) uses.
-    // No centering adjustment is applied; paste from/size straight from
-    // decompiled Java (or Blockbench's raw Position field) as-is.
+
     const [x, y, z] = cube.from;
     const geo = new THREE.BoxGeometry((dx + inflate * 2) / 16, (dy + inflate * 2) / 16, (dz + inflate * 2) / 16);
 
@@ -4224,8 +4174,6 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
     return geo;
 }
 
-// One part = one pivoted THREE.Group, matching a Minecraft PartDefinition.
-// overlayOptions (optional) = {material, texW, texH, defaultInflate}.
 function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
     const group = new THREE.Group();
 
@@ -4260,21 +4208,6 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
     return group;
 }
 
-// ---- Mob registry ---------------------------------------------------------
-// Add mobs using the exact same shape as decompiled Minecraft model classes.
-// Each part: { parent: 'otherPartName' | null, pivot:[x,y,z], cubes:[...] }.
-// cubes: { texOffs:[u,v], from:[x,y,z], size:[dx,dy,dz], mirror?:true }.
-// "color" (NOT a real Minecraft field, our own fallback) renders a part as a
-// flat color when you haven't wired up a texture yet.
-//
-// HONESTY NOTE on the numbers below: this is the FORMAT used by real
-// CowModel.java, transcribed as best I can recall the actual source (I do
-// not have decompiled source open to verify against in this session). Treat
-// these specific digits as "should be close" rather than confirmed. Upload
-// cow.png (real vanilla file is 64x32, not 64x64) and I'll verify the
-// texOffs regions against actual pixel data the same way piglin_head's UVs
-// were verified.
-//uvNorth: [50, 14], uvSouth: [28, 14], uvEast: [18, 14], uvUp: [28, 4], uvWest: [40, 14], uvDown: [40, 4], from: [-6, -10, -7], size: [12, 18, 10] } ]
 const MOB_MODELS = {
     cow: {
         texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
@@ -4306,8 +4239,7 @@ const MOB_MODELS = {
             legBackLeft:   { parent: null, pivot: [12, 4, -2],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 18, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] }
         }
     },
-    // Add more mobs the same way - e.g. paste in a real decompiled
-    // ZombieModel/WolfModel/etc, matching part.parent to the real hierarchy.
+
     creeper: {
         texture: 'assets/minecraft/textures/entity/creeper/creeper.png',
         texW: 64,
@@ -4315,7 +4247,7 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [8, 20, 8],
+                pivot: [8, 2, 8],
                 cubes: [ {texOffs: [16, 16], from: [-4, 6, -2], size: [8, 12, 4]}]
             },
             head: {
@@ -4323,10 +4255,10 @@ const MOB_MODELS = {
                 pivot: [0, -2, 0],
                 cubes: [ {texOffs: [0, 0], from: [-4, 0, -4], size: [8, 8, 8]}]
             },
-            legFrontRight: {parent: 'body', pivot: [6, 6, 20], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
-            legFrontLeft: {parent: 'body', pivot: [10, 6, 20], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
-            legBackRight: {parent: 'body', pivot: [6, 6, 12], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
-            legBackLeft: {parent: 'body', pivot: [10, 6, 12], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]}
+            legFrontRight: {parent: 'body', pivot: [6, 6, 12], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legFrontLeft: {parent: 'body', pivot: [10, 6, 12], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legBackRight: {parent: 'body', pivot: [6, 6, 4], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legBackLeft: {parent: 'body', pivot: [10, 6, 4], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]}
 
 
 
@@ -4368,12 +4300,9 @@ function buildMobModel(type) {
         else root.add(groups[name]);
     }
 
-    // Ground the model: find its lowest point so spawnMob can place it
-    // feet-first on the clicked block, without needing to know Mojang's
-    // internal render-anchor offset (which this engine doesn't replicate).
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
-    const feetOffset = box.min.y; // negative: how far below root's origin the lowest point sits
+    const feetOffset = box.min.y;
     console.log(`[${type}] feetOffset =`, feetOffset, 'box.min =', box.min, 'box.max =', box.max);
 
     return { root, parts: groups, def, feetOffset };
@@ -4384,13 +4313,7 @@ const mobs = [];
 function spawnMob(type, x, y, z) {
     const model = buildMobModel(type);
     if (!model) { console.warn('No MOB_MODELS entry for', type); return; }
-    // Mob-engine-only reference frame: the model's own local (0,0,0) IS the
-    // anchor point directly - no bounding-box feetOffset correction applied.
-    // Whatever a part's pivot/cube math places at local (0,0,0) lands exactly
-    // at the given (x,y,z) in the world. This does NOT touch buildMcCubeGeometry
-    // or buildMcPart (cube/pivot math stays literal, vanilla-corner-based, as
-    // already confirmed correct) and does NOT touch the hardcoded block-model
-    // system (loadCustomModel/buildMCModel) at all - only mob placement.
+
     model.root.position.set(x, y, z);
     scene.add(model.root);
     mobs.push({ type, model, position: new THREE.Vector3(x, y, z), velocity: new THREE.Vector3(0, 0, 0), onGround: false, bobTime: Math.random() * 10 });
@@ -4406,9 +4329,7 @@ function updateMobs(delta) {
         const feetBlockY = Math.floor(ny - 0.05);
         const feetBlock = getGlobalBlock(Math.floor(nx), feetBlockY, Math.floor(nz));
         if (feetBlock !== null && feetBlock !== 0 && !isTransparent[feetBlock]) {
-            // Block meshes use a centered THREE.BoxGeometry(1,1,1), so a block
-            // at integer height blockY visually spans blockY-0.5 to blockY+0.5 -
-            // its real top surface is blockY + 0.5, not blockY + 1.
+
             ny = feetBlockY + 0.5;
             mob.velocity.y = 0;
             mob.onGround = true;
@@ -4417,8 +4338,7 @@ function updateMobs(delta) {
         }
 
         mob.position.set(nx, ny, nz);
-        // Matches the mob-engine reference frame fix in spawnMob: local (0,0,0)
-        // is the center-bottom anchor directly, no feetOffset correction.
+
         const renderY = ny - mob.model.feetOffset;
         if (!mob._loggedOnce) {
             console.log(`[${mob.type}] ny=`, ny, 'feetOffset=', mob.model.feetOffset, 'renderY=', renderY, 'root.position.y=', mob.model.root.position.y);
