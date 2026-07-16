@@ -4219,8 +4219,8 @@ const MOB_MODELS = {
                 pivot: [0, 19, 1],
                 rot: [-90, 0, 0],
                 cubes: [ 
-                    { texOffs: [18, 4], from: [-6, -10, -14], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']},
-                    {texOffs: [52, 0], from: [-2, 2, -15], size: [4, 6, 1]}
+                    { texOffs: [18, 4], from: [-6, -10, -11], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']},
+                    {texOffs: [52, 0], from: [-2, 2, -12], size: [4, 6, 1]}
                 ]
             },
             head: {
