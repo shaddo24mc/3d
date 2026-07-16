@@ -4287,7 +4287,7 @@ const MOB_MODELS = {
                 rot: [0, 0, 0],
                 cubes: [ 
                     { texOffs: [18, 4], from: [-6, -10, -8], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']},
-                    {texOffs: [52, 0], from: [-2, 11, -9], size: [4, 6, 1]}
+                    {texOffs: [52, 0], from: [-2, 2, -9], size: [4, 6, 1]}
                 ]
             },
             head: {
