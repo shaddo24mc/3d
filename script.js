@@ -4354,7 +4354,7 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [0, 34, -3],
+                pivot: [0, 34, 3],
                 overlay: true,
                 cubes: [
                     {texOffs: [0, 0], from: [-9, 8, -7], size: [18, 21, 11], mirrorV: ['up']}
@@ -4362,14 +4362,14 @@ const MOB_MODELS = {
             },
             ribcage_Right: {
                 parent: 'body',
-                pivot: [-7, -2, -4],
+                pivot: [-7, -2, -5.01],
                 cubes: [
                     {uvNorth: [90, 11], uvSouth: [90, 11], from: [-2, 10, 0], size: [9, 21, 0], mirrorU: ['north']}
                 ]
             },
             ribcage_Left: {
                 parent: 'body',
-                pivot: [7, -2, -4],
+                pivot: [7, -2, -5.01],
                 cubes: [
                     {uvNorth: [90, 11], uvSouth: [90, 11], from: [-7, 10, 0], size: [9, 21, 0], mirrorU: ['south']}
                 ]
@@ -4386,30 +4386,30 @@ const MOB_MODELS = {
                 parent: 'head',
                 pivot: [-8, -12, 0],
                 cubes: [
-                    {uvNorth: [52, 32], uvSouth: [52, 32], from: [-16, 3, 0], size: [16, 16, 0]}
+                    {uvNorth: [52, 32], uvSouth: [52, 32], from: [-16, 3, 0], size: [16, 16, 0], mirrorU: ['south']}
                 ]
             },
             tendril_Left: {
                 parent: 'head',
                 pivot: [8, -12, 0],
                 cubes: [
-                    {uvNorth: [58, 0], uvSouth: [58, 0], from: [0, 3, 0], size: [16, 16, 0]}
+                    {uvNorth: [58, 0], uvSouth: [58, 0], from: [0, 3, 0], size: [16, 16, 0], mirrorU: ['south']}
                 ]
             },
             arm_Right: {
                 parent: 'body',
-                pivot: [13, -13, 1],
+                pivot: [13, -14, 1],
                 overlay: true,
                 cubes: [
-                    {texOffs: [44, 50], from: [-4, 28, -4], size: [8, 28, 8]}
+                    {texOffs: [0, 50], from: [-4, 28, -4], size: [8, 28, 8]}
                 ]
             },
             arm_Left: {
                 parent: 'body',
-                pivot: [-13, -13, 1],
+                pivot: [-13, -14, 1],
                 overlay: true,
                 cubes: [
-                    {texOffs: [0, 58], from: [-4, 28, -4], size: [8, 28, 8]}
+                    {texOffs: [44, 50], from: [-4, 28, -4], size: [8, 28, 8]}
                 ]
             },
             leg_Right: {
