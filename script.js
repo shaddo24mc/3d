@@ -4353,7 +4353,7 @@ const MOB_MODELS = {
         texH: 128,
         parts: {
             body: {
-                parent: none,
+                parent: null,
                 pivot: [0, 34, 0],
                 overlay: true,
                 cubes: [
