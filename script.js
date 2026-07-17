@@ -4292,7 +4292,7 @@ const MOB_MODELS = {
                 pivot: [0, 10, 2],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [18, 14], from: [-3, -2, -6], size: [6, 9, 6]},
+                    {texOffs: [18, 14], from: [-4, -2, -7], size: [6, 9, 6]},
                 ]
             },
             legFrontRight: {parent: null, pivot: [2.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, 8, -1], size: [2, 8, 2]}]},
