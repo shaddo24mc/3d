@@ -4414,7 +4414,7 @@ const MOB_MODELS = {
             },
             leg_Right: {
                 parent: 'body',
-                pivot: [5.9, 24, -3],
+                pivot: [5.9, 16, -3],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 48], from: [-3.1, 13, -3], size: [6, 13, 6]}
@@ -4422,7 +4422,7 @@ const MOB_MODELS = {
             },
             leg_Left: {
                 parent: 'body',
-                pivot: [-5.9, 24, -3],
+                pivot: [-5.9, 16, -3],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 76], from: [-2.9, 13, -3], size: [6, 13, 6]}
