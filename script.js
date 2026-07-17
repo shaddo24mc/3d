@@ -4362,7 +4362,7 @@ const MOB_MODELS = {
             },
             ribcage_Right: {
                 parent: 'body',
-                pivot: [-7, -2, -5.01],
+                pivot: [-7, -2, -15.01],
                 cubes: [
                     {uvNorth: [90, 11], uvSouth: [90, 11], from: [-2, 10, 0], size: [9, 21, 0], mirrorU: ['north']}
                 ]
@@ -4406,7 +4406,7 @@ const MOB_MODELS = {
             },
             arm_Left: {
                 parent: 'body',
-                pivot: [-13, -16, 1],
+                pivot: [-13, -10, 1],
                 overlay: true,
                 cubes: [
                     {texOffs: [44, 50], from: [-4, 28, -4], size: [8, 28, 8]}
