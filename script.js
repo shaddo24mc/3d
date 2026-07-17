@@ -4320,7 +4320,7 @@ const MOB_MODELS = {
                 parent: 'body',
                 pivot: [0, 31, -2],
                 cubes: [
-                    {texOffs: [0, 0], from: [-4, -15, -2], size: [8, 10, 8]},
+                    {texOffs: [0, 0], from: [-4, -15, -4], size: [8, 10, 8]},
                     {texOffs: [24, 0], from: [-1, -8, -6], size: [2, 4, 2]}
                 ]
             },
