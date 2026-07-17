@@ -4429,6 +4429,22 @@ const MOB_MODELS = {
                 ]
             }
         }
+    },
+    phantom: {
+        texture: 'assets/minecraft/textures/entity/phantom/phantom.png',
+        overlayTexture: 'assets/minecraft/textures/entity/phantom/phantom_eyes.png',
+        texW: 64,
+        texH: 64,
+        parts: {
+            body: {parent: null, pivot: [0, 24, 0], cubes: [{texOffs: [0, 8], from: [-3, 1, -1], size: [5, 3, 9]}]},
+            head: {parent: 'head', pivot: [0, 1, -7], overlay: true, cubes: [{texOffs: [0, 0], from: [-4, 1, 0], size: [7, 3, 5]}]},
+            tailBase: {parent: 'head', pivot: [0, -2, 1], rot: [5, 0, 0], cubes: [{texOffs: [3, 20], from: [-2, 2, 6], size: [3, 2, 6]}]},
+            tailTip: {parent: 'tailBase', pivot: [0, 0.5, 6], rot: [5, 0, 0], cubes: [{texOffs: [4, 29], from: [-1, 1, 6], size: [1, 1, 6]}]},
+            wingRightBase: {parent: 'body', pivot: [-3, -2, -8], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, 2, 9], size: [6, 2, 9], mirrorU: ['up']}]},
+            wintLeftBase: {parent: 'body', pivot: [2, -2, -8], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [0, 2, 9], size: [6, 2, 9], mirrorU: ['down']}]},
+            wingRightTip: {parent: 'wingRightBase', pivot: [-6, 0, 0], rot: [0, 0, -10], cubes: [{texOffs: [18, 24], from: [-13, 1, 9], size: [13, 1, 9], mirrorU: ['up']}]},
+            wingLeftTip: {parent: 'wingLeftBase', pivot: [6, 0, 0], rot: [0, 0, 10], cubes: [{texOffs: [18, 24], from: [13, 1, 9], size: [13, 1, 9], mirrorU: ['down']}]},
+        }
     }
 };
 
@@ -4439,14 +4455,19 @@ function buildMobModel(type) {
     let sharedMat = null;
     if (def.texture) {
         const tex = getMobTexture(def.texture);
-        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+        // side: THREE.DoubleSide (mob-engine only) - without this, looking
+        // through an alphaTest-discarded transparent pixel on a cube's near
+        // face shows nothing (the back face is culled by default), instead
+        // of the cube's own interior/far face. This keeps that far face
+        // visible instead of appearing to vanish.
+        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
     }
 
     let overlayOptions = null;
     if (def.overlayTexture) {
         const overlayTex = getMobTexture(def.overlayTexture);
         overlayOptions = {
-            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.1 }),
+            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide }),
             texW: def.overlayTexW || def.texW,
             texH: def.overlayTexH || def.texH,
             defaultInflate: def.overlayInflate !== undefined ? def.overlayInflate : 0.25
@@ -4456,7 +4477,7 @@ function buildMobModel(type) {
     const groups = {};
     for (const name in def.parts) {
         const partDef = def.parts[name];
-        const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff });
+        const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff, side: THREE.DoubleSide });
         groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions);
     }
     const root = new THREE.Group();
