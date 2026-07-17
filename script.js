@@ -4345,6 +4345,90 @@ const MOB_MODELS = {
                 cubes: [{texOffs: [37, 0], from: [-2.5, 29, -2], size: [6, 16, 5]}]
             }
         }
+    },
+    warden: {
+        texture: 'assets/minecraft/textures/entity/warden/warden.png',
+        overlayTexture: 'assets/minecraft/textures/entity/warden/warden_bioluminescent_layer.png',
+        texW: 128,
+        texH: 128,
+        parts: {
+            body: {
+                parent: none,
+                pivot: [0, 34, 0],
+                overlay: true,
+                cubes: [
+                    {texOffs: [0, 0], from: [-9, 8, -7], size: [18, 21, 11]}
+                ]
+            },
+            ribcage_Right: {
+                parent: 'body',
+                pivot: [7, 23, -4],
+                cubes: [
+                    {uvNorth: [90, 11], from: [-2, 10, 0], size: [9, 21, 0]}
+                ]
+            },
+            ribcage_Left: {
+                parent: 'body',
+                pivot: [-7, 23, -4],
+                cubes: [
+                    {uvNorth: [90, 11], from: [-7, 10, 0], size: [9, 21, 0], mirrorU: ['north']}
+                ]
+            },
+            head: {
+                parent: 'body',
+                pivot: [0, 34, 0],
+                overlay: true,
+                cubes: [
+                    {texOffs: [0, 32], from: [-8, 0, -5], size: [16, 16, 10]}
+                ]
+            },
+            tendril_Right: {
+                parent: 'head',
+                pivot: [8, 46, 0],
+                cubes: [
+                    {uvNorth: [52, 32], uvSouth: [52, 32], from: [-16, 3, 0], size: [16, 16, 0]}
+                ]
+            },
+            tendril_Left: {
+                parent: 'head',
+                pivot: [-8, 46, 0],
+                cubes: [
+                    {uvNorth: [58, 0], uvSouth: [58, 0], from: [0, 3, 0], size: [16, 16, 0]}
+                ]
+            },
+            arm_Right: {
+                parent: 'body',
+                pivot: [13, 34, 1],
+                overlay: true,
+                cubes: [
+                    {texOffs: [44, 50], from: [-4, 28, -4], size: [8, 28, 8]}
+                ]
+            },
+            arm_Left: {
+                parent: 'body',
+                pivot: [-13, 34, 1],
+                overlay: true,
+                cubes: [
+                    {texOffs: [0, 58], from: [-4, 28, -4], size: [8, 28, 8]}
+                ]
+            },
+            leg_Right: {
+                parent: 'body',
+                pivot: [5.9, 13, 0],
+                overlay: true,
+                cubes: [
+                    {texOffs: [76, 48], from: [-3.1, 13, -3], size: [6, 13, 6]}
+                ]
+            },
+            leg_Left: {
+                parent: 'body',
+                pivot: [-5.9, 13, 0],
+                overlay: true,
+                cubes: [
+                    {texOffs: [76, 76], from: [-2.9, 13, -3], size: [6, 13, 6]}
+                ]
+            }
+        }
     }
 };
 
