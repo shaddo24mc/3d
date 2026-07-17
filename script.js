@@ -4437,7 +4437,7 @@ const MOB_MODELS = {
         texH: 64,//24.5
         parts: {
             body: {parent: null, pivot: [0, 24, 0], cubes: [{texOffs: [0, 8], from: [-3, 1, -1], size: [5, 3, 9]}]},
-            head: {parent: 'body', pivot: [0, 1, -7], overlay: true, cubes: [{texOffs: [0, 0], from: [-4, 1, 0], size: [7, 3, 5]}]},
+            head: {parent: 'body', pivot: [0, 2, -7], overlay: true, cubes: [{texOffs: [0, 0], from: [-4, 1, 0], size: [7, 3, 5]}]},
             tailBase: {parent: 'body', pivot: [0, -2.5, 1], rot: [0, 0, 0], cubes: [{texOffs: [3, 20], from: [-2, 2, 6], size: [3, 2, 6]}]},
             tailTip: {parent: 'tailBase', pivot: [0, 0.5, 6], rot: [0, 0, 0], cubes: [{texOffs: [4, 29], from: [-1, 1, 6], size: [1, 1, 6]}]},
             wingRightBase: {parent: 'body', pivot: [-3, -1, -10], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, 2, 9], size: [6, 2, 9], mirrorV: ['up']}]},
