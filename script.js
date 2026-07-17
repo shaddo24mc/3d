@@ -4273,10 +4273,10 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [1, 10.5, -7],
                 cubes: [
-                    {texOffs: [0, 0], from: [-3, -1, -2], size: [6, 6, 4]},
-                    {texOffs: [0, 10], from: [-1.5, -4, 7], size: [3, 3, 4], mirrorV: ['up']},
-                    {texOffs: [16, 14], from: [-3, -3, -1], size: [2, 2, 1]},
-                    {texOffs: [16, 14], from: [1, -3, -1], size: [2, 2, 1]}
+                    {texOffs: [0, 0], from: [-3, 0, -2], size: [6, 6, 4]},
+                    {texOffs: [0, 10], from: [-1.5, -3, 7], size: [3, 3, 4], mirrorV: ['up']},
+                    {texOffs: [16, 14], from: [-3, -2, -1], size: [2, 2, 1]},
+                    {texOffs: [16, 14], from: [1, -2, -1], size: [2, 2, 1]}
                 ]
             },
             upperBody: {
