@@ -4384,14 +4384,14 @@ const MOB_MODELS = {
             },
             tendril_Right: {
                 parent: 'head',
-                pivot: [-8, -12, 0],
+                pivot: [-8, -12, -3],
                 cubes: [
                     {uvNorth: [52, 32], uvSouth: [52, 32], from: [-16, 3, 0], size: [16, 16, 0], mirrorU: ['south']}
                 ]
             },
             tendril_Left: {
                 parent: 'head',
-                pivot: [8, -12, 0],
+                pivot: [8, -12, -3],
                 cubes: [
                     {uvNorth: [58, 0], uvSouth: [58, 0], from: [0, 3, 0], size: [16, 16, 0], mirrorU: ['south']}
                 ]
@@ -4414,7 +4414,7 @@ const MOB_MODELS = {
             },
             leg_Right: {
                 parent: 'body',
-                pivot: [5.9, 8, 0],
+                pivot: [5.9, 20, 0],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 48], from: [-3.1, 13, -3], size: [6, 13, 6]}
@@ -4422,7 +4422,7 @@ const MOB_MODELS = {
             },
             leg_Left: {
                 parent: 'body',
-                pivot: [-5.9, 8, 0],
+                pivot: [-5.9, 20, 0],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 76], from: [-2.9, 13, -3], size: [6, 13, 6]}
