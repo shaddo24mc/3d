@@ -4268,7 +4268,6 @@ const MOB_MODELS = {
         texture: 'assets/minecraft/textures/entity/wolf/wolf.png',
         texW: 64,
         texH: 32,
-        groundOffset: -1.0,   // <- deliberately pinned to the legs, not auto-detected
         parts: {
             head: {
                 parent: null,
@@ -4341,15 +4340,8 @@ function buildMobModel(type) {
 
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
-    // NOTE: box.min.y is the lowest point of the ENTIRE model - whichever part
-    // happens to hang lowest (head, legs, tail, etc). If a mob's parts aren't
-    // fully self-consistent yet, the "wrong" part can end up lowest, making
-    // ground placement chase whichever part currently wins that competition
-    // instead of the actual feet. def.groundOffset lets you override this
-    // with an explicit, deliberate value once you've confirmed the real
-    // per-part numbers - set it on the mob's top-level MOB_MODELS entry.
-    const feetOffset = def.groundOffset !== undefined ? def.groundOffset : box.min.y;
-    console.log(`[${type}] feetOffset =`, feetOffset, '(auto box.min.y =', box.min.y, ', box.max =', box.max, ')');
+    const feetOffset = box.min.y;
+    console.log(`[${type}] feetOffset =`, feetOffset, 'box.min =', box.min, 'box.max =', box.max);
 
     return { root, parts: groups, def, feetOffset };
 }
