@@ -4265,7 +4265,7 @@ const MOB_MODELS = {
         }
     },
     wolf: {
-        texture: 'assets/minecraft/textures/entity/wolf/wolf.png',
+        texture: 'assets/minecraft/textures/entity/wolf/wolf_rusty.png',
         texW: 64,
         texH: 32,
         parts: {
@@ -4299,7 +4299,7 @@ const MOB_MODELS = {
             legFrontLeft: {parent: null, pivot: [-0.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, 8, -1], size: [2, 8, 2]}]},
             legBackRight: {parent: null, pivot: [2.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, 8, -1], size: [2, 8, 2]}]},
             legBackLeft: {parent: null, pivot: [-0.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, 8, -1], size: [2, 8, 2]}]},
-            tail: {parent: null, pivot: [1, 12, 8], rot: [0, 0, 0], cubes: [{texOffs: [0, 18], from: [-1, 0, -1], size: [2, 8, 2]}]},
+            tail: {parent: null, pivot: [1, 12, 8], rot: [-55, 0, 0], cubes: [{texOffs: [0, 18], from: [-1, 0, -1], size: [2, 8, 2]}]},
         }
     }
 };
