@@ -4306,13 +4306,13 @@ const MOB_MODELS = {
     iron_golem: {
         texture: 'assets/minecraft/textures/entity/iron_golem/iron_golem.png',
         texW: 128,
-        tesH: 128,
+        texH: 128,
         parts: {
             body: {
                 parent: null,
                 pivot: [0, 31, 0],
                 cubes: [
-                    {texOffs: [0, 40], from: [-9, 10, -6], size: [18, 12, ]},
+                    {texOffs: [0, 40], from: [-9, 10, -6], size: [18, 12, 11]},
                     {texOffs: [0, 70], from: [-4.5, 15, -3], size: [9, 5, 6]}
                 ]
             },
