@@ -4376,10 +4376,10 @@ const MOB_MODELS = {
             },
             head: {
                 parent: 'body',
-                pivot: [0, -13, 0],
+                pivot: [0, -8, 0],
                 overlay: true,
                 cubes: [
-                    {texOffs: [0, 32], from: [-8, 0, -5], size: [16, 16, 10]}
+                    {texOffs: [0, 32], from: [-8, 0, -8], size: [16, 16, 10]}
                 ]
             },
             tendril_Right: {
