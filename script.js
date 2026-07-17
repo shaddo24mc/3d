@@ -4398,7 +4398,7 @@ const MOB_MODELS = {
             },
             arm_Right: {
                 parent: 'body',
-                pivot: [13, -20, 1],
+                pivot: [13, -20, -2],
                 overlay: true,
                 cubes: [
                     {texOffs: [0, 58], from: [-4, 28, -4], size: [8, 28, 8]}
@@ -4406,7 +4406,7 @@ const MOB_MODELS = {
             },
             arm_Left: {
                 parent: 'body',
-                pivot: [-13, -20, 1],
+                pivot: [-13, -20, -2],
                 overlay: true,
                 cubes: [
                     {texOffs: [44, 50], from: [-4, 28, -4], size: [8, 28, 8]}
@@ -4414,7 +4414,7 @@ const MOB_MODELS = {
             },
             leg_Right: {
                 parent: 'body',
-                pivot: [5.9, 20, 0],
+                pivot: [5.9, 20, -3],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 48], from: [-3.1, 13, -3], size: [6, 13, 6]}
@@ -4422,7 +4422,7 @@ const MOB_MODELS = {
             },
             leg_Left: {
                 parent: 'body',
-                pivot: [-5.9, 20, 0],
+                pivot: [-5.9, 20, -3],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 76], from: [-2.9, 13, -3], size: [6, 13, 6]}
