@@ -4398,15 +4398,15 @@ const MOB_MODELS = {
             },
             arm_Right: {
                 parent: 'body',
-                pivot: [13, -14, 1],
+                pivot: [13, -10, 1],
                 overlay: true,
                 cubes: [
-                    {texOffs: [0, 50], from: [-4, 28, -4], size: [8, 28, 8]}
+                    {texOffs: [0, 58], from: [-4, 28, -4], size: [8, 28, 8]}
                 ]
             },
             arm_Left: {
                 parent: 'body',
-                pivot: [-13, -14, 1],
+                pivot: [-13, -16, 1],
                 overlay: true,
                 cubes: [
                     {texOffs: [44, 50], from: [-4, 28, -4], size: [8, 28, 8]}
