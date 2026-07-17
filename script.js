@@ -161,6 +161,7 @@ const ITEMS = [
     'acacia_hanging_sign',
     'acacia_sign',
     'allay_spawn_egg',
+    'iron_golem_spawn_egg',
     'amethyst_shard',
     'angler_pottery_sherd',
     'apple',
