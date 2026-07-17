@@ -4274,7 +4274,7 @@ const MOB_MODELS = {
                 pivot: [1, 10.5, -7],
                 cubes: [
                     {texOffs: [0, 0], from: [-3, 0, -2], size: [6, 6, 4]},
-                    {texOffs: [0, 10], from: [-1.5, 3.01, -5], size: [3, 3, 4], mirrorV: ['up']},
+                    {texOffs: [0, 10], from: [-1.5, 2.99, -5], size: [3, 3, 4], mirrorV: ['up']},
                     {texOffs: [16, 14], from: [-3, -2, 0], size: [2, 2, 1]},
                     {texOffs: [16, 14], from: [1, -2, 0], size: [2, 2, 1]}
                 ]
@@ -4292,7 +4292,7 @@ const MOB_MODELS = {
                 pivot: [0, 10, 2],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [18, 14], from: [-4, -2, -7], size: [6, 9, 6]},
+                    {texOffs: [18, 14], from: [-2, -2, -7], size: [6, 9, 6]},
                 ]
             },
             legFrontRight: {parent: null, pivot: [2.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, 8, -1], size: [2, 8, 2]}]},
