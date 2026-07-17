@@ -4312,7 +4312,7 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [0, 31, 0],
                 cubes: [
-                    {texOffs: [0, 40], from: [-9, 30, -6], size: [18, 12, 11]},
+                    {texOffs: [0, 40], from: [-9, 26, -6], size: [18, 12, 11]},
                     {texOffs: [0, 70], from: [-4.5, 37, -3], size: [9, 5, 6]}
                 ]
             },
