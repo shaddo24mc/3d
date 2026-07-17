@@ -4320,29 +4320,29 @@ const MOB_MODELS = {
                 parent: 'body',
                 pivot: [0, 31, -2],
                 cubes: [
-                    {texOffs: [0, 0], from: [-4, -2, -2], size: [8, 10, 8]},
-                    {texOffs: [24, 0], from: [-1, -5, -6], size: [2, 4, 2]}
+                    {texOffs: [0, 0], from: [-4, -15, -2], size: [8, 10, 8]},
+                    {texOffs: [24, 0], from: [-1, -8, -6], size: [2, 4, 2]}
                 ]
             },
             armRight: {
                 parent: 'body',
                 pivot: [0, 31, 0],
-                cubes: [{texOffs: [60, 21], from: [-12, -2.5, -3], size: [4, 30, 6]}]
+                cubes: [{texOffs: [60, 21], from: [-13, -5.5, -3], size: [4, 30, 6]}]
             },
             armLeft: {
                 parent: 'body',
                 pivot: [0, 31, 0],
-                cubes: [{texOffs: [60, 58], from: [12, -2.5, -3], size: [4, 30, 6]}]
+                cubes: [{texOffs: [60, 58], from: [9, -5.5, -3], size: [4, 30, 6]}]
             },
             legRight: {
                 parent: 'body',
                 pivot: [4, 13, 0],
-                cubes: [{texOffs: [37, 0], from: [-2.5, 29, -2], size: [6, 16, 5]}]
+                cubes: [{texOffs: [60, 0], from: [-2.5, 29, -2], size: [6, 16, 5]}]
             },
             legLeft: {
                 parent: 'body',
                 pivot: [-5, 13, 0],
-                cubes: [{texOffs: [60, 0], from: [-2.5, 29, -2], size: [6, 16, 5]}]
+                cubes: [{texOffs: [37, 0], from: [-2.5, 29, -2], size: [6, 16, 5]}]
             }
         }
     }
