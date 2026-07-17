@@ -4265,7 +4265,7 @@ const MOB_MODELS = {
         }
     },
     wolf: {
-        texture: 'assets/minecraft/textures/entity/wolf/wolf_rusty.png',
+        texture: 'assets/minecraft/textures/entity/wolf/wolf.png',
         texW: 64,
         texH: 32,
         parts: {
@@ -4300,6 +4300,49 @@ const MOB_MODELS = {
             legBackRight: {parent: null, pivot: [2.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, 8, -1], size: [2, 8, 2]}]},
             legBackLeft: {parent: null, pivot: [-0.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, 8, -1], size: [2, 8, 2]}]},
             tail: {parent: null, pivot: [1, 12, 8], rot: [-55, 0, 0], cubes: [{texOffs: [0, 18], from: [-1, 0, -1], size: [2, 8, 2]}]},
+        }
+    },
+    iron_golem: {
+        texture: 'assets/minecraft/textures/entity/iron_golem/iron_golem.png',
+        texW: 128,
+        tesH: 128,
+        parts: {
+            body: {
+                parent: null,
+                pivot: [0, 31, 0],
+                cubes: [
+                    {texOffs: [0, 40], from: [-9, 10, -6], size: [18, 12, ]},
+                    {texOffs: [0, 70], from: [-4.5, 15, -3], size: [9, 5, 6]}
+                ]
+            },
+            head: {
+                parent: 'body',
+                pivot: [0, 31, -2],
+                cubes: [
+                    {texOffs: [0, 0], from: [-4, -2, -2], size: [8, 10, 8]},
+                    {texOffs: [24, 0], from: [-1, -5, -6], size: [2, 4, 2]}
+                ]
+            },
+            armRight: {
+                parent: 'body',
+                pivot: [0, 31, 0],
+                cubes: [{texOffs: [60, 21], from: [-12, -2.5, -3], size: [4, 30, 6]}]
+            },
+            armLeft: {
+                parent: 'body',
+                pivot: [0, 31, 0],
+                cubes: [{texOffs: [60, 58], from: [12, -2.5, -3], size: [4, 30, 6]}]
+            },
+            legRight: {
+                parent: 'body',
+                pivot: [4, 13, 0],
+                cubes: [{texOffs: [37, 0], from: [-3.5, -3, -2], size: [6, 16, 5]}]
+            },
+            legLeft: {
+                parent: 'body',
+                pivot: [-5, 13, 0],
+                cubes: [{texOffs: [60, 0], from: [-3.5, -3, -2], size: [6, 16, 5]}]
+            }
         }
     }
 };
