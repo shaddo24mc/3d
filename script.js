@@ -4451,8 +4451,8 @@ const MOB_MODELS = {
             tailTip: {parent: 'tailBase', pivot: [0, 1.5, 6], rot: [5, 0, 0], cubes: [{texOffs: [4, 29], from: [-1, 1, 6], size: [1, 1, 6]}]},
             wingRightBase: {parent: 'body', pivot: [-3, -1, -10], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, 2, 9], size: [6, 2, 9]}]},
             wingLeftBase: {parent: 'body', pivot: [2, -1, -10], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [0, 2, 9], size: [6, 2, 9]}]},
-            wingRightTip: {parent: 'wingRightBase', pivot: [-6, 1, 0], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, 1, 9], size: [13, 1, 9], mirrorU: ['up', 'down']}]},
-            wingLeftTip: {parent: 'wingLeftBase', pivot: [6, 1, 0], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [0, 1, 9], size: [13, 1, 9], mirrorU: ['up', 'down']}]},
+            wingRightTip: {parent: 'wingRightBase', pivot: [-6, 1, 0], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, 1, 9], size: [13, 1, 9]}]},
+            wingLeftTip: {parent: 'wingLeftBase', pivot: [6, 1, 0], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [0, 1, 9], size: [13, 1, 9]}]},
         }
     }
 };
