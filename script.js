@@ -4454,6 +4454,16 @@ const MOB_MODELS = {
             wingRightTip: {parent: 'wingRightBase', pivot: [-6, 1, 0], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, 1, 9], size: [13, 1, 9]}]},
             wingLeftTip: {parent: 'wingLeftBase', pivot: [6, 1, 0], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [0, 1, 9], size: [13, 1, 9], mirrorU: ['up', 'down']}]},
         }
+    },
+    shulker: {
+        texture: 'assets/minecraft/textures/entity/shulker/shulker.png',
+        texW: 64,
+        texH: 64,
+        parts: {
+            base: {parent: null, pivot: [0, 0, 0],  cubes: [{texOffs: [0, 28], from: [-8, 0, -8], size: [16, 8, 16]}]},
+            lid: {parent: 'base', pivot: [0, 0, 0], cubes: [{texOffs: [0, 0], from: [-8, -13, -8], size: [16, 8, 16]}]},
+            head: {parent: 'base', pivot: [0, -12, 0], cubes: [{texOffs: [0, 52], from: [-3, 6, -3], size: [6, 6, 6]}]}
+        }
     }
 };
 
