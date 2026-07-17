@@ -4461,7 +4461,7 @@ const MOB_MODELS = {
         texH: 64,
         parts: {
             base: {parent: null, pivot: [0, 0, 0],  cubes: [{texOffs: [0, 28], from: [-8, 0, -8], size: [16, 8, 16]}]},
-            lid: {parent: 'base', pivot: [0, 0, 0], cubes: [{texOffs: [0, 0], from: [-8, -13, -8], size: [16, 8, 16]}]},
+            lid: {parent: 'base', pivot: [0, 0, 0], cubes: [{texOffs: [0, 0], from: [-8, -13, -8], size: [16, 12, 16]}]},
             head: {parent: 'base', pivot: [0, -12, 0], cubes: [{texOffs: [0, 52], from: [-3, 6, -3], size: [6, 6, 6]}]}
         }
     }
