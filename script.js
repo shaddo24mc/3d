@@ -4452,7 +4452,7 @@ const MOB_MODELS = {
             wingRightBase: {parent: 'body', pivot: [-3, -1, -10], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, 2, 9], size: [6, 2, 9]}]},
             wingLeftBase: {parent: 'body', pivot: [2, -1, -10], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [0, 2, 9], size: [6, 2, 9], mirrorU: ['down, up']}]},
             wingRightTip: {parent: 'wingRightBase', pivot: [-6, 1, 0], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, 1, 9], size: [13, 1, 9]}]},
-            wingLeftTip: {parent: 'wingLeftBase', pivot: [-7, -1, 0], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [13, 1, 9], size: [13, 1, 9]}]},
+            wingLeftTip: {parent: 'wingLeftBase', pivot: [6, 1, 0], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [0, 1, 9], size: [13, 1, 9]}]},
         }
     }
 };
