@@ -4313,7 +4313,7 @@ const MOB_MODELS = {
                 pivot: [0, 31, 0],
                 cubes: [
                     {texOffs: [0, 40], from: [-9, 10, -6], size: [18, 12, 11]},
-                    {texOffs: [0, 70], from: [-4.5, 15, -3], size: [9, 5, 6]}
+                    {texOffs: [0, 70], from: [-4.5, 37, -3], size: [9, 5, 6]}
                 ]
             },
             head: {
@@ -4336,13 +4336,13 @@ const MOB_MODELS = {
             },
             legRight: {
                 parent: 'body',
-                pivot: [4, 45, 0],
-                cubes: [{texOffs: [37, 0], from: [-2.5, -3, -2], size: [6, 16, 5]}]
+                pivot: [4, 13, 0],
+                cubes: [{texOffs: [37, 0], from: [-2.5, 29, -2], size: [6, 16, 5]}]
             },
             legLeft: {
                 parent: 'body',
-                pivot: [-5, 45, 0],
-                cubes: [{texOffs: [60, 0], from: [-2.5, -3, -2], size: [6, 16, 5]}]
+                pivot: [-5, 13, 0],
+                cubes: [{texOffs: [60, 0], from: [-2.5, 29, -2], size: [6, 16, 5]}]
             }
         }
     }
