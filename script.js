@@ -4336,13 +4336,13 @@ const MOB_MODELS = {
             },
             legRight: {
                 parent: 'body',
-                pivot: [4, 13, 0],
-                cubes: [{texOffs: [37, 0], from: [-3.5, -3, -2], size: [6, 16, 5]}]
+                pivot: [4, 45, 0],
+                cubes: [{texOffs: [37, 0], from: [-2.5, -3, -2], size: [6, 16, 5]}]
             },
             legLeft: {
                 parent: 'body',
-                pivot: [-5, 13, 0],
-                cubes: [{texOffs: [60, 0], from: [-3.5, -3, -2], size: [6, 16, 5]}]
+                pivot: [-5, 45, 0],
+                cubes: [{texOffs: [60, 0], from: [-2.5, -3, -2], size: [6, 16, 5]}]
             }
         }
     }
