@@ -4364,14 +4364,14 @@ const MOB_MODELS = {
                 parent: 'body',
                 pivot: [-7, -2, -7.01],
                 cubes: [
-                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-2, 10, 0], size: [9, 21, 0], mirrorU: ['north']}
+                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-2, 10, 0], size: [9, 21, 0], mirrorU: ['south']}
                 ]
             },
             ribcage_Left: {
                 parent: 'body',
                 pivot: [7, -2, -7.01],
                 cubes: [
-                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-7, 10, 0], size: [9, 21, 0], mirrorU: ['south']}
+                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-7, 10, 0], size: [9, 21, 0], mirrorU: ['north']}
                 ]
             },
             head: {
@@ -4414,7 +4414,7 @@ const MOB_MODELS = {
             },
             leg_Right: {
                 parent: 'body',
-                pivot: [5.9, 20, -3],
+                pivot: [5.9, 24, -3],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 48], from: [-3.1, 13, -3], size: [6, 13, 6]}
@@ -4422,7 +4422,7 @@ const MOB_MODELS = {
             },
             leg_Left: {
                 parent: 'body',
-                pivot: [-5.9, 20, -3],
+                pivot: [-5.9, 24, -3],
                 overlay: true,
                 cubes: [
                     {texOffs: [76, 76], from: [-2.9, 13, -3], size: [6, 13, 6]}
