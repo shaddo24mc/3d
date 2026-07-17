@@ -4158,7 +4158,13 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
 
     if (cube.texOffs) {
         const faces = boxUVShared(cube.texOffs[0], cube.texOffs[1], dx, dy, dz);
-        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, cube.mirrorV);
+        // Standard Minecraft box-UV unwrapping always needs the 'up' face
+        // mirrored vertically to line up correctly with the rest of the
+        // cross-layout - so when using texOffs (auto-generated faces), this
+        // is applied automatically instead of needing mirrorV: ['up'] on
+        // every single cube. Any mirrorV you do specify is merged in on top.
+        const autoMirrorV = cube.mirrorV ? [...new Set(['up', ...cube.mirrorV])] : ['up'];
+        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, autoMirrorV);
     }
     else {
         const faces = {
@@ -4223,7 +4229,7 @@ const MOB_MODELS = {
                 pivot: [0, 19, 1],
                 rot: [-90, 0, 0],
                 cubes: [ 
-                    { texOffs: [18, 4], from: [-6, -10, -11], size: [12, 18, 10], mirrorU: ['up', 'down'], mirrorV: ['up']},
+                    { texOffs: [18, 4], from: [-6, -10, -11], size: [12, 18, 10], mirrorU: ['up', 'down']},
                     {texOffs: [52, 0], from: [-2, 2, -12], size: [4, 6, 1]}
                 ]
             },
@@ -4231,7 +4237,7 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [0, 20, -9],
                 cubes: [
-                    { texOffs: [0, 0],  from: [-4, -2, -6], size: [8, 8, 6], mirrorU: ['up', 'down'], mirrorV: ['up'] },
+                    { texOffs: [0, 0],  from: [-4, -2, -6], size: [8, 8, 6], mirrorU: ['up', 'down']},
                     { texOffs: [22, 0], from: [-5, -3, -5], size: [1, 3, 1] },
                     { texOffs: [22, 0], from: [4, -3, -5],  size: [1, 3, 1] },
                     { texOffs: [0, 32], from: [-3, 3, -7], size: [6, 3, 2] },
@@ -4278,7 +4284,7 @@ const MOB_MODELS = {
                 pivot: [1, 10.5, -7],
                 cubes: [
                     {texOffs: [0, 0], from: [-3, 0, -2], size: [6, 6, 4]},
-                    {texOffs: [0, 10], from: [-1.5, 2.99, -5], size: [3, 3, 4], mirrorV: ['up']},
+                    {texOffs: [0, 10], from: [-1.5, 2.99, -5], size: [3, 3, 4]},
                     {texOffs: [16, 14], from: [-3, -2, 0], size: [2, 2, 1]},
                     {texOffs: [16, 14], from: [1, -2, 0], size: [2, 2, 1]}
                 ]
@@ -4288,7 +4294,7 @@ const MOB_MODELS = {
                 pivot: [1, 10, 2],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [21, 0], from: [-4, -8, -7], size: [8, 6, 7], mirrorV: ['up']}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
+                    {texOffs: [21, 0], from: [-4, -8, -7], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
                 ]
             },
             body: {
@@ -4360,7 +4366,7 @@ const MOB_MODELS = {
                 pivot: [0, 34, 3],
                 overlay: true,
                 cubes: [
-                    {texOffs: [0, 0], from: [-9, 8, -7], size: [18, 21, 11], mirrorV: ['up']}
+                    {texOffs: [0, 0], from: [-9, 8, -7], size: [18, 21, 11]}
                 ]
             },
             ribcage_Right: {
@@ -4439,14 +4445,14 @@ const MOB_MODELS = {
         texW: 64,
         texH: 64,//24.5
         parts: {
-            body: {parent: null, pivot: [0, 24, 0], cubes: [{texOffs: [0, 8], from: [-3, 1, -1], size: [5, 3, 9], mirrorV: ['up']}]},
-            head: {parent: 'body', pivot: [0, 1, -5], overlay: true, cubes: [{texOffs: [0, 0], from: [-4, 1, 0], size: [7, 3, 5], mirrorV: ['up']}]},
-            tailBase: {parent: 'body', pivot: [0, -5, 1], rot: [0, 0, 0], cubes: [{texOffs: [3, 20], from: [-2, 2, 6], size: [3, 2, 6]}]},
+            body: {parent: null, pivot: [0, 24, 0], cubes: [{texOffs: [0, 8], from: [-3, 1, -1], size: [5, 3, 9]}]},
+            head: {parent: 'body', pivot: [0, 1, -5], overlay: true, cubes: [{texOffs: [0, 0], from: [-4, 1, 0], size: [7, 3, 5]}]},
+            tailBase: {parent: 'body', pivot: [0, -1, 1], rot: [0, 0, 0], cubes: [{texOffs: [3, 20], from: [-2, 2, 6], size: [3, 2, 6]}]},
             tailTip: {parent: 'tailBase', pivot: [0, 1.5, 6], rot: [0, 0, 0], cubes: [{texOffs: [4, 29], from: [-1, 1, 6], size: [1, 1, 6]}]},
-            wingRightBase: {parent: 'body', pivot: [-3, -1, -10], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, 2, 9], size: [6, 2, 9], mirrorV: ['up']}]},
-            wingLeftBase: {parent: 'body', pivot: [2, -1, -10], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [0, 2, 9], size: [6, 2, 9], mirrorU: ['down'], mirrorV: ['up']}]},
-            wingRightTip: {parent: 'wingRightBase', pivot: [-6, 1, 0], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, 1, 9], size: [13, 1, 9], mirrorV: ['up']}]},
-            wingLeftTip: {parent: 'wingLeftBase', pivot: [-2, 1, 0], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [13, 1, 9], size: [13, 1, 9], mirrorU: ['down'], mirrorV: ['up']}]},
+            wingRightBase: {parent: 'body', pivot: [-3, -1, -10], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, 2, 9], size: [6, 2, 9]}]},
+            wingLeftBase: {parent: 'body', pivot: [2, -1, -10], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [0, 2, 9], size: [6, 2, 9], mirrorU: ['down']}]},
+            wingRightTip: {parent: 'wingRightBase', pivot: [-6, 1, 0], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, 1, 9], size: [13, 1, 9]}]},
+            wingLeftTip: {parent: 'wingLeftBase', pivot: [-6, 1, 0], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [13, 1, 9], size: [13, 1, 9], mirrorU: ['down']}]},
         }
     }
 };
