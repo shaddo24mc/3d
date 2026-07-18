@@ -468,6 +468,7 @@ const ITEMS = [
     'piglin_brute_spawn_egg',
     'piglin_head',
     'piglin_spawn_egg',
+    'pig_spawn_egg',
     'pillager_spawn_egg',
     'pink_dye',
     'pitcher_pod',
