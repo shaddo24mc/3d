@@ -4152,6 +4152,11 @@ function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFac
 
 function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
     const [dx, dy, dz] = cube.size;
+    // Per-cube inflate: cube.inflate lets any individual cube (not just
+    // overlay layers) puff outward by a given amount, in the same raw units
+    // as from/size. If both a per-cube inflate AND a caller-passed inflate
+    // (e.g. from the overlay system) apply, they stack additively.
+    if (cube.inflate) inflate += cube.inflate;
 
     const [x, y, z] = cube.from;
     const geo = new THREE.BoxGeometry((dx + inflate * 2) / 16, (dy + inflate * 2) / 16, (dz + inflate * 2) / 16);
@@ -4196,15 +4201,35 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
         group.rotation.set(
             THREE.MathUtils.degToRad(partDef.rot[0]),
             THREE.MathUtils.degToRad(partDef.rot[1]),
-            THREE.MathUtils.degToRad(partDef.rot[2])
+            THREE.MathUtils.degToRad(partDef.rot[2]),
+            'ZYX'
         );
     }
 
-    const geos = partDef.cubes.map(c => buildMcCubeGeometry(c, texW, texH));
-    const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
-    const mesh = new THREE.Mesh(merged, material);
-    group.add(mesh);
-    group.userData.mesh = mesh;
+    // Per-cube opacity: cube.opacity (0-100, percent) needs its own material,
+    // since opacity is a material-level property in three.js, not per-vertex.
+    // Cubes WITHOUT a custom opacity still share the one mob-wide `material`
+    // passed in, exactly as before - only cubes that opt in get a separate
+    // (cloned) material instance.
+    const opaqueCubes = partDef.cubes.filter(c => c.opacity === undefined);
+    const translucentCubes = partDef.cubes.filter(c => c.opacity !== undefined);
+
+    if (opaqueCubes.length > 0) {
+        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH));
+        const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
+        const mesh = new THREE.Mesh(merged, material);
+        group.add(mesh);
+        group.userData.mesh = mesh;
+    }
+
+    for (const c of translucentCubes) {
+        const geo = buildMcCubeGeometry(c, texW, texH);
+        const mat = material.clone();
+        mat.transparent = true;
+        mat.opacity = THREE.MathUtils.clamp(c.opacity, 0, 100) / 100;
+        const mesh = new THREE.Mesh(geo, mat);
+        group.add(mesh);
+    }
 
     if (overlayOptions && partDef.overlay) {
         const inflate = partDef.overlayInflate !== undefined ? partDef.overlayInflate : overlayOptions.defaultInflate;
@@ -4484,6 +4509,19 @@ const MOB_MODELS = {
 
 
         }
+    },
+    pig: {
+        texture :'assets/minecraft/textures/entity/pig/pig_cold.png',
+        texW: 64,
+        texH: 64,
+        parts: {
+            body: {parent: null, pivot: [0, 11, 9], rot: [-90, 0, 0], cubes: [{texOffs: [28, 8], from: [-5, 0, -3], size: [10, 17, 8]}, {texOffs: [28, 32], from: [-5, 0, -3], size: [10, 17, 8], inflate: 0.5}]},
+            head: {parent: null, pivot: [0, 12, -7], cubes: [{texOffs: [0, 0], from: [-4, 4, 0], size: [8, 8, 8]}, {texOffs: [16, 16], from: [-2, 3, 8], size: [4, 3, 1]}]},
+            legFrontRight: {parent: null, pivot: [3, 6, -6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legFrontLeft: {parent: null, pivot: [-3, 6, -6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]},
+            legBackRight: {parent: null, pivot: [3, 6, 6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legBackLeft: {parent: null, pivot: [-3, 6, 6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]}
+        }
     }
 };
 
@@ -4499,14 +4537,19 @@ function buildMobModel(type) {
         // face shows nothing (the back face is culled by default), instead
         // of the cube's own interior/far face. This keeps that far face
         // visible instead of appearing to vanish.
-        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+        // polygonOffset (mob-engine only): base mesh biased slightly BACK in
+        // depth, so the overlay mesh (biased slightly FORWARD, below) always
+        // wins the depth test consistently - without this, base and overlay
+        // surfaces sitting near-identical depth can flicker between each
+        // other frame-to-frame as the view angle changes (z-fighting).
+        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
     }
 
     let overlayOptions = null;
     if (def.overlayTexture) {
         const overlayTex = getMobTexture(def.overlayTexture);
         overlayOptions = {
-            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide }),
+            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
             texW: def.overlayTexW || def.texW,
             texH: def.overlayTexH || def.texH,
             defaultInflate: def.overlayInflate !== undefined ? def.overlayInflate : 0.25
