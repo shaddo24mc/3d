@@ -4464,6 +4464,16 @@ const MOB_MODELS = {
             lid: {parent: 'base', pivot: [0, -4, 0], cubes: [{texOffs: [0, 0], from: [-8, -13, -8], size: [16, 12, 16]}]},
             head: {parent: 'base', pivot: [0, -10, 0], cubes: [{texOffs: [0, 52], from: [-3, 6, -3], size: [6, 6, 6]}]}
         }
+    },
+    strider: {
+        texture: 'assets/minecraft/textures/entity/strider/strider.png',
+        texW: 64,
+        texH: 128,
+        parts: {
+            base: {parent: null, pivot: [0, 17, 0], cubes: [{texOffs: [0, 0], from: [-8, 0, -8], size: [16, 14, 16]}]},
+            legRight: {parent: 'body', pivot: [-4, 0, 0], cubes: [{texOffs: [0, 32], from: [-2, 17, -2], size: [4, 17, 4]}]},
+            legLeft: {parent: 'body', pivot: [4, 0, 0], cubes: [{texOffs: [0, 54], from: [-2, 17, -2], size: [4, 17, 4]}]}
+        }
     }
 };
 
