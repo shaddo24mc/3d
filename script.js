@@ -4550,9 +4550,9 @@ const MOB_MODELS = {
                 pivot: [0, 24, 0],
                 cubes: [
                     {texOffs: [0, 16], from: [-3, 25, -3], size: [6, 6, 6]},
-                    {texOffs: [32, 0], from: [-2.25, 26, -3.5], size: [2, 2, 2]},
-                    {texOffs: [32, 4], from: [1.25, 26, -3.5], size: [2, 2, 2]},
-                    {texOffs: [32, 8], from: [0, 29, -3.5], size: [1, 1, 1]},
+                    {texOffs: [32, 0], from: [-2.25, 26, -3], size: [2, 2, 2]},
+                    {texOffs: [32, 4], from: [1.25, 26, -3], size: [2, 2, 2]},
+                    {texOffs: [32, 8], from: [0, 29, -3], size: [1, 1, 1]},
                 ]
             },
             outer: {
