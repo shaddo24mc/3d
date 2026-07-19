@@ -4550,9 +4550,9 @@ const MOB_MODELS = {
                 pivot: [0, 24, 0],
                 cubes: [
                     {texOffs: [0, 16], from: [-3, 25, -3], size: [6, 6, 6]},
-                    {texOffs: [32, 0], from: [-2.25, 20, -3.5], size: [2, 2, 2]},
-                    {texOffs: [32, 4], from: [1.25, 20, -3.5], size: [2, 2, 2]},
-                    {texOffs: [32, 8], from: [0, 22, -3.5], size: [1, 1, 1]},
+                    {texOffs: [32, 0], from: [-2.25, 26, -3.5], size: [2, 2, 2]},
+                    {texOffs: [32, 4], from: [1.25, 26, -3.5], size: [2, 2, 2]},
+                    {texOffs: [32, 8], from: [0, 29, -3.5], size: [1, 1, 1]},
                 ]
             },
             outer: {
@@ -4584,7 +4584,15 @@ function buildMobModel(type) {
     if (def.overlayTexture) {
         const overlayTex = getMobTexture(def.overlayTexture);
         overlayOptions = {
-            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+            // No polygonOffset here - overlayInflate already makes this mesh
+            // genuinely larger in real 3D space than the base mesh underneath,
+            // so it wins depth comparisons honestly via true geometry. A
+            // polygonOffset depth-bias on top of that was strong enough to
+            // also incorrectly win against OTHER, unrelated nearby geometry
+            // (not just its own base mesh), since polygonOffset affects every
+            // depth comparison that mesh takes part in, not just one specific
+            // "opponent" surface.
+            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide }),
             texW: def.overlayTexW || def.texW,
             texH: def.overlayTexH || def.texH,
             defaultInflate: def.overlayInflate !== undefined ? def.overlayInflate : 0.25
