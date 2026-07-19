@@ -1829,7 +1829,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
     if (bName === 'conduit') {
         const tex = loadTex('conduit');
-        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
         const px = 1/16;
         const geos = [];
         
@@ -1884,7 +1884,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
       try {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
-        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
         
         const buildMCModel = (parts, tS, scaleFactor = 1.0) => {
             const geos = [];
@@ -2030,8 +2030,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         else if (bName === 'decorated_pot') {
             const potBaseTex = loadTex('decorated_pot_base', 'assets/minecraft/textures/entity/decorated_pot/');
             const potSideTex = loadTex('decorated_pot_side', 'assets/minecraft/textures/entity/decorated_pot/');
-            const potBaseMat = new THREE.MeshLambertMaterial({ map: potBaseTex, transparent: false, alphaTest: 0.5 });
-            const potSideMat = new THREE.MeshLambertMaterial({ map: potSideTex, transparent: false, alphaTest: 0.5 });
+            const potBaseMat = new THREE.MeshLambertMaterial({ map: potBaseTex, transparent: true, alphaTest: 0.02 });
+            const potSideMat = new THREE.MeshLambertMaterial({ map: potSideTex, transparent: true, alphaTest: 0.02 });
 
             const px = 1 / 16;
             const tS = 32;
@@ -2337,10 +2337,10 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 
                 const isCutout = ['pale_hanging_moss', 'leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'iron_chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
-                if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
-                else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
-                else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
-                else mat = new THREE.MeshLambertMaterial({ map: tex });
+                if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: !isOverlay });
+                else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide });
+                else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
+                else mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
                 
                 if (texPath.includes('grass_block_top') || texPath.includes('vine') || texPath.includes('grass_block_side_overlay') || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || texPath.includes('tall_grass') || texPath.includes('fern') || bName === 'sugar_cane') {
                     mat.color.setHex(0x91bd59); 
@@ -4543,7 +4543,7 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [0, 24, 0],
                 cubes: [
-                    {texOffs: [0, 0], from: [-4, 24, -4], size: [8, 8, 8], opacity: 52}
+                    {texOffs: [0, 0], from: [-4, 24, -4], size: [8, 8, 8]}
                 ]
             }
         }
@@ -4567,14 +4567,21 @@ function buildMobModel(type) {
         // wins the depth test consistently - without this, base and overlay
         // surfaces sitting near-identical depth can flicker between each
         // other frame-to-frame as the view angle changes (z-fighting).
-        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-    }
+        // transparent: true + low alphaTest (mob-engine only): lets any
+        // partially-transparent texel in the texture (e.g. a semi-opaque
+        // pixel) actually render at its real in-between opacity via alpha
+        // blending, instead of alphaTest forcing every pixel to be either
+        // fully solid or fully invisible based on a single 50% cutoff.
+        // alphaTest is kept low (not removed) so fully-zero-alpha texels are
+        // still discarded outright, avoiding needless blending work on
+        // completely empty pixels.
+        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02 });    }
 
     let overlayOptions = null;
     if (def.overlayTexture) {
         const overlayTex = getMobTexture(def.overlayTexture);
         overlayOptions = {
-            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
             texW: def.overlayTexW || def.texW,
             texH: def.overlayTexH || def.texH,
             defaultInflate: def.overlayInflate !== undefined ? def.overlayInflate : 0.25
@@ -5409,7 +5416,7 @@ function applySkinUVs(geometry, faceUVs) {
 function makePlayerPart(widthPx, heightPx, depthPx, faceUVs) {
     const geo = new THREE.BoxGeometry(widthPx / 16, heightPx / 16, depthPx / 16);
     applySkinUVs(geo, faceUVs);
-    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: playerTexture }));
+    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: playerTexture, transparent: true, alphaTest: 0.02 }));
 }
 function makePlayerArm() {
     return makePlayerPart(4, 12, 4, {
