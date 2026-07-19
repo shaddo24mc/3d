@@ -2333,7 +2333,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 let tex = loadTex(file, folder);
                 let mat;
                 let isOverlay = texPath.includes('overlay');
-                const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
+                const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit'
+                    || bName === 'slime_block' || bName.includes('sulfur_cube');
                 
                 const isCutout = ['pale_hanging_moss', 'leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'iron_chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
@@ -4526,6 +4527,7 @@ const MOB_MODELS = {
     },
     slime: {
         texture: 'assets/minecraft/textures/entity/slime/slime.png',
+        translucent: true,
         texW: 64,
         texH: 32,
         parts: {
@@ -4557,25 +4559,12 @@ function buildMobModel(type) {
     let sharedMat = null;
     if (def.texture) {
         const tex = getMobTexture(def.texture);
-        // side: THREE.DoubleSide (mob-engine only) - without this, looking
-        // through an alphaTest-discarded transparent pixel on a cube's near
-        // face shows nothing (the back face is culled by default), instead
-        // of the cube's own interior/far face. This keeps that far face
-        // visible instead of appearing to vanish.
-        // polygonOffset (mob-engine only): base mesh biased slightly BACK in
-        // depth, so the overlay mesh (biased slightly FORWARD, below) always
-        // wins the depth test consistently - without this, base and overlay
-        // surfaces sitting near-identical depth can flicker between each
-        // other frame-to-frame as the view angle changes (z-fighting).
-        // transparent: true + low alphaTest (mob-engine only): lets any
-        // partially-transparent texel in the texture (e.g. a semi-opaque
-        // pixel) actually render at its real in-between opacity via alpha
-        // blending, instead of alphaTest forcing every pixel to be either
-        // fully solid or fully invisible based on a single 50% cutoff.
-        // alphaTest is kept low (not removed) so fully-zero-alpha texels are
-        // still discarded outright, avoiding needless blending work on
-        // completely empty pixels.
-        sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });    }
+        if (def.translucent) {
+            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: false });
+        } else {
+            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+        }
+    }
 
     let overlayOptions = null;
     if (def.overlayTexture) {
