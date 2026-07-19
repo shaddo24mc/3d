@@ -4523,7 +4523,7 @@ const MOB_MODELS = {
             legBackRight: {parent: null, pivot: [3, 6, 6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
             legBackLeft: {parent: null, pivot: [-3, 6, 6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]}
         }
-    }
+    },
     slime: {
         texture: 'assets/minecraft/textures/entity/slime/slime.png',
         texW: 64,
