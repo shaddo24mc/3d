@@ -4512,7 +4512,7 @@ const MOB_MODELS = {
         }
     },
     pig: {
-        texture :'assets/minecraft/textures/entity/pig/pig_cold.png',
+        texture :'assets/minecraft/textures/entity/pig/pig_temperate.png',
         texW: 64,
         texH: 64,
         parts: {
@@ -4522,6 +4522,30 @@ const MOB_MODELS = {
             legFrontLeft: {parent: null, pivot: [-3, 6, -6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]},
             legBackRight: {parent: null, pivot: [3, 6, 6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
             legBackLeft: {parent: null, pivot: [-3, 6, 6], cubes: [{texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]}
+        }
+    }
+    slime: {
+        texture: 'assets/minecraft/textures/entity/slime/slime.png',
+        texW: 64,
+        texH: 32,
+        parts: {
+            inner: {
+                parent: null,
+                pivot: [0, 24, 0],
+                cubes: [
+                    {texOffs: [0, 16], from: [-6, 23, -6], size: [6, 6, 6]},
+                    {texOffs: [32, 0], from: [-2.25, 20, -1.5], size: [2, 2, 2]},
+                    {texOffs: [32, 4], from: [1.25, 20, -1.5], size: [2, 2, 2]},
+                    {texOffs: [32, 8], from: [0, 22, -2.5], size: [1, 1, 1]},
+                ]
+            },
+            outer: {
+                parent: null,
+                pivot: [0, 24, 0],
+                cubes: [
+                    {texOffs: [0, 0], from: [-4, 24, -4], size: [8, 8, 8]}
+                ]
+            }
         }
     }
 };
