@@ -2338,7 +2338,21 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 
                 const isCutout = ['pale_hanging_moss', 'leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'iron_chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
-                if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: !isOverlay, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+                if (isOverlay) {
+                    // Block overlays (grass side tint, vine overlay, redstone dust, etc.)
+                    // are drawn flush against their own base face at the SAME depth,
+                    // relying on the depth test's equal-passes rule to layer on top -
+                    // no polygonOffset here, since pushing it back would make it fail
+                    // that depth test against its own base face.
+                    mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: false });
+                } else if (isTranslucent) {
+                    // Genuinely translucent blocks (glass/water/ice/slime/conduit/sulfur
+                    // cube) sitting flush against a SEPARATE neighboring solid block can
+                    // z-fight at that seam. polygonOffset pushes this face's depth
+                    // slightly back so it reliably loses any near-tie against an
+                    // adjacent opaque face, instead of flickering based on view angle.
+                    mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+                }
                 else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
                 else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
                 else mat = new THREE.MeshLambertMaterial({ map: tex });
@@ -4535,7 +4549,7 @@ const MOB_MODELS = {
                 parent: null,
                 pivot: [0, 24, 0],
                 cubes: [
-                    {texOffs: [0, 16], from: [-6, 23, -6], size: [6, 6, 6]},
+                    {texOffs: [0, 16], from: [-3, 23, -3], size: [6, 6, 6]},
                     {texOffs: [32, 0], from: [-2.25, 20, -1.5], size: [2, 2, 2]},
                     {texOffs: [32, 4], from: [1.25, 20, -1.5], size: [2, 2, 2]},
                     {texOffs: [32, 8], from: [0, 22, -2.5], size: [1, 1, 1]},
