@@ -5026,10 +5026,23 @@ async function generateChunk(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[getIdx(nx, ny, nz)];
+                        // A same-type neighbor doesn't count as "open" for
+                        // visibility purposes - two touching blocks of the
+                        // IDENTICAL type (e.g. slime touching slime) shouldn't
+                        // keep each other rendered on that account alone,
+                        // matching vanilla's same-type face-culling behavior.
+                        // This only helps fully-buried same-type clusters skip
+                        // rendering entirely - it does NOT hide the single
+                        // internal face on a same-type block that still has a
+                        // genuinely different, open neighbor elsewhere, since
+                        // this engine renders each block as one indivisible
+                        // 6-face box rather than per-face quads.
+                        if (b === typeId) return false;
                         return b === 0 || isTransparent[b];
                     }
                     let gb = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
-                    if (gb === null) return true; 
+                    if (gb === null) return true;
+                    if (gb === typeId) return false;
                     return gb === 0 || isTransparent[gb];
                 };
 
@@ -5200,10 +5213,23 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[getIdx(nx, ny, nz)];
+                        // A same-type neighbor doesn't count as "open" for
+                        // visibility purposes - two touching blocks of the
+                        // IDENTICAL type (e.g. slime touching slime) shouldn't
+                        // keep each other rendered on that account alone,
+                        // matching vanilla's same-type face-culling behavior.
+                        // This only helps fully-buried same-type clusters skip
+                        // rendering entirely - it does NOT hide the single
+                        // internal face on a same-type block that still has a
+                        // genuinely different, open neighbor elsewhere, since
+                        // this engine renders each block as one indivisible
+                        // 6-face box rather than per-face quads.
+                        if (b === typeId) return false;
                         return b === 0 || isTransparent[b];
                     }
                     let gb = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
-                    if (gb === null) return true; 
+                    if (gb === null) return true;
+                    if (gb === typeId) return false;
                     return gb === 0 || isTransparent[gb];
                 };
 
