@@ -93,7 +93,7 @@ const EQUIPMENT_GLINT_ITEMS = new Set([
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
-scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
+scene.fog = new THREE.Fog(0x87ceeb, 160, 260);
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
