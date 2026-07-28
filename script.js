@@ -4574,7 +4574,7 @@ const MOB_MODELS = {
                 ]
             }
         }
-    }
+    },
     enderman: {
         texture: 'assets/minecraft/textures/entity/enderman/enderman.png',
         emissiveOverlayTexture: 'assets/minecraft/textures/entity/enderman/enderman_eyes.png',
