@@ -4205,7 +4205,7 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
     return geo;
 }
 
-function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
+function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emissiveOverlayOptions = null) {
     const group = new THREE.Group();
 
     if (partDef.pivot) {
@@ -4255,6 +4255,16 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null) {
         overlayMesh.renderOrder = 1;
         group.add(overlayMesh);
         group.userData.overlayMesh = overlayMesh;
+    }
+
+    if (emissiveOverlayOptions && partDef.emissiveOverlay) {
+        const inflate = partDef.emissiveOverlayInflate !== undefined ? partDef.emissiveOverlayInflate : emissiveOverlayOptions.defaultInflate;
+        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate));
+        const emissiveMerged = emissiveGeos.length > 1 ? mergeBufferGeometries(emissiveGeos) : emissiveGeos[0];
+        const emissiveMesh = new THREE.Mesh(emissiveMerged, emissiveOverlayOptions.material);
+        emissiveMesh.renderOrder = 2;
+        group.add(emissiveMesh);
+        group.userData.emissiveMesh = emissiveMesh;
     }
     return group;
 }
@@ -4361,6 +4371,7 @@ const MOB_MODELS = {
             body: {
                 parent: null,
                 pivot: [0, 31, 0],
+                rot: [90, 0, 0]
                 cubes: [
                     {texOffs: [0, 40], from: [-9, 26, -6], size: [18, 12, 11]},
                     {texOffs: [0, 70], from: [-4.5, 37, -3], size: [9, 5, 6]}
@@ -4398,7 +4409,7 @@ const MOB_MODELS = {
     },
     warden: {
         texture: 'assets/minecraft/textures/entity/warden/warden.png',
-        overlayTexture: 'assets/minecraft/textures/entity/warden/warden_bioluminescent_layer.png',
+        emissiveOverlayTexture: 'assets/minecraft/textures/entity/warden/warden_bioluminescent_layer.png',
         texW: 128,
         texH: 128,
         parts: {
@@ -4482,12 +4493,12 @@ const MOB_MODELS = {
     },
     phantom: {
         texture: 'assets/minecraft/textures/entity/phantom/phantom.png',
-        overlayTexture: 'assets/minecraft/textures/entity/phantom/phantom_eyes.png',
+        emissiveOverlayTexture: 'assets/minecraft/textures/entity/phantom/phantom_eyes.png',
         texW: 64,
         texH: 64,//24.5
         parts: {
             body: {parent: null, pivot: [0, 24, 0], cubes: [{texOffs: [0, 8], from: [-3, 1, -1], size: [5, 3, 9]}]},
-            head: {parent: 'body', pivot: [0, 1, -5], overlay: true, cubes: [{texOffs: [0, 0], from: [-4, 1, 0], size: [7, 3, 5]}]},
+            head: {parent: 'body', pivot: [0, 1, -5], emissiveOverlay: true, cubes: [{texOffs: [0, 0], from: [-4, 1, 0], size: [7, 3, 5]}]},
             tailBase: {parent: 'body', pivot: [0, -1.5, 2], rot: [5, 0, 0], cubes: [{texOffs: [3, 20], from: [-2, 2, 6], size: [3, 2, 6]}]},
             tailTip: {parent: 'tailBase', pivot: [0, 1.5, 6], rot: [5, 0, 0], cubes: [{texOffs: [4, 29], from: [-1, 1, 6], size: [1, 1, 6]}]},
             wingRightBase: {parent: 'body', pivot: [-3, -1, -10], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, 2, 9], size: [6, 2, 9]}]},
@@ -4564,6 +4575,30 @@ const MOB_MODELS = {
             }
         }
     }
+    enderman: {
+        texture: 'assets/minecraft/textures/entity/enderman/enderman.png',
+        emissiveOverlayTexture: 'assets/minecraft/textures/entity/enderman/enderman_eyes.png',
+        texH: 32,
+        texW: 64,
+        parts{
+            head: {
+                parent: null,
+                pivot: [0, 24, 0],
+                emisiveOverlay: true,
+                cubes: [
+                    {texOffs: [0, 0], from: [-4, -16, -4], size: [8, 8, 8]},
+                    {texOffs: [0, 16], from: [-4, -14, -14], size: [8, 8, 8]},
+                ]
+            },
+            body: {parent: null, pivot: [0, 38, 0], cubes: [{texOffs: [32, 16], from: [-4, 12, -2], size: [8, 12, 4]}]},
+            armRight: {parent: null, pivot: [3, 36, 0], cubes: [{texOffs: [56, 0], from: [-3, 28, -1], size: [2, 30, 2]}]},
+            armLeft: {parent: null, pivot: [-5, 36, 0], cubes: [{texOffs: [56, 0], from: [1, 28, -1], size: [2, 30, 2], mirrorU: ['north', 'south']}]},
+            legRight: {parent: null, pivot: [2, 26, 0], cubes: [{texOffs: [56, 0], from: [-1, 30, -1], size: [2, 30, 2]}]},
+            legLeft: {parent: null, pivot: [-2, 26, 0], cubes: [{texOffs: [56, 0], from: [-1, 30, -1], size: [2, 30, 2], mirrorU: ['north', 'south']}]},
+
+
+        }
+    }
 };
 
 function buildMobModel(type) {
@@ -4599,11 +4634,36 @@ function buildMobModel(type) {
         };
     }
 
+    // Emissive overlay: for small "stray" glowing decals sitting flush on the
+    // base surface (enderman/phantom eyes, etc.) - deliberately separate from
+    // the puff-out overlay system above. Two differences: (1) geometry is
+    // built with ZERO inflate by default (coincident with the base face, so
+    // it never visually floats off the surface like an inflated overlay
+    // would for a small detail), and (2) the material is a plain unlit
+    // MeshBasicMaterial, so the glowing pixels render at full, constant
+    // brightness regardless of scene lighting - matching how vanilla's own
+    // glowing eyes ignore local light level entirely. Z-fighting is avoided
+    // WITHOUT polygonOffset (which we found earlier can incorrectly win
+    // depth comparisons against unrelated, genuinely-closer geometry) by
+    // instead using the same proven-safe technique as block texture overlays:
+    // depthWrite: false, drawn after the base mesh via renderOrder, so it
+    // reliably composites on top without ever needing a fake depth bias.
+    let emissiveOverlayOptions = null;
+    if (def.emissiveOverlayTexture) {
+        const emissiveTex = getMobTexture(def.emissiveOverlayTexture);
+        emissiveOverlayOptions = {
+            material: new THREE.MeshBasicMaterial({ map: emissiveTex, transparent: true, alphaTest: 0.02, depthWrite: false, side: THREE.DoubleSide }),
+            texW: def.emissiveOverlayTexW || def.texW,
+            texH: def.emissiveOverlayTexH || def.texH,
+            defaultInflate: def.emissiveOverlayInflate !== undefined ? def.emissiveOverlayInflate : 0
+        };
+    }
+
     const groups = {};
     for (const name in def.parts) {
         const partDef = def.parts[name];
         const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff, side: THREE.DoubleSide });
-        groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions);
+        groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions, emissiveOverlayOptions);
     }
     const root = new THREE.Group();
     for (const name in groups) {
