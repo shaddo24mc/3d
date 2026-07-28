@@ -4580,7 +4580,7 @@ const MOB_MODELS = {
         emissiveOverlayTexture: 'assets/minecraft/textures/entity/enderman/enderman_eyes.png',
         texH: 32,
         texW: 64,
-        parts{
+        parts: {
             head: {
                 parent: null,
                 pivot: [0, 24, 0],
