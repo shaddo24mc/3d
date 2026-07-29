@@ -4166,7 +4166,7 @@ function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFac
     setFace(5, faces.uvNorth, w, h);
 }
 
-function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
+function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
     const [dx, dy, dz] = cube.size;
     // Per-cube inflate: cube.inflate lets any individual cube (not just
     // overlay layers) puff outward by a given amount, in the same raw units
@@ -4198,9 +4198,10 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
         };
         applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, cube.mirrorV);
     }
-    const cx = -(x + dx / 2);
-    const cy = -(y + dy / 2);
-    const cz =  (z + dz / 2);
+    const [px, py, pz] = pivot || [0, 0, 0];
+    const cx = px - (x + dx / 2);
+    const cy = py - (y + dy / 2);
+    const cz =  (z + dz / 2) - pz;
     geo.translate(cx / 16, cy / 16, cz / 16);
     return geo;
 }
@@ -4231,7 +4232,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
     const translucentCubes = partDef.cubes.filter(c => c.opacity !== undefined);
 
     if (opaqueCubes.length > 0) {
-        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH));
+        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH, 0, partDef.pivot));
         const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
         const mesh = new THREE.Mesh(merged, material);
         group.add(mesh);
@@ -4239,7 +4240,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
     }
 
     for (const c of translucentCubes) {
-        const geo = buildMcCubeGeometry(c, texW, texH);
+        const geo = buildMcCubeGeometry(c, texW, texH, 0, partDef.pivot);
         const mat = material.clone();
         mat.transparent = true;
         mat.opacity = THREE.MathUtils.clamp(c.opacity, 0, 100) / 100;
@@ -4249,7 +4250,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
 
     if (overlayOptions && partDef.overlay) {
         const inflate = partDef.overlayInflate !== undefined ? partDef.overlayInflate : overlayOptions.defaultInflate;
-        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate));
+        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate, partDef.pivot));
         const overlayMerged = overlayGeos.length > 1 ? mergeBufferGeometries(overlayGeos) : overlayGeos[0];
         const overlayMesh = new THREE.Mesh(overlayMerged, overlayOptions.material);
         overlayMesh.renderOrder = 1;
@@ -4259,7 +4260,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
 
     if (emissiveOverlayOptions && partDef.emissiveOverlay) {
         const inflate = partDef.emissiveOverlayInflate !== undefined ? partDef.emissiveOverlayInflate : emissiveOverlayOptions.defaultInflate;
-        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate));
+        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate, partDef.pivot));
         const emissiveMerged = emissiveGeos.length > 1 ? mergeBufferGeometries(emissiveGeos) : emissiveGeos[0];
         const emissiveMesh = new THREE.Mesh(emissiveMerged, emissiveOverlayOptions.material);
         emissiveMesh.renderOrder = 2;
@@ -4575,31 +4576,6 @@ const MOB_MODELS = {
             }
         }
     },
-    enderman: {
-        texture: 'assets/minecraft/textures/entity/enderman/enderman.png',
-        emissiveOverlayTexture: 'assets/minecraft/textures/entity/enderman/enderman_eyes.png',
-        texH: 32,
-        texW: 64,
-        parts: {
-            head: {
-                parent: null,
-                pivot: [0, 24, 0],
-                rot: [90, 0, 0],
-                emisiveOverlay: true,
-                cubes: [
-                    {texOffs: [0, 0], from: [-4, -16, -4], size: [8, 8, 8]},
-                    {texOffs: [0, 16], from: [-4, -14, -4], size: [8, 8, 8]},
-                ]
-            },
-            body: {parent: null, pivot: [0, 38, 0], cubes: [{texOffs: [32, 16], from: [-4, 12, -2], size: [8, 12, 4]}]},
-            armRight: {parent: null, pivot: [3, 36, 0], cubes: [{texOffs: [56, 0], from: [-3, 28, -1], size: [2, 30, 2]}]},
-            armLeft: {parent: null, pivot: [-5, 36, 0], cubes: [{texOffs: [56, 0], from: [1, 28, -1], size: [2, 30, 2], mirrorU: ['north', 'south']}]},
-            legRight: {parent: null, pivot: [2, 26, 0], cubes: [{texOffs: [56, 0], from: [-1, 30, -1], size: [2, 30, 2]}]},
-            legLeft: {parent: null, pivot: [-2, 26, 0], cubes: [{texOffs: [56, 0], from: [-1, 30, -1], size: [2, 30, 2], mirrorU: ['north', 'south']}]},
-
-
-        }
-    }
 };
 
 function buildMobModel(type) {
