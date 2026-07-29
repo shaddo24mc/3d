@@ -4670,30 +4670,7 @@ function spawnMob(type, x, y, z) {
 
 function updateMobs(delta) {
     for (const mob of mobs) {
-        mob.velocity.y -= 15 * delta;
-        let nx = mob.position.x;
-        let ny = mob.position.y + mob.velocity.y * delta;
-        let nz = mob.position.z;
-
-        const feetBlockY = Math.floor(ny - 0.05);
-        const feetBlock = getGlobalBlock(Math.floor(nx), feetBlockY, Math.floor(nz));
-        if (feetBlock !== null && feetBlock !== 0 && !isTransparent[feetBlock]) {
-
-            ny = feetBlockY + 0.5;
-            mob.velocity.y = 0;
-            mob.onGround = true;
-        } else {
-            mob.onGround = false;
-        }
-
-        mob.position.set(nx, ny, nz);
-
-        const renderY = ny - mob.model.feetOffset;
-        if (!mob._loggedOnce) {
-            console.log(`[${mob.type}] ny=`, ny, 'feetOffset=', mob.model.feetOffset, 'renderY=', renderY, 'root.position.y=', mob.model.root.position.y);
-            mob._loggedOnce = true;
-        }
-        mob.model.root.position.set(nx, renderY, nz);
+        mob.model.root.position.set(mob.position.x, mob.position.y, mob.position.z);
     }
 }
 
