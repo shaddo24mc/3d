@@ -4584,6 +4584,7 @@ const MOB_MODELS = {
             head: {
                 parent: null,
                 pivot: [0, 24, 0],
+                rot: [90, 0, 0],
                 emisiveOverlay: true,
                 cubes: [
                     {texOffs: [0, 0], from: [-4, -16, -4], size: [8, 8, 8]},
