@@ -4516,7 +4516,7 @@ const MOB_MODELS = {
         parts: {
             base: {parent: null, pivot: [0, 0, 0],  cubes: [{texOffs: [0, 28], from: [-8, 0, -8], size: [16, 8, 16]}]},
             lid: {parent: 'base', pivot: [0, 0, 0], cubes: [{texOffs: [0, 0], from: [-8, 4, -8], size: [16, 12, 16]}]},
-            head: {parent: 'base', pivot: [0, 12, 0], cubes: [{texOffs: [0, 52], from: [-3, 6, -3], size: [6, 6, 6]}]}
+            head: {parent: 'base', pivot: [0, 12, 0], cubes: [{texOffs: [0, 52], from: [-3, -6, -3], size: [6, 6, 6]}]}
         }
     },
     strider: {
@@ -6033,7 +6033,7 @@ document.addEventListener('mousedown', (e) => {
                 // not be shifted by +0.5, which would spawn it off-center toward
                 // one corner of the block instead of centered on it.
                 const mobType = placementType.slice(0, -'_spawn_egg'.length);
-                spawnMob(mobType, placeX, placeY, placeZ);
+                spawnMob(mobType, placeX, placeY - 0.5, placeZ);
                 selectedItem.count--;
                 if (selectedItem.count <= 0) { selectedItem.type = null; selectedItem.count = 0; }
                 updateInventoryUI();
