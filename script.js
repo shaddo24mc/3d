@@ -4168,10 +4168,6 @@ function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFac
 
 function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
     const [dx, dy, dz] = cube.size;
-    // Per-cube inflate: cube.inflate lets any individual cube (not just
-    // overlay layers) puff outward by a given amount, in the same raw units
-    // as from/size. If both a per-cube inflate AND a caller-passed inflate
-    // (e.g. from the overlay system) apply, they stack additively.
     if (cube.inflate) inflate += cube.inflate;
 
     const [x, y, z] = cube.from;
@@ -4179,11 +4175,6 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
 
     if (cube.texOffs) {
         const faces = boxUVShared(cube.texOffs[0], cube.texOffs[1], dx, dy, dz);
-        // Standard Minecraft box-UV unwrapping always needs the 'up' face
-        // mirrored vertically to line up correctly with the rest of the
-        // cross-layout - so when using texOffs (auto-generated faces), this
-        // is applied automatically instead of needing mirrorV: ['up'] on
-        // every single cube. Any mirrorV you do specify is merged in on top.
         const autoMirrorV = cube.mirrorV ? [...new Set(['up', ...cube.mirrorV])] : ['up'];
         applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, autoMirrorV);
     }
@@ -4198,10 +4189,13 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
         };
         applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, cube.mirrorV);
     }
+    
+    // 2. Exclusively use the passed-in pivot from the partDef
     const [px, py, pz] = pivot || [0, 0, 0];
     const cx = px - (x + dx / 2);
     const cy = (y + dy / 2) - py;
     const cz =  (z + dz / 2) - pz;
+    
     geo.translate(cx / 16, cy / 16, cz / 16);
     return geo;
 }
@@ -4209,11 +4203,14 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
 function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emissiveOverlayOptions = null, parentPivot = null) {
     const group = new THREE.Group();
 
-    if (partDef.pivot) {
-        const [px, py, pz] = partDef.pivot;
-        const [ppx, ppy, ppz] = parentPivot || [0, 0, 0];
-        group.position.set(-(px - ppx) / 16, (py - ppy) / 16, (pz - ppz) / 16);
-    }
+    // 1. Strictly grab the pivot from the part definition (outside the cube)
+    const pivot = partDef.pivot || [0, 0, 0];
+    
+    const [px, py, pz] = pivot;
+    const [ppx, ppy, ppz] = parentPivot || [0, 0, 0];
+    
+    // Position the group relative to its parent's pivot (with correct Y-axis orientation)
+    group.position.set(-(px - ppx) / 16, (py - ppy) / 16, (pz - ppz) / 16);
 
     if (partDef.rot) {
         group.rotation.set(
@@ -4224,16 +4221,12 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
         );
     }
 
-    // Per-cube opacity: cube.opacity (0-100, percent) needs its own material,
-    // since opacity is a material-level property in three.js, not per-vertex.
-    // Cubes WITHOUT a custom opacity still share the one mob-wide `material`
-    // passed in, exactly as before - only cubes that opt in get a separate
-    // (cloned) material instance.
     const opaqueCubes = partDef.cubes.filter(c => c.opacity === undefined);
     const translucentCubes = partDef.cubes.filter(c => c.opacity !== undefined);
 
     if (opaqueCubes.length > 0) {
-        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH, 0, partDef.pivot));
+        // Pass the explicit part pivot down to the cubes
+        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH, 0, pivot));
         const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
         const mesh = new THREE.Mesh(merged, material);
         group.add(mesh);
@@ -4241,7 +4234,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
     }
 
     for (const c of translucentCubes) {
-        const geo = buildMcCubeGeometry(c, texW, texH, 0, partDef.pivot);
+        const geo = buildMcCubeGeometry(c, texW, texH, 0, pivot);
         const mat = material.clone();
         mat.transparent = true;
         mat.opacity = THREE.MathUtils.clamp(c.opacity, 0, 100) / 100;
@@ -4251,7 +4244,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
 
     if (overlayOptions && partDef.overlay) {
         const inflate = partDef.overlayInflate !== undefined ? partDef.overlayInflate : overlayOptions.defaultInflate;
-        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate, partDef.pivot));
+        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate, pivot));
         const overlayMerged = overlayGeos.length > 1 ? mergeBufferGeometries(overlayGeos) : overlayGeos[0];
         const overlayMesh = new THREE.Mesh(overlayMerged, overlayOptions.material);
         overlayMesh.renderOrder = 1;
@@ -4261,13 +4254,14 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
 
     if (emissiveOverlayOptions && partDef.emissiveOverlay) {
         const inflate = partDef.emissiveOverlayInflate !== undefined ? partDef.emissiveOverlayInflate : emissiveOverlayOptions.defaultInflate;
-        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate, partDef.pivot));
+        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate, pivot));
         const emissiveMerged = emissiveGeos.length > 1 ? mergeBufferGeometries(emissiveGeos) : emissiveGeos[0];
         const emissiveMesh = new THREE.Mesh(emissiveMerged, emissiveOverlayOptions.material);
         emissiveMesh.renderOrder = 2;
         group.add(emissiveMesh);
         group.userData.emissiveMesh = emissiveMesh;
     }
+    
     return group;
 }
 
