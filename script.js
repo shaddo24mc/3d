@@ -2392,7 +2392,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     geo.clearGroups();
 
                     if (el.rotation && el.rotation.origin) {
-                        let pX = el.rotation.origin[0]/16 - 0.5, pY = el.rotation.origin[1]/16 - 0.5, pZ = el.rotation.origin[2]/16 - 0.5;
+                        let pX = el.rotation.origin[0]/16 - 0.5, pY = el.rotation.origin[1]/16, pZ = el.rotation.origin[2]/16 - 0.5;
                         let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
                         geo.translate(-pX, -pY, -pZ);
                         if (el.rotation.axis === 'x') geo.rotateX(rad);
