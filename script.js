@@ -4200,7 +4200,7 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
     }
     const [px, py, pz] = pivot || [0, 0, 0];
     const cx = px - (x + dx / 2);
-    const cy = (y + dy / 2) - py;
+    const cy = py - (y + dy / 2);
     const cz =  (z + dz / 2) - pz;
     geo.translate(cx / 16, cy / 16, cz / 16);
     return geo;
@@ -4212,7 +4212,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
     if (partDef.pivot) {
         const [px, py, pz] = partDef.pivot;
         const [ppx, ppy, ppz] = parentPivot || [0, 0, 0];
-        group.position.set(-(px - ppx) / 16, (py - ppy) / 16, (pz - ppz) / 16);
+        group.position.set(-(px - ppx) / 16, -(py - ppy) / 16, (pz - ppz) / 16);
     }
 
     if (partDef.rot) {
