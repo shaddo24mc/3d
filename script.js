@@ -4200,7 +4200,7 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
     }
     const [px, py, pz] = pivot || [0, 0, 0];
     const cx = px - (x + dx / 2);
-    const cy = py - (y + dy / 2);
+    const cy = (y + dy / 2) - py;
     const cz =  (z + dz / 2) - pz;
     geo.translate(cx / 16, cy / 16, cz / 16);
     return geo;
