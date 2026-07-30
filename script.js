@@ -4212,7 +4212,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
     if (partDef.pivot) {
         const [px, py, pz] = partDef.pivot;
         const [ppx, ppy, ppz] = parentPivot || [0, 0, 0];
-        group.position.set(-(px - ppx) / 16, -(py - ppy) / 16, (pz - ppz) / 16);
+        group.position.set(-(px - ppx) / 16, (py - ppy) / 16, (pz - ppz) / 16);
     }
 
     if (partDef.rot) {
