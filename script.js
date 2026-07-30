@@ -4200,18 +4200,19 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
     }
     const [px, py, pz] = pivot || [0, 0, 0];
     const cx = px - (x + dx / 2);
-    const cy = py - (y + dy / 2);
+    const cy = (y + dy / 2) - py;
     const cz =  (z + dz / 2) - pz;
     geo.translate(cx / 16, cy / 16, cz / 16);
     return geo;
 }
 
-function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emissiveOverlayOptions = null) {
+function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emissiveOverlayOptions = null, parentPivot = null) {
     const group = new THREE.Group();
 
     if (partDef.pivot) {
         const [px, py, pz] = partDef.pivot;
-        group.position.set(-px / 16, -py / 16, pz / 16);
+        const [ppx, ppy, ppz] = parentPivot || [0, 0, 0];
+        group.position.set(-(px - ppx) / 16, (py - ppy) / 16, (pz - ppz) / 16);
     }
 
     if (partDef.rot) {
@@ -4639,8 +4640,10 @@ function buildMobModel(type) {
     const groups = {};
     for (const name in def.parts) {
         const partDef = def.parts[name];
+        const parentDef = partDef.parent ? def.parts[partDef.parent] : null;
+        const parentPivot = parentDef ? parentDef.pivot : null;
         const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff, side: THREE.DoubleSide });
-        groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions, emissiveOverlayOptions);
+        groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions, emissiveOverlayOptions, parentPivot);
     }
     const root = new THREE.Group();
     for (const name in groups) {
