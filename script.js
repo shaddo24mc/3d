@@ -4166,7 +4166,7 @@ function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFac
     setFace(5, faces.uvNorth, w, h);
 }
 
-function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
+function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
     const [dx, dy, dz] = cube.size;
     // Per-cube inflate: cube.inflate lets any individual cube (not just
     // overlay layers) puff outward by a given amount, in the same raw units
@@ -4198,10 +4198,9 @@ function buildMcCubeGeometry(cube, texW, texH, inflate = 0, pivot = null) {
         };
         applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, cube.mirrorV);
     }
-    const [px, py, pz] = pivot || [0, 0, 0];
-    const cx = px - (x + dx / 2);
-    const cy = (y + dy / 2) - py;
-    const cz =  (z + dz / 2) - pz;
+    const cx = -(x + dx / 2);
+    const cy = (y + dy / 2);
+    const cz =  (z + dz / 2);
     geo.translate(cx / 16, cy / 16, cz / 16);
     return geo;
 }
@@ -4233,7 +4232,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
     const translucentCubes = partDef.cubes.filter(c => c.opacity !== undefined);
 
     if (opaqueCubes.length > 0) {
-        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH, 0, partDef.pivot));
+        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH, 0));
         const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
         const mesh = new THREE.Mesh(merged, material);
         group.add(mesh);
@@ -4241,7 +4240,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
     }
 
     for (const c of translucentCubes) {
-        const geo = buildMcCubeGeometry(c, texW, texH, 0, partDef.pivot);
+        const geo = buildMcCubeGeometry(c, texW, texH, 0);
         const mat = material.clone();
         mat.transparent = true;
         mat.opacity = THREE.MathUtils.clamp(c.opacity, 0, 100) / 100;
@@ -4251,7 +4250,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
 
     if (overlayOptions && partDef.overlay) {
         const inflate = partDef.overlayInflate !== undefined ? partDef.overlayInflate : overlayOptions.defaultInflate;
-        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate, partDef.pivot));
+        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate));
         const overlayMerged = overlayGeos.length > 1 ? mergeBufferGeometries(overlayGeos) : overlayGeos[0];
         const overlayMesh = new THREE.Mesh(overlayMerged, overlayOptions.material);
         overlayMesh.renderOrder = 1;
@@ -4261,7 +4260,7 @@ function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emiss
 
     if (emissiveOverlayOptions && partDef.emissiveOverlay) {
         const inflate = partDef.emissiveOverlayInflate !== undefined ? partDef.emissiveOverlayInflate : emissiveOverlayOptions.defaultInflate;
-        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate, partDef.pivot));
+        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate));
         const emissiveMerged = emissiveGeos.length > 1 ? mergeBufferGeometries(emissiveGeos) : emissiveGeos[0];
         const emissiveMesh = new THREE.Mesh(emissiveMerged, emissiveOverlayOptions.material);
         emissiveMesh.renderOrder = 2;
