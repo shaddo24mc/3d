@@ -4416,78 +4416,78 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [0, 34, 3],
+                pivot: [0, 21, 0],
                 emissiveOverlay: true,
                 cubes: [
-                    {texOffs: [0, 0], from: [-9, 8, -7], size: [18, 21, 11]}
+                    {texOffs: [0, 0], from: [-9, -8, -4], size: [18, 21, 11]}
                 ]
             },
             ribcage_Right: {
                 parent: 'body',
-                pivot: [-7, -2, -7.01],
+                pivot: [7, 23, -4],
                 cubes: [
-                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-2, 10, 0], size: [9, 21, 0], mirrorU: ['south']}
+                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-2, -10, 0.1], size: [9, 21, 0], mirrorU: ['south']}
                 ]
             },
             ribcage_Left: {
                 parent: 'body',
-                pivot: [7, -2, -7.01],
+                pivot: [-7, -2, -7.01],
                 cubes: [
-                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-7, 10, 0], size: [9, 21, 0], mirrorU: ['north']}
+                    {uvNorth: [90, 11], uvSouth: [90, 11], from: [-7, -10, 0.1], size: [9, 21, 0], mirrorU: ['north']}
                 ]
             },
             head: {
                 parent: 'body',
-                pivot: [0, -8, 0],
+                pivot: [0, 34, 0],
                 emissiveOverlay: true,
                 cubes: [
-                    {texOffs: [0, 32], from: [-8, 0, -8], size: [16, 16, 10]}
+                    {texOffs: [0, 32], from: [-8, 0, -5], size: [16, 16, 10]}
                 ]
             },
             tendril_Right: {
                 parent: 'head',
-                pivot: [-8, -12, -3],
+                pivot: [8, 46, 0],
                 cubes: [
-                    {uvNorth: [52, 32], uvSouth: [52, 32], from: [-16, 3, 0], size: [16, 16, 0], mirrorU: ['south']}
+                    {uvNorth: [52, 32], uvSouth: [52, 32], from: [-16, -3, 0], size: [16, 16, 0], mirrorU: ['south']}
                 ]
             },
             tendril_Left: {
                 parent: 'head',
-                pivot: [8, -12, -3],
+                pivot: [-8, 46, 0],
                 cubes: [
-                    {uvNorth: [58, 0], uvSouth: [58, 0], from: [0, 3, 0], size: [16, 16, 0], mirrorU: ['south']}
+                    {uvNorth: [58, 0], uvSouth: [58, 0], from: [0, -3, 0], size: [16, 16, 0], mirrorU: ['south']}
                 ]
             },
             arm_Right: {
                 parent: 'body',
-                pivot: [13, -20, -2],
+                pivot: [13, 34, 1],
                 emissiveOverlay: true,
                 cubes: [
-                    {texOffs: [0, 58], from: [-4, 28, -4], size: [8, 28, 8]}
+                    {texOffs: [0, 58], from: [-4, -28, -4], size: [8, 28, 8]}
                 ]
             },
             arm_Left: {
                 parent: 'body',
-                pivot: [-13, -20, -2],
+                pivot: [-13, 34, 1],
                 emissiveOverlay: true,
                 cubes: [
-                    {texOffs: [44, 50], from: [-4, 28, -4], size: [8, 28, 8]}
+                    {texOffs: [44, 50], from: [-4, -28, -4], size: [8, 28, 8]}
                 ]
             },
             leg_Right: {
                 parent: 'body',
-                pivot: [5.9, 16, -3],
+                pivot: [5.9, 13, 0],
                 emissiveOverlay: true,
                 cubes: [
-                    {texOffs: [76, 48], from: [-3.1, 13, -3], size: [6, 13, 6]}
+                    {texOffs: [76, 48], from: [-3, -13, -3], size: [6, 13, 6]}
                 ]
             },
             leg_Left: {
                 parent: 'body',
-                pivot: [-5.9, 16, -3],
+                pivot: [-5.9, 13, 0],
                 emissiveOverlay: true,
                 cubes: [
-                    {texOffs: [76, 76], from: [-2.9, 13, -3], size: [6, 13, 6]}
+                    {texOffs: [76, 76], from: [-3, -13, -3], size: [6, 13, 6]}
                 ]
             }
         }
