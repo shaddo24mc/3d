@@ -4527,11 +4527,11 @@ const MOB_MODELS = {
             legRight: {parent: null, pivot: [4, 16, 0], cubes: [{texOffs: [0, 32], from: [-2, -17, -2], size: [4, 17, 4]}]},
             legLeft: {parent: null, pivot: [-4, 16, 0], cubes: [{texOffs: [0, 55], from: [-2, -17, -2], size: [4, 17, 4]}]},
             bristlesRightTop: {parent: 'body', pivot: [8, 28, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 33], uvDown: [32, 33], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
-            bristlesLeftTop: {parent: 'body', pivot: [8, 4, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 33], uvDown: [32, 33], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up', 'down']}]},
-            bristlesRightMiddle: {parent: 'body', pivot: [-8, 8, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 49], uvDown: [32, 49], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
-            bristlesLeftMiddle: {parent: 'body', pivot: [8, 8, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 49], uvDown: [32, 49], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up', 'down']}]},
-            bristlesRightBottom: {parent: 'body', pivot: [-8, 13, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 64], uvDown: [32, 64], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
-            bristlesLeftBottom: {parent: 'body', pivot: [8, 13, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 64], uvDown: [32, 64], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up', 'down']}]},
+            bristlesLeftTop: {parent: 'body', pivot: [8, 28, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 33], uvDown: [32, 33], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up', 'down']}]},
+            bristlesRightMiddle: {parent: 'body', pivot: [-8, 24, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 49], uvDown: [32, 49], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
+            bristlesLeftMiddle: {parent: 'body', pivot: [8, 24, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 49], uvDown: [32, 49], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up', 'down']}]},
+            bristlesRightBottom: {parent: 'body', pivot: [-8, 19, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 64], uvDown: [32, 64], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
+            bristlesLeftBottom: {parent: 'body', pivot: [8, 19, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 64], uvDown: [32, 64], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up', 'down']}]},
 
 
 
