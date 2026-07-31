@@ -4346,7 +4346,7 @@ const MOB_MODELS = {
                 pivot: [1, 10, -3],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [21, 0], from: [-4, -4, -2], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
+                    {texOffs: [21, 0], from: [-4, 3, -3], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
                 ]
             },
             body: {
@@ -4354,14 +4354,14 @@ const MOB_MODELS = {
                 pivot: [0, 10, 2],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [18, 14], from: [-2, -3, -100], size: [6, 9, 6]},
+                    {texOffs: [18, 14], from: [-4, 7, -3], size: [6, 9, 6]},
                 ]
             },
             legFrontRight: {parent: null, pivot: [2.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
             legFrontLeft: {parent: null, pivot: [-0.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
             legBackRight: {parent: null, pivot: [2.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
             legBackLeft: {parent: null, pivot: [-0.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
-            tail: {parent: null, pivot: [1, 12, 8], rot: [-55, 0, 0], cubes: [{texOffs: [10, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
+            tail: {parent: null, pivot: [1, 12, 8], rot: [-55, 0, 0], cubes: [{texOffs: [9, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
         }
     },
     iron_golem: {
