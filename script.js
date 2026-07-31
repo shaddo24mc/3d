@@ -4337,13 +4337,13 @@ const MOB_MODELS = {
                 cubes: [
                     {texOffs: [0, 0], from: [-3, -3, -2], size: [6, 6, 4]},
                     {texOffs: [0, 10], from: [-1.5, -2.99, -5], size: [3, 3, 4]},
-                    {texOffs: [16, 14], from: [-3, 2, 0], size: [2, 2, 1]},
-                    {texOffs: [16, 14], from: [1, 2, 0], size: [2, 2, 1]}
+                    {texOffs: [16, 14], from: [-3, 3, 0], size: [2, 2, 1]},
+                    {texOffs: [16, 14], from: [1, 3, 0], size: [2, 2, 1]}
                 ]
             },
             upperBody: {
                 parent: null,
-                pivot: [1, 10, 2],
+                pivot: [1, 10, 3],
                 rot: [-90, 0, 0],
                 cubes: [
                     {texOffs: [21, 0], from: [-4, 8, -7], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
