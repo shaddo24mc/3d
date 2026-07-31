@@ -4448,7 +4448,7 @@ const MOB_MODELS = {
                 parent: 'head',
                 pivot: [-8, 46, 0],
                 cubes: [
-                    {uvNorth: [52, 32], uvSouth: [52, 32], from: [, -3, 0], size: [16, 16, 0], mirrorU: ['south']}
+                    {uvNorth: [52, 32], uvSouth: [52, 32], from: [-16, -3, 0], size: [16, 16, 0], mirrorU: ['south']}
                 ]
             },
             tendril_Left: {
