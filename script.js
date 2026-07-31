@@ -4334,16 +4334,17 @@ const MOB_MODELS = {
             head: {
                 parent: null,
                 pivot: [1, 10.5, -7],
+                rot: [0, 90, 0],
                 cubes: [
-                    {texOffs: [0, 0], from: [-3, -3, -1], size: [6, 6, 4]},
-                    {texOffs: [0, 10], from: [-1.5, -2.99, -4], size: [3, 3, 4]},
-                    {texOffs: [16, 14], from: [-3, 3, 1], size: [2, 2, 1]},
-                    {texOffs: [16, 14], from: [1, 3, 1], size: [2, 2, 1]}
+                    {texOffs: [0, 0], from: [-3, -3, -2], size: [6, 6, 4]},
+                    {texOffs: [0, 10], from: [-1.5, -2.99, -5], size: [3, 3, 4]},
+                    {texOffs: [16, 14], from: [-3, 3, 0], size: [2, 2, 1]},
+                    {texOffs: [16, 14], from: [1, 3, 0], size: [2, 2, 1]}
                 ]
             },
             upperBody: {
                 parent: null,
-                pivot: [1, 10, 3],
+                pivot: [1, 10, -3],
                 rot: [-90, 0, 0],
                 cubes: [
                     {texOffs: [21, 0], from: [-4, -4, -3], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
@@ -4354,7 +4355,7 @@ const MOB_MODELS = {
                 pivot: [0, 10, 2],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [18, 14], from: [-4, -3, -7], size: [6, 9, 6]},
+                    {texOffs: [18, 14], from: [-2, -3, -11], size: [6, 9, 6]},
                 ]
             },
             legFrontRight: {parent: null, pivot: [2.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
@@ -4586,9 +4587,9 @@ function buildMobModel(type) {
     if (def.texture) {
         const tex = getMobTexture(def.texture);
         if (def.translucent) {
-            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: false });
+            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: false, side: THREE.DoubleSide });
         } else {
-            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
+            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
         }
     }
 
