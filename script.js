@@ -4346,7 +4346,7 @@ const MOB_MODELS = {
                 pivot: [1, 10, 3],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [21, 0], from: [-4, 8, -7], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
+                    {texOffs: [21, 0], from: [-4, 4, -3], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
                 ]
             },
             body: {
@@ -4354,7 +4354,7 @@ const MOB_MODELS = {
                 pivot: [0, 10, 2],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [18, 14], from: [-2, 2, -7], size: [6, 9, 6]},
+                    {texOffs: [18, 14], from: [-4, -3, -7], size: [6, 9, 6]},
                 ]
             },
             legFrontRight: {parent: null, pivot: [2.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
