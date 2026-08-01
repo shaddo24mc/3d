@@ -4543,7 +4543,7 @@ const MOB_MODELS = {
         texW: 64,
         texH: 64,
         parts: {
-            body: {parent: null, pivot: [0, 11, 9], rot: [-90, 0, 0], cubes: [{texOffs: [28, 8], from: [-5, 1, -5], size: [10, 16, 8]}, {texOffs: [28, 32], from: [-5, 1, -5], size: [10, 16, 8], inflate: 0.5}]},
+            body: {parent: null, pivot: [0, 11, 9], rot: [-90, 0, 0], parentRotatesChild: false, cubes: [{texOffs: [28, 8], from: [-5, 1, -5], size: [10, 16, 8]}, {texOffs: [28, 32], from: [-5, 1, -5], size: [10, 16, 8], inflate: 0.5}]},
             head: {parent: 'body', pivot: [0, 12, -6], cubes: [{texOffs: [0, 0], from: [-4, -4, -8], size: [8, 8, 8]}, {texOffs: [16, 16], from: [-2, -3, -9], size: [4, 3, 1]}]},
             legFrontRight: {parent: 'body', pivot: [3, 6, -5], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4]}]},
             legFrontLeft: {parent: 'body', pivot: [-3, 6, -5], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]},
@@ -4645,29 +4645,39 @@ function buildMobModel(type) {
         groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions, emissiveOverlayOptions, parentPivot);
     }
 
-    // Parts are added FLAT to root (not nested three.js parent/child) so that
-    // a part's own `rot` only spins that part's own mesh, never its children.
-    // Position still needs to chain through the pivot hierarchy though (a leg
-    // still has to sit wherever the body's pivot puts it) - so we manually
-    // accumulate each part's position up its ancestor chain here, once, and
-    // bake that into a single flat position instead of relying on nested
-    // Object3D matrices (which would also compose rotation, which we don't want).
-    const absPositions = {};
-    function getAbsolutePosition(name) {
-        if (absPositions[name]) return absPositions[name];
-        const partDef = def.parts[name];
-        const pos = groups[name].position.clone();
-        if (partDef.parent && groups[partDef.parent]) {
-            pos.add(getAbsolutePosition(partDef.parent));
-        }
-        absPositions[name] = pos;
-        return pos;
-    }
-
     const root = new THREE.Group();
     for (const name in groups) {
-        groups[name].position.copy(getAbsolutePosition(name));
-        root.add(groups[name]);
+        const partDef = def.parts[name];
+        const parentName = partDef.parent;
+        if (parentName && groups[parentName]) {
+            const parentDef = def.parts[parentName];
+            // Default true: a parent's rotation normally cascades to its
+            // children too, same as a real bone rig (rotate an arm, the hand
+            // rotates with it) - matching how Minecraft's own ModelPart
+            // hierarchy behaves. Setting parentRotatesChild: false on the
+            // PARENT opts that one link out - useful when a part's rot exists
+            // only to re-orient that part's own geometry (e.g. a sideways-built
+            // body tilted to lie flat) and shouldn't swing separately-defined
+            // children around with it too.
+            const parentRotates = parentDef.parentRotatesChild !== false;
+            if (parentRotates) {
+                groups[parentName].add(groups[name]);
+            } else {
+                if (!groups[parentName].userData.counterNode) {
+                    const counter = new THREE.Group();
+                    // Cancel the parent's own rotation exactly (regardless of
+                    // Euler order/signs used to build it) by inverting its
+                    // quaternion, so position/pivot placement still passes
+                    // through this link normally but rotation doesn't.
+                    counter.quaternion.copy(groups[parentName].quaternion).invert();
+                    groups[parentName].add(counter);
+                    groups[parentName].userData.counterNode = counter;
+                }
+                groups[parentName].userData.counterNode.add(groups[name]);
+            }
+        } else {
+            root.add(groups[name]);
+        }
     }
 
     root.updateMatrixWorld(true);
@@ -4676,6 +4686,7 @@ function buildMobModel(type) {
     console.log(`[${type}] feetOffset =`, feetOffset, 'box.min =', box.min, 'box.max =', box.max);
 
     return { root, parts: groups, def, feetOffset };
+} root, parts: groups, def, feetOffset };
 }
 
 const mobs = [];
