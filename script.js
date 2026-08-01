@@ -4502,10 +4502,10 @@ const MOB_MODELS = {
             head: {parent: 'body', pivot: [0, 23, -7], rot: [-12.5, 0, 0], emissiveOverlay: true, cubes: [{texOffs: [0, 0], from: [-4, -1, 0], size: [7, 3, 5]}]},
             tailBase: {parent: 'body', pivot: [0, 26, 1], rot: [5, 0, 0], cubes: [{texOffs: [3, 20], from: [-2, 2, 6], size: [3, 2, 6]}]},
             tailTip: {parent: 'tailBase', pivot: [0, 25.5, 7], rot: [5, 0, 0], cubes: [{texOffs: [4, 29], from: [-1, -1, -6], size: [1, 1, 6]}]},
-            wingRightBase: {parent: 'body', pivot: [3, 26, -8], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, -2, -9], size: [6, 2, 9]}]},
-            wingLeftBase: {parent: 'body', pivot: [-2, 26, -8], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [0, -2, -9], size: [6, 2, 9], mirrorU: ['up', 'down']}]},
-            wingRightTip: {parent: 'wingRightBase', pivot: [9, 26, -8], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, -1, -9], size: [13, 1, 9]}]},
-            wingLeftTip: {parent: 'wingLeftBase', pivot: [-8, 26, -8], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [0, -1, -9], size: [13, 1, 9], mirrorU: ['up', 'down']}]},
+            wingRightBase: {parent: 'body', pivot: [3, 26, -8], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [0, -2, -9], size: [6, 2, 9]}]},
+            wingLeftBase: {parent: 'body', pivot: [-2, 26, -8], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [-6, -2, -9], size: [6, 2, 9], mirrorU: ['up', 'down']}]},
+            wingRightTip: {parent: 'wingRightBase', pivot: [9, 26, -8], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [0, -1, -9], size: [13, 1, 9]}]},
+            wingLeftTip: {parent: 'wingLeftBase', pivot: [-8, 26, -8], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [-13, -1, -9], size: [13, 1, 9], mirrorU: ['up', 'down']}]},
         }
     },
     shulker: {
