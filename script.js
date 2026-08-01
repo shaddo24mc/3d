@@ -4686,7 +4686,6 @@ function buildMobModel(type) {
     console.log(`[${type}] feetOffset =`, feetOffset, 'box.min =', box.min, 'box.max =', box.max);
 
     return { root, parts: groups, def, feetOffset };
-} root, parts: groups, def, feetOffset };
 }
 
 const mobs = [];
