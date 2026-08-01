@@ -4426,14 +4426,14 @@ const MOB_MODELS = {
                 parent: 'body',
                 pivot: [-7, 23, -4],
                 cubes: [
-                    {uvNorth: [90, 11], uvSouth:[43, 43], from: [-2, -10, -0.1], size: [9, 21, 0]}
+                    {uvNorth: [90, 11], uvSouth:[107, 107], from: [-2, -10, -0.1], size: [9, 21, 0]}
                 ]
             },
             ribcage_Left: {
                 parent: 'body',
                 pivot: [7, 23, -4],
                 cubes: [
-                    {uvNorth: [90, 11], uvSouth:[43, 43], from: [-7, -10, -0.1], size: [9, 21, 0], mirrorU: ['north']}
+                    {uvNorth: [90, 11], uvSouth:[107, 107], from: [-7, -10, -0.1], size: [9, 21, 0], mirrorU: ['north']}
                 ]
             },
             head: {
@@ -4448,14 +4448,14 @@ const MOB_MODELS = {
                 parent: 'head',
                 pivot: [-8, 46, 0],
                 cubes: [
-                    {uvNorth: [52, 32], uvSouth:[43, 43], from: [-16, -3, 0], size: [16, 16, 0]}
+                    {uvNorth: [52, 32], uvSouth:[107, 107], from: [-16, -3, 0], size: [16, 16, 0]}
                 ]
             },
             tendril_Left: {
                 parent: 'head',
                 pivot: [8, 46, 0],
                 cubes: [
-                    {uvNorth: [58, 0], uvSouth:[43, 43], from: [0, -3, 0], size: [16, 16, 0]}
+                    {uvNorth: [58, 0], uvSouth:[107, 107], from: [0, -3, 0], size: [16, 16, 0]}
                 ]
             },
             arm_Right: {
