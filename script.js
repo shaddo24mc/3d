@@ -4346,7 +4346,7 @@ const MOB_MODELS = {
                 pivot: [1, 10, -3],
                 rot: [-90, 0, 0],
                 cubes: [
-                    {texOffs: [21, 0], from: [-4, 3, -3], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
+                    {texOffs: [21, 0], from: [-4, 3, 3], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
                 ]
             },
             body: {
