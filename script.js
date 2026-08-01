@@ -4544,7 +4544,7 @@ const MOB_MODELS = {
         texH: 64,
         parts: {
             body: {parent: null, pivot: [0, 11, 9], rot: [-90, 0, 0], cubes: [{texOffs: [28, 8], from: [-5, -18, -1], size: [10, 16, 8]}, {texOffs: [28, 32], from: [-5, -18, -1], size: [10, 16, 8], inflate: 0.5}]},
-            head: {parent: 'body', pivot: [0, 12, -6], cubes: [{texOffs: [0, 0], from: [-4, -4, 0], size: [8, 8, 8]}, {texOffs: [16, 16], from: [-2, -3, -8], size: [4, 3, 1]}]},
+            head: {parent: 'body', pivot: [0, 12, -6], cubes: [{texOffs: [0, 0], from: [-4, -4, 7], size: [8, 8, 8]}, {texOffs: [16, 16], from: [-2, -3, -8], size: [4, 3, 1]}]},
             legFrontRight: {parent: 'body', pivot: [3, 6, -5], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4]}]},
             legFrontLeft: {parent: 'body', pivot: [-3, 6, -5], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]},
             legBackRight: {parent: 'body', pivot: [3, 6, 7], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4]}]},
@@ -4644,11 +4644,30 @@ function buildMobModel(type) {
         const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff, side: THREE.DoubleSide });
         groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions, emissiveOverlayOptions, parentPivot);
     }
+
+    // Parts are added FLAT to root (not nested three.js parent/child) so that
+    // a part's own `rot` only spins that part's own mesh, never its children.
+    // Position still needs to chain through the pivot hierarchy though (a leg
+    // still has to sit wherever the body's pivot puts it) - so we manually
+    // accumulate each part's position up its ancestor chain here, once, and
+    // bake that into a single flat position instead of relying on nested
+    // Object3D matrices (which would also compose rotation, which we don't want).
+    const absPositions = {};
+    function getAbsolutePosition(name) {
+        if (absPositions[name]) return absPositions[name];
+        const partDef = def.parts[name];
+        const pos = groups[name].position.clone();
+        if (partDef.parent && groups[partDef.parent]) {
+            pos.add(getAbsolutePosition(partDef.parent));
+        }
+        absPositions[name] = pos;
+        return pos;
+    }
+
     const root = new THREE.Group();
     for (const name in groups) {
-        const parentName = def.parts[name].parent;
-        if (parentName && groups[parentName]) groups[parentName].add(groups[name]);
-        else root.add(groups[name]);
+        groups[name].position.copy(getAbsolutePosition(name));
+        root.add(groups[name]);
     }
 
     root.updateMatrixWorld(true);
