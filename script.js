@@ -4287,18 +4287,18 @@ const MOB_MODELS = {
             },
             head: {
                 parent: null,
-                pivot: [0, 20, -9],
+                pivot: [0, 20, -8],
                 cubes: [
-                    { texOffs: [0, 0],  from: [-4, -2, -6], size: [8, 8, 6], mirrorU: ['up', 'down']},
-                    { texOffs: [22, 0], from: [-5, -3, -5], size: [1, 3, 1] },
-                    { texOffs: [22, 0], from: [4, -3, -5],  size: [1, 3, 1] },
-                    { texOffs: [0, 32], from: [-3, 3, -7], size: [6, 3, 2] },
+                    { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6], mirrorU: ['up', 'down']},
+                    { texOffs: [22, 0], from: [-5, 2, -5], size: [1, 3, 1] },
+                    { texOffs: [22, 0], from: [4, 2, -5],  size: [1, 3, 1] },
+                    { texOffs: [0, 32], from: [-3, -4, -7], size: [6, 3, 2] },
                 ]
             },
-            legFrontRight: { parent: null, pivot: [-4, 12, -7], cubes: [ { texOffs: [0, 16], from: [-2, 18, -1], size: [4, 12, 4] } ] },
-            legFrontLeft:  { parent: null, pivot: [4, 12, -7],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 18, -1], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] },
-            legBackRight:  { parent: null, pivot: [-4, 12, 6],  cubes: [ { texOffs: [0, 16], from: [-2, 18, -2], size: [4, 12, 4] } ] },
-            legBackLeft:   { parent: null, pivot: [4, 12, 6],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, 18, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] }
+            legFrontRight: { parent: null, pivot: [4, 12, -6], cubes: [ { texOffs: [0, 16], from: [-2, -12, -2], size: [4, 12, 4] } ] },
+            legFrontLeft:  { parent: null, pivot: [-4, 12, -6],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, -12, -1], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] },
+            legBackRight:  { parent: null, pivot: [4, 12, 7],  cubes: [ { texOffs: [0, 16], from: [-2, -12, -2], size: [4, 12, 4] } ] },
+            legBackLeft:   { parent: null, pivot: [-4, 12, 7],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, -12, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] }
         }
     },
 
