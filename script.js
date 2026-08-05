@@ -4388,12 +4388,12 @@ const MOB_MODELS = {
             armRight: {
                 parent: 'body',
                 pivot: [0, 31, 0],
-                cubes: [{texOffs: [60, 58], from: [9, -28.5, -3], size: [4, 30, 6]}]
+                cubes: [{texOffs: [60, 58], from: [9, -27.5, -3], size: [4, 30, 6]}]
             },
             armLeft: {
                 parent: 'body',
                 pivot: [0, 31, 0],
-                cubes: [{texOffs: [60, 21], from: [-13, -28.5, -3], size: [4, 30, 6]}]
+                cubes: [{texOffs: [60, 21], from: [-13, -27.5, -3], size: [4, 30, 6]}]
             },
             legRight: {
                 parent: 'body',
