@@ -4278,11 +4278,11 @@ const MOB_MODELS = {
         parts: {
             body: {
                 parent: null,
-                pivot: [0, 19, 1],
+                pivot: [0, 19, 2],
                 rot: [-90, 0, 0],
                 cubes: [ 
-                    { texOffs: [18, 4], from: [-6, -10, -11], size: [12, 18, 10], mirrorU: ['up', 'down']},
-                    {texOffs: [52, 0], from: [-2, 2, -12], size: [4, 6, 1]}
+                    { texOffs: [18, 4], from: [-6, -8, -7], size: [12, 18, 10], mirrorU: ['up', 'down']},
+                    {texOffs: [52, 0], from: [-2, -8, -8], size: [4, 6, 1]}
                 ]
             },
             head: {
