@@ -4301,7 +4301,7 @@ const MOB_MODELS = {
             legBackRight:   { parent: null, pivot: [4, 12, 7],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, -12, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] }
         }
     },
-//why dd the last one not work?!?"!"!"!"?!Q@L!∆˙å˙˙˚∆∂˙∆∑´˙¨ˆ∆˜¨¥˙∆ø¥ˆ˙ƒˆ˜ˆø¨ç˜ˆØˆø¨ıiubyb¨ØÁ†boıÁ¨Ø¨¨Á¥∫Ø¨∫ÁıØ¨†√∫ÁØ¨†√©∫ø˙ø˜π∫¥†√Áı¨ø¥ˇ◊ƒ©¥ˆ¨ø†ˆ®√∫ø∫†√ˆ¨ø¥†∫˜¨¥¨¨†¥øˇ¨¥®§®´
+//why dd the last one not work?!?"!"!"!"?!Q@L!
     creeper: {
         texture: 'assets/minecraft/textures/entity/creeper/creeper.png',
         texW: 64,
