@@ -11,6 +11,67 @@ globalStyles.innerHTML = `
     canvas { display: block; }
     .mc-text { font-family: 'Minecraft', monospace; text-shadow: 1px 1px 0 #3f3f3f; color: #fff; font-size: 10px; }
     .mc-title { font-family: 'Minecraft', monospace; color: #404040; text-shadow: none; font-size: 8px; }
+    .item-icon-glint,
+    .equipment-icon-glint {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 3;
+    }
+
+    .item-icon-glint::before,
+    .item-icon-glint::after,
+    .equipment-icon-glint::before,
+    .equipment-icon-glint::after {
+        content: "";
+        position: absolute;
+        inset: -70%;
+        background-repeat: repeat;
+        background-size: 128px 128px;
+        transform-origin: center;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+        image-rendering: auto;
+    }
+
+    .item-icon-glint::before,
+    .item-icon-glint::after {
+        background-image: url('assets/minecraft/textures/misc/enchanted_glint_item.png');
+        filter: brightness(1.65) saturate(1.15);
+    }
+
+    .equipment-icon-glint::before,
+    .equipment-icon-glint::after {
+        background-image: url('assets/minecraft/textures/misc/enchanted_glint_entity.png');
+        filter: brightness(1.45) saturate(1.08);
+    }
+
+    .item-icon-glint::before,
+    .equipment-icon-glint::before {
+        transform: rotate(-30deg) scale(1.3);
+        opacity: 0.25;
+        mix-blend-mode: hard-light;
+        animation: mc-glint-a 8s linear infinite;
+    }
+
+    .item-icon-glint::after,
+    .equipment-icon-glint::after {
+        transform: rotate(30deg) scale(1.3);
+        opacity: 0.10;
+        mix-blend-mode: hard-light;
+        animation: mc-glint-b 12s linear infinite;
+    }
+
+    @keyframes mc-glint-a {
+        0%   { background-position: 0px 0px; }
+        100% { background-position: -128px -128px; }
+    }
+
+    @keyframes mc-glint-b {
+        0%   { background-position: 0px 0px; }
+        100% { background-position: 128px -128px; }
+    }
 `;
 document.head.appendChild(globalStyles);
 
@@ -20,6 +81,15 @@ const GUI_TEX_DIR = 'assets/minecraft/textures/gui/container/creative_inventory/
 const GUI_WIDGETS_DIR = 'assets/minecraft/textures/gui/';
 const SPRITE_CREATIVE_DIR = 'assets/minecraft/textures/gui/sprites/container/creative_inventory/';
 const SPRITE_HUD_DIR = 'assets/minecraft/textures/gui/sprites/hud/';
+const MISC_TEX_DIR = 'assets/minecraft/textures/misc/';
+const ITEM_GLINT_ITEMS = new Set([
+    'enchanted_book',
+    'enchanted_golden_apple',
+    'experience_bottle'
+]);
+const EQUIPMENT_GLINT_ITEMS = new Set([
+    'netherite_chestplate'
+]);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 75);
@@ -82,16 +152,497 @@ const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, transpar
 const starsMesh = new THREE.Points(starsGeo, starsMat);
 scene.add(starsMesh);
 
-// ============================================================================
+// =========================================================================
 // 2. REGISTRIES (BLOCKS, ITEMS, TYPES)
-// ============================================================================
+// =========================================================================
 const ITEMS = [
-    'apple', 'arrow', 'baked_potato', 'beef', 'blaze_powder', 'blaze_rod', 'bone', 'bone_meal', 'book', 'bow', 'bowl', 'bread', 'brick', 'bucket', 'carrot', 'charcoal', 'chicken', 'clay_ball', 'clock', 'coal', 'compass', 'cooked_beef', 'cooked_chicken', 'cooked_cod', 'cooked_mutton', 'cooked_porkchop', 'cooked_rabbit', 'cooked_salmon', 'cookie', 'copper_ingot', 'diamond', 'diamond_axe', 'diamond_boots', 'diamond_chestplate', 'diamond_helmet', 'diamond_hoe', 'diamond_leggings', 'diamond_pickaxe', 'diamond_shovel', 'diamond_sword', 'egg', 'emerald', 'ender_eye', 'ender_pearl', 'feather', 'flint', 'flint_and_steel', 'glowstone_dust', 'gold_ingot', 'gold_nugget', 'golden_apple', 'golden_axe', 'golden_boots', 'golden_chestplate', 'golden_helmet', 'golden_hoe', 'golden_leggings', 'golden_pickaxe', 'golden_shovel', 'golden_sword', 'gunpowder', 'iron_axe', 'iron_boots', 'iron_chestplate', 'iron_helmet', 'iron_hoe', 'iron_ingot', 'iron_leggings', 'iron_nugget', 'iron_pickaxe', 'iron_shovel', 'iron_sword', 'lapis_lazuli', 'leather', 'melon_slice', 'netherite_axe', 'netherite_boots', 'netherite_chestplate', 'netherite_helmet', 'netherite_hoe', 'netherite_leggings', 'netherite_pickaxe', 'netherite_shovel', 'netherite_sword', 'painting', 'paper', 'porkchop', 'potato', 'quartz', 'raw_copper', 'raw_gold', 'raw_iron', 'redstone', 'rotten_flesh', 'saddle', 'slime_ball', 'snowball', 'stick', 'stone_axe', 'stone_hoe', 'stone_pickaxe', 'stone_shovel', 'stone_sword', 'string', 'sugar', 'wheat', 'wooden_axe', 'wooden_hoe', 'wooden_pickaxe', 'wooden_shovel', 'wooden_sword', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block', 'oak_sign', 'sweet_berries'
+    'acacia_boat',
+    'acacia_chest_boat',
+    'acacia_hanging_sign',
+    'acacia_sign',
+    'allay_spawn_egg',
+    'iron_golem_spawn_egg',
+    'amethyst_shard',
+    'angler_pottery_sherd',
+    'apple',
+    'archer_pottery_sherd',
+    'armadillo_scute',
+    'armadillo_spawn_egg',
+    'armor_stand',
+    'arms_up_pottery_sherd',
+    'arrow',
+    'axolotl_bucket',
+    'axolotl_spawn_egg',
+    'baked_potato',
+    'bamboo_chest_raft',
+    'bamboo_hanging_sign',
+    'bamboo_raft',
+    'bamboo_sign',
+    'barrier',
+    'bat_spawn_egg',
+    'bee_spawn_egg',
+    'beef',
+    'beetroot',
+    'beetroot_soup',
+    'birch_boat',
+    'birch_chest_boat',
+    'birch_hanging_sign',
+    'birch_sign',
+    'black_dye',
+    'blade_pottery_sherd',
+    'blaze_powder',
+    'blaze_rod',
+    'blaze_spawn_egg',
+    'blue_dye',
+    'bolt_armor_trim_smithing_template',
+    'bone',
+    'bone_meal',
+    'bogged_spawn_egg',
+    'book',
+    'bordure_indented_banner_pattern',
+    'bow',
+    'bowl',
+    'bread',
+    'breeze_rod',
+    'breeze_spawn_egg',
+    'brewer_pottery_sherd',
+    'brick',
+    'brown_dye',
+    'brush',
+    'bucket',
+    'bundle',
+    'burn_pottery_sherd',
+    'cake',
+    'camel_spawn_egg',
+    'carrot',
+    'carrot_on_a_stick',
+    'cat_spawn_egg',
+    'cave_spider_spawn_egg',
+    'chainmail_boots',
+    'chainmail_chestplate',
+    'chainmail_helmet',
+    'chainmail_leggings',
+    'chain_command_block',
+    'charcoal',
+    'cherry_boat',
+    'cherry_chest_boat',
+    'cherry_hanging_sign',
+    'cherry_sign',
+    'chest_minecart',
+    'chicken',
+    'chicken_spawn_egg',
+    'chorus_fruit',
+    'clay_ball',
+    'clock',
+    'coast_armor_trim_smithing_template',
+    'cocoa_beans',
+    'cod',
+    'cod_bucket',
+    'cod_spawn_egg',
+    'command_block',
+    'command_block_minecart',
+    'compass',
+    'cooked_beef',
+    'cooked_chicken',
+    'cooked_cod',
+    'cooked_mutton',
+    'cooked_porkchop',
+    'cooked_rabbit',
+    'cooked_salmon',
+    'cookie',
+    'copper_ingot',
+    'cow_spawn_egg',
+    'creaking_spawn_egg',
+    'creeper_banner_pattern',
+    'creeper_head',
+    'creeper_spawn_egg',
+    'crimson_hanging_sign',
+    'crimson_sign',
+    'crossbow',
+    'cyan_dye',
+    'danger_pottery_sherd',
+    'dark_oak_boat',
+    'dark_oak_chest_boat',
+    'dark_oak_hanging_sign',
+    'dark_oak_sign',
+    'debug_stick',
+    'diamond',
+    'diamond_axe',
+    'diamond_boots',
+    'diamond_chestplate',
+    'diamond_helmet',
+    'diamond_hoe',
+    'diamond_horse_armor',
+    'diamond_leggings',
+    'diamond_pickaxe',
+    'diamond_shovel',
+    'diamond_sword',
+    'disc_fragment_5',
+    'dolphin_spawn_egg',
+    'donkey_spawn_egg',
+    'dragon_breath',
+    'dragon_head',
+    'drowned_spawn_egg',
+    'dune_armor_trim_smithing_template',
+    'echo_shard',
+    'egg',
+    'elder_guardian_spawn_egg',
+    'elytra',
+    'emerald',
+    'enchanted_golden_apple',
+    'ender_eye',
+    'ender_pearl',
+    'enderman_spawn_egg',
+    'endermite_spawn_egg',
+    'evoker_spawn_egg',
+    'experience_bottle',
+    'explorer_pottery_sherd',
+    'eye_armor_trim_smithing_template',
+    'feather',
+    'fermented_spider_eye',
+    'field_masoned_banner_pattern',
+    'filled_map',
+    'fire_charge',
+    'firework_rocket',
+    'firework_star',
+    'fishing_rod',
+    'flint',
+    'flint_and_steel',
+    'flow_armor_trim_smithing_template',
+    'flow_banner_pattern',
+    'flow_pottery_sherd',
+    'flower_banner_pattern',
+    'fox_spawn_egg',
+    'friend_pottery_sherd',
+    'frog_spawn_egg',
+    'furnace_minecart',
+    'ghast_spawn_egg',
+    'ghast_tear',
+    'glass_bottle',
+    'globe_banner_pattern',
+    'glow_berries',
+    'glow_ink_sac',
+    'glow_item_frame',
+    'glowstone_dust',
+    'goat_horn',
+    'goat_spawn_egg',
+    'gold_ingot',
+    'gold_nugget',
+    'golden_apple',
+    'golden_axe',
+    'golden_boots',
+    'golden_carrot',
+    'golden_chestplate',
+    'golden_helmet',
+    'golden_hoe',
+    'golden_horse_armor',
+    'golden_leggings',
+    'golden_pickaxe',
+    'golden_shovel',
+    'golden_sword',
+    'gray_dye',
+    'green_dye',
+    'guardian_spawn_egg',
+    'gunpowder',
+    'guster_banner_pattern',
+    'guster_pottery_sherd',
+    'heart_of_the_sea',
+    'heart_pottery_sherd',
+    'heartbreak_pottery_sherd',
+    'hoglin_spawn_egg',
+    'honeycomb',
+    'honey_bottle',
+    'hopper_minecart',
+    'horse_spawn_egg',
+    'host_armor_trim_smithing_template',
+    'howl_pottery_sherd',
+    'husk_spawn_egg',
+    'ink_sac',
+    'iron_axe',
+    'iron_boots',
+    'iron_chestplate',
+    'iron_helmet',
+    'iron_hoe',
+    'iron_horse_armor',
+    'iron_ingot',
+    'iron_leggings',
+    'iron_nugget',
+    'iron_pickaxe',
+    'iron_shovel',
+    'iron_sword',
+    'item_frame',
+    'jigsaw',
+    'jungle_boat',
+    'jungle_chest_boat',
+    'jungle_hanging_sign',
+    'jungle_sign',
+    'knowledge_book',
+    'lapis_lazuli',
+    'lava_bucket',
+    'lead',
+    'leather',
+    'leather_boots',
+    'leather_chestplate',
+    'leather_helmet',
+    'leather_horse_armor',
+    'leather_leggings',
+    'light',
+    'light_blue_dye',
+    'light_gray_dye',
+    'lime_dye',
+    'lingering_potion',
+    'llama_spawn_egg',
+    'mace',
+    'magenta_dye',
+    'magma_cream',
+    'magma_cube_spawn_egg',
+    'mangrove_boat',
+    'mangrove_chest_boat',
+    'mangrove_hanging_sign',
+    'mangrove_sign',
+    'map',
+    'melon_slice',
+    'milk_bucket',
+    'miner_pottery_sherd',
+    'minecart',
+    'mojang_banner_pattern',
+    'mooshroom_spawn_egg',
+    'mourner_pottery_sherd',
+    'mule_spawn_egg',
+    'mushroom_stew',
+    'music_disc_11',
+    'music_disc_13',
+    'music_disc_5',
+    'music_disc_blocks',
+    'music_disc_cat',
+    'music_disc_chirp',
+    'music_disc_creator',
+    'music_disc_creator_music_box',
+    'music_disc_far',
+    'music_disc_mall',
+    'music_disc_mellohi',
+    'music_disc_otherside',
+    'music_disc_pigstep',
+    'music_disc_precipice',
+    'music_disc_relic',
+    'music_disc_stal',
+    'music_disc_strad',
+    'music_disc_wait',
+    'music_disc_ward',
+    'mutton',
+    'name_tag',
+    'nautilus_shell',
+    'netherite_axe',
+    'netherite_boots',
+    'netherite_chestplate',
+    'netherite_helmet',
+    'netherite_hoe',
+    'netherite_ingot',
+    'netherite_leggings',
+    'netherite_pickaxe',
+    'netherite_scrap',
+    'netherite_shovel',
+    'netherite_sword',
+    'netherite_upgrade_smithing_template',
+    'nether_star',
+    'nether_wart',
+    'oak_boat',
+    'oak_chest_boat',
+    'oak_hanging_sign',
+    'oak_sign',
+    'ocelot_spawn_egg',
+    'ominous_bottle',
+    'ominous_trial_key',
+    'orange_dye',
+    'painting',
+    'pale_oak_boat',
+    'pale_oak_chest_boat',
+    'pale_oak_hanging_sign',
+    'pale_oak_sign',
+    'panda_spawn_egg',
+    'paper',
+    'parrot_spawn_egg',
+    'phantom_membrane',
+    'phantom_spawn_egg',
+    'piglin_banner_pattern',
+    'piglin_brute_spawn_egg',
+    'piglin_head',
+    'piglin_spawn_egg',
+    'pig_spawn_egg',
+    'pillager_spawn_egg',
+    'pink_dye',
+    'pitcher_pod',
+    'player_head',
+    'plenty_pottery_sherd',
+    'polar_bear_spawn_egg',
+    'popped_chorus_fruit',
+    'porkchop',
+    'potion',
+    'potato',
+    'powder_snow_bucket',
+    'prismarine_crystals',
+    'prismarine_shard',
+    'prize_pottery_sherd',
+    'pufferfish',
+    'pufferfish_bucket',
+    'pufferfish_spawn_egg',
+    'pumpkin_pie',
+    'purple_dye',
+    'rabbit',
+    'rabbit_foot',
+    'rabbit_hide',
+    'rabbit_spawn_egg',
+    'rabbit_stew',
+    'raiser_armor_trim_smithing_template',
+    'ravager_spawn_egg',
+    'raw_copper',
+    'raw_gold',
+    'raw_iron',
+    'recovery_compass',
+    'red_dye',
+    'redstone',
+    'repeating_command_block',
+    'resin_brick',
+    'resin_clump',
+    'rib_armor_trim_smithing_template',
+    'rotten_flesh',
+    'saddle',
+    'salmon',
+    'salmon_bucket',
+    'salmon_spawn_egg',
+    'scrape_pottery_sherd',
+    'sentry_armor_trim_smithing_template',
+    'shaper_armor_trim_smithing_template',
+    'shears',
+    'sheaf_pottery_sherd',
+    'sheep_spawn_egg',
+    'shelter_pottery_sherd',
+    'shield',
+    'shulker_shell',
+    'shulker_spawn_egg',
+    'silence_armor_trim_smithing_template',
+    'silverfish_spawn_egg',
+    'skeleton_horse_spawn_egg',
+    'skeleton_skull',
+    'skeleton_spawn_egg',
+    'skull_banner_pattern',
+    'skull_pottery_sherd',
+    'slime_ball',
+    'slime_spawn_egg',
+    'sniffer_egg',
+    'sniffer_spawn_egg',
+    'snort_pottery_sherd',
+    'snout_armor_trim_smithing_template',
+    'snowball',
+    'snow_golem_spawn_egg',
+    'spectral_arrow',
+    'spider_eye',
+    'spider_spawn_egg',
+    'spire_armor_trim_smithing_template',
+    'splash_potion',
+    'spruce_boat',
+    'spruce_chest_boat',
+    'spruce_hanging_sign',
+    'spruce_sign',
+    'spyglass',
+    'squid_spawn_egg',
+    'stick',
+    'stone_axe',
+    'stone_hoe',
+    'stone_pickaxe',
+    'stone_shovel',
+    'stone_sword',
+    'stray_spawn_egg',
+    'strider_spawn_egg',
+    'string',
+    'structure_block',
+    'structure_void',
+    'sugar',
+    'suspicious_stew',
+    'sweet_berries',
+    'tadpole_bucket',
+    'tadpole_spawn_egg',
+    'tide_armor_trim_smithing_template',
+    'tipped_arrow',
+    'tnt_minecart',
+    'totem_of_undying',
+    'torchflower_seeds',
+    'trader_llama_spawn_egg',
+    'trial_key',
+    'trident',
+    'tropical_fish',
+    'tropical_fish_bucket',
+    'tropical_fish_spawn_egg',
+    'turtle_helmet',
+    'turtle_scute',
+    'turtle_spawn_egg',
+    'vex_armor_trim_smithing_template',
+    'vex_spawn_egg',
+    'villager_spawn_egg',
+    'vindicator_spawn_egg',
+    'wandering_trader_spawn_egg',
+    'ward_armor_trim_smithing_template',
+    'warden_spawn_egg',
+    'warped_fungus_on_a_stick',
+    'warped_hanging_sign',
+    'warped_sign',
+    'water_bucket',
+    'wayfinder_armor_trim_smithing_template',
+    'wheat',
+    'white_dye',
+    'wild_armor_trim_smithing_template',
+    'wind_charge',
+    'witch_spawn_egg',
+    'wither_skeleton_skull',
+    'wither_skeleton_spawn_egg',
+    'wither_spawn_egg',
+    'wolf_armor',
+    'wolf_spawn_egg',
+    'wooden_axe',
+    'wooden_hoe',
+    'wooden_pickaxe',
+    'wooden_shovel',
+    'wooden_sword',
+    'writable_book',
+    'written_book',
+    'yellow_dye',
+    'zoglin_spawn_egg',
+    'zombie_head',
+    'zombie_horse_spawn_egg',
+    'zombie_spawn_egg',
+    'zombie_villager_spawn_egg',
+    'zombified_piglin_spawn_egg',
+    'bucket_of_sulfur_cube',
+    'bounce_music_disc',
+    'sulfur_cube_spawn_egg',
+    'copper_sword',
+    'copper_pickaxe',
+    'copper_axe',
+    'copper_shovel',
+    'copper_hoe',
+    'copper_helmet',
+    'copper_chestplate',
+    'copper_leggings',
+    'copper_boots',
+    'copper_nugget',
+    'copper_horse_armor',
+    'enchanted_book',
+    'suspicious_stew',
+    'copper_nautilus_armor',
+    'iron_nautilus_armor',
+    'gold_nautilus_armor',
+    'diamond_nautilus_armor',
+    'netherite_nautilus_armor'
 ];
 const STRICT_ITEMS = new Set(ITEMS);
 
 const flatItems = new Set([...STRICT_ITEMS]);
-['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'player_head', 'dragon_head', 'command_block'].forEach(k => flatItems.delete(k));
+[
+    'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull',
+    'player_head', 'dragon_head', 'piglin_head',
+    'command_block', 'repeating_command_block', 'chain_command_block',
+    'barrier', 'light', 'structure_block', 'structure_void', 'jigsaw',
+].forEach(k => flatItems.delete(k));
 
 const baseBlocks = [
     'air', 'stone', 'granite', 'polished_granite', 'diorite', 'polished_diorite', 'andesite', 'polished_andesite',
@@ -100,63 +651,322 @@ const baseBlocks = [
     'gold_ore', 'deepslate_gold_ore', 'redstone_ore', 'deepslate_redstone_ore', 'emerald_ore', 'deepslate_emerald_ore',
     'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
     'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
-    'gold_block', 'diamond_block', 'netherite_block', 'sponge', 'wet_sponge', 'glass', 'lapis_block', 'sandstone',
-    'chiseled_sandstone', 'cut_sandstone', 'cobweb', 'short_grass', 'fern', 'dead_bush', 'seagrass', 'sea_pickle', 'dandelion',
-    'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy',
-    'cornflower', 'lily_of_the_valley', 'wither_rose', 'brown_mushroom', 'red_mushroom', 'bricks', 'bookshelf',
-    'mossy_cobblestone', 'obsidian', 'torch', 'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
-    'spawner', 'chest', 'crafting_table', 'farmland', 'furnace', 'ladder', 'snow', 'ice', 'snow_block', 'cactus', 'clay',
-    'jukebox', 'pumpkin', 'netherrack', 'soul_sand', 'soul_soil', 'basalt', 'polished_basalt', 'soul_torch', 'glowstone',
-    'jack_o_lantern', 'stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'infested_stone',
-    'melon', 'mycelium', 'lily_pad', 'nether_bricks', 'end_stone', 'end_stone_bricks', 'dragon_egg', 'emerald_block',
-    'beacon', 'redstone_block', 'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'slime_block', 'prismarine',
-    'prismarine_bricks', 'dark_prismarine', 'sea_lantern', 'hay_block', 'terracotta', 'packed_ice', 'sunflower', 'lilac',
-    'rose_bush', 'peony', 'tall_grass', 'large_fern', 'magma_block', 'nether_wart_block', 'red_nether_bricks', 'bone_block',
-    'kelp', 'dried_kelp_block', 'turtle_egg', 'tube_coral_block', 'brain_coral_block', 'bubble_coral_block',
-    'fire_coral_block', 'horn_coral_block', 'blue_ice', 'conduit', 'bamboo', 'redstone_lamp', 'campfire', 'soul_campfire',
-    'warped_wart_block', 'crimson_roots', 'warped_roots', 'nether_sprouts', 'weeping_vines', 'weeping_vines_plant',
-    'twisting_vines', 'twisting_vines_plant', 'crimson_fungus', 'warped_fungus', 'shroomlight', 'target', 'crying_obsidian', 'respawn_anchor',
-    'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone', 'polished_blackstone_bricks',
-    'cracked_polished_blackstone_bricks', 'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'tuff', 'calcite',
-    'tinted_glass', 'powder_snow', 'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor',
-    'calibrated_sculk_sensor', 'dripstone_block', 'pointed_dripstone', 'moss_block', 'moss_carpet', 'azalea',
-    'flowering_azalea', 'hanging_roots', 'spore_blossom', 'glow_lichen', 'packed_mud', 'mud_bricks', 'mangrove_roots',
-    'muddy_mangrove_roots', 'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight', 'suspicious_sand',
-    'suspicious_gravel', 'pink_petals', 'chiseled_bookshelf', 'decorated_pot', 'crafter', 'tuff_bricks', 'chiseled_tuff',
-    'polished_tuff', 'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
-    'trial_spawner', 'vault', 'heavy_core', 'cobbled_deepslate', 'sweet_berry_bush', ...ITEMS
+    'exposed_copper', 'weathered_copper', 'oxidized_copper',
+    'waxed_copper_block', 'waxed_exposed_copper', 'waxed_weathered_copper', 'waxed_oxidized_copper',
+    'cut_copper', 'exposed_cut_copper', 'weathered_cut_copper', 'oxidized_cut_copper',
+    'waxed_cut_copper', 'waxed_exposed_cut_copper', 'waxed_weathered_cut_copper', 'waxed_oxidized_cut_copper',
+    'chiseled_copper', 'exposed_chiseled_copper', 'weathered_chiseled_copper', 'oxidized_chiseled_copper',
+    'waxed_chiseled_copper', 'waxed_exposed_chiseled_copper', 'waxed_weathered_chiseled_copper', 'waxed_oxidized_chiseled_copper',
+    'gold_block', 'diamond_block', 'netherite_block', 'emerald_block', 'lapis_block', 'redstone_block',
+    'amethyst_block', 'budding_amethyst', 'amethyst_cluster', 'large_amethyst_bud', 'medium_amethyst_bud', 'small_amethyst_bud',
+    'sponge', 'wet_sponge', 'glass', 'tinted_glass',
+    'sandstone', 'chiseled_sandstone', 'cut_sandstone', 'smooth_sandstone',
+    'red_sandstone', 'chiseled_red_sandstone', 'cut_red_sandstone', 'smooth_red_sandstone',
+    'cobweb', 'short_grass', 'fern', 'dead_bush', 'seagrass', 'tall_seagrass', 'sea_pickle',
+    'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet',
+    'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley',
+    'wither_rose', 'torchflower', 'pitcher_plant', 'open_eyeblossom', 'closed_eyeblossom',
+    'brown_mushroom', 'red_mushroom',
+    'brown_mushroom_block', 'red_mushroom_block', 'mushroom_stem',
+    'bricks', 'bookshelf', 'chiseled_bookshelf', 'mossy_cobblestone', 'obsidian', 'crying_obsidian',
+    'torch', 'soul_torch', 'lantern', 'soul_lantern',
+    'end_rod', 'chorus_plant', 'chorus_flower', 'purpur_block', 'purpur_pillar',
+    'spawner', 'trial_spawner', 'vault',
+    'chest', 'trapped_chest', 'ender_chest', 'barrel',
+    'crafting_table', 'furnace', 'blast_furnace', 'smoker',
+    'farmland', 'dirt_path',
+    'ladder', 'scaffolding',
+    'snow', 'snow_block', 'powder_snow', 'ice', 'packed_ice', 'blue_ice',
+    'cactus', 'clay', 'jukebox',
+    'pumpkin', 'carved_pumpkin', 'jack_o_lantern', 'melon',
+    'netherrack', 'soul_sand', 'soul_soil',
+    'basalt', 'polished_basalt', 'smooth_basalt',
+    'glowstone', 'shroomlight', 'sea_lantern', 'redstone_lamp',
+    'stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'smooth_stone',
+    'infested_stone', 'infested_cobblestone', 'infested_stone_bricks', 'infested_mossy_stone_bricks',
+    'infested_cracked_stone_bricks', 'infested_chiseled_stone_bricks', 'infested_deepslate',
+    'mycelium', 'lily_pad', 'nether_bricks', 'cracked_nether_bricks', 'chiseled_nether_bricks',
+    'red_nether_bricks', 'nether_wart_block', 'warped_wart_block',
+    'end_stone', 'end_stone_bricks', 'dragon_egg', 'dragon_head',
+    'beacon', 'conduit',
+    'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'smooth_quartz',
+    'slime_block', 'honey_block', 'honeycomb_block',
+    'prismarine', 'prismarine_bricks', 'dark_prismarine',
+    'hay_block', 'bone_block', 'dried_kelp_block',
+    'terracotta', 'white_terracotta', 'orange_terracotta', 'magenta_terracotta', 'light_blue_terracotta',
+    'yellow_terracotta', 'lime_terracotta', 'pink_terracotta', 'gray_terracotta', 'light_gray_terracotta',
+    'cyan_terracotta', 'purple_terracotta', 'blue_terracotta', 'brown_terracotta', 'green_terracotta',
+    'red_terracotta', 'black_terracotta',
+    'sunflower', 'lilac', 'rose_bush', 'peony', 'tall_grass', 'large_fern', 'pitcher_crop',
+    'magma_block', 'target',
+    'kelp', 'kelp_plant', 'turtle_egg', 'frogspawn',
+    'tube_coral', 'brain_coral', 'bubble_coral', 'fire_coral', 'horn_coral',
+    'tube_coral_block', 'brain_coral_block', 'bubble_coral_block', 'fire_coral_block', 'horn_coral_block',
+    'tube_coral_fan', 'brain_coral_fan', 'bubble_coral_fan', 'fire_coral_fan', 'horn_coral_fan',
+    'dead_tube_coral', 'dead_brain_coral', 'dead_bubble_coral', 'dead_fire_coral', 'dead_horn_coral',
+    'dead_tube_coral_block', 'dead_brain_coral_block', 'dead_bubble_coral_block', 'dead_fire_coral_block', 'dead_horn_coral_block',
+    'dead_tube_coral_fan', 'dead_brain_coral_fan', 'dead_bubble_coral_fan', 'dead_fire_coral_fan', 'dead_horn_coral_fan',
+     'bamboo', 'bamboo_block', 'stripped_bamboo_block',
+    'campfire', 'soul_campfire',
+    'weeping_vines', 'weeping_vines_plant', 'twisting_vines', 'twisting_vines_plant',
+    'crimson_roots', 'warped_roots', 'nether_sprouts',
+    'crimson_fungus', 'warped_fungus',
+    'respawn_anchor',
+    'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone',
+    'polished_blackstone_bricks', 'cracked_polished_blackstone_bricks',
+    'tuff', 'tuff_bricks', 'chiseled_tuff', 'polished_tuff',
+    'calcite',
+    'sculk', 'sculk_vein', 'sculk_catalyst', 'sculk_shrieker', 'sculk_sensor', 'calibrated_sculk_sensor',
+    'dripstone_block', 'pointed_dripstone',
+    'moss_block', 'moss_carpet',
+    'azalea', 'flowering_azalea', 'azalea_leaves', 'flowering_azalea_leaves',
+    'hanging_roots', 'spore_blossom', 'glow_lichen',
+    'packed_mud', 'mud_bricks',
+    'mangrove_roots', 'muddy_mangrove_roots',
+    'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight',
+    'suspicious_sand', 'suspicious_gravel',
+    'pink_petals',
+    'decorated_pot',
+    'crafter',
+    'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
+    'waxed_copper_bulb', 'waxed_exposed_copper_bulb', 'waxed_weathered_copper_bulb', 'waxed_oxidized_copper_bulb',
+    'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate',
+    'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate',
+    'copper_door', 'exposed_copper_door', 'weathered_copper_door', 'oxidized_copper_door',
+    'waxed_copper_door', 'waxed_exposed_copper_door', 'waxed_weathered_copper_door', 'waxed_oxidized_copper_door',
+    'copper_trapdoor', 'exposed_copper_trapdoor', 'weathered_copper_trapdoor', 'oxidized_copper_trapdoor',
+    'waxed_copper_trapdoor', 'waxed_exposed_copper_trapdoor', 'waxed_weathered_copper_trapdoor', 'waxed_oxidized_copper_trapdoor',
+    'heavy_core', 'decorated_pot', 'cobbled_deepslate', 'deepslate', 'chiseled_deepslate',
+    'deepslate_bricks', 'cracked_deepslate_bricks', 'deepslate_tiles', 'cracked_deepslate_tiles',
+    'reinforced_deepslate',
+    'sweet_berry_bush',
+    'nether_wart', 'soul_fire', 'fire',
+    'iron_bars', 'iron_door', 'iron_trapdoor',
+    'observer', 'dispenser', 'dropper', 'hopper', 'piston', 'sticky_piston',
+    'tnt', 'anvil', 'chipped_anvil', 'damaged_anvil',
+    'grindstone', 'stonecutter', 'loom', 'cartography_table', 'fletching_table', 'smithing_table',
+    'bell', 'lectern', 'composter', 'cauldron',
+    'note_block', 'daylight_detector', 'comparator', 'repeater',
+    'lever', 'tripwire_hook', 'tripwire',
+    'stone_button', 'oak_button', 'spruce_button', 'birch_button', 'jungle_button',
+    'acacia_button', 'dark_oak_button', 'mangrove_button', 'cherry_button', 'pale_oak_button',
+    'bamboo_button', 'crimson_button', 'warped_button', 'polished_blackstone_button',
+    'stone_pressure_plate', 'oak_pressure_plate', 'spruce_pressure_plate', 'birch_pressure_plate',
+    'jungle_pressure_plate', 'acacia_pressure_plate', 'dark_oak_pressure_plate', 'mangrove_pressure_plate',
+    'cherry_pressure_plate', 'pale_oak_pressure_plate', 'bamboo_pressure_plate', 'crimson_pressure_plate',
+    'warped_pressure_plate', 'polished_blackstone_pressure_plate',
+    'light_weighted_pressure_plate', 'heavy_weighted_pressure_plate',
+    'oak_fence_gate', 'spruce_fence_gate', 'birch_fence_gate', 'jungle_fence_gate',
+    'acacia_fence_gate', 'dark_oak_fence_gate', 'mangrove_fence_gate', 'cherry_fence_gate',
+    'pale_oak_fence_gate', 'bamboo_fence_gate', 'crimson_fence_gate', 'warped_fence_gate',
+    'lightning_rod',
+    'iron_chain',
+    'vine', 
+    'sugar_cane',
+    'glass_pane',
+    'cake',
+    'end_portal_frame', 'end_gateway', 'end_portal',
+    'nether_portal',
+    'structure_block', 'structure_void', 'jigsaw', 'command_block',
+    'repeating_command_block', 'chain_command_block',
+    'barrier', 'light',
+    'pale_hanging_moss', 'pale_moss_block', 'pale_moss_carpet', 
+    'resin_block', 'resin_bricks', 'chiseled_resin_bricks', 'resin_brick', 'resin_clump',
+    'sulfur',
+    'polished_sulfur',
+    'chiseled_sulfur',
+    'sulfur_bricks',
+    'sulfur_slab',
+    'sulfur_stairs',
+    'sulfur_wall',
+
+    'polished_sulfur_slab',
+    'polished_sulfur_stairs',
+    'polished_sulfur_wall',
+
+    'sulfur_brick_slab',
+    'sulfur_brick_stairs',
+    'sulfur_brick_wall',
+    'cinnabar',
+    'polished_cinnabar',
+    'chiseled_cinnabar',
+    'cinnabar_bricks', 
+    'cinnabar_slab',
+    'cinnabar_stairs',
+    'cinnabar_wall', 
+    'polished_cinnabar_slab',
+    'polished_cinnabar_stairs',
+    'polished_cinnabar_wall',
+
+    'cinnabar_brick_slab',
+    'cinnabar_brick_stairs',
+    'cinnabar_brick_wall',
+    'potent_sulfur',
+    'sulfur_spike',
+    'copper_chain', 
+    'exposed_copper_chain', 
+    'weathered_copper_chain', 
+    'oxidized_copper_chain', 
+    'waxed_copper_chain', 
+    'waxed_exposed_copper_chain', 
+    'waxed_weathered_copper_chain', 
+    'waxed_oxidized_copper_chain',
+    'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'piglin_head',
+
+    ...ITEMS
 ];
+const cubeAllBlocks = [
+    'air', 'stone', 'granite', 'polished_granite', 'diorite', 'polished_diorite', 'andesite', 'polished_andesite',
+    'grass_block', 'dirt', 'coarse_dirt', 'podzol', 'rooted_dirt', 'mud', 'cobblestone', 'bedrock', 'sand', 'red_sand',
+    'gravel', 'coal_ore', 'deepslate_coal_ore', 'iron_ore', 'deepslate_iron_ore', 'copper_ore', 'deepslate_copper_ore',
+    'gold_ore', 'deepslate_gold_ore', 'redstone_ore', 'deepslate_redstone_ore', 'emerald_ore', 'deepslate_emerald_ore',
+    'lapis_ore', 'deepslate_lapis_ore', 'diamond_ore', 'deepslate_diamond_ore', 'nether_gold_ore', 'nether_quartz_ore',
+    'ancient_debris', 'coal_block', 'raw_iron_block', 'raw_copper_block', 'raw_gold_block', 'iron_block', 'copper_block',
+    'exposed_copper', 'weathered_copper', 'oxidized_copper',
+    'waxed_copper_block', 'waxed_exposed_copper', 'waxed_weathered_copper', 'waxed_oxidized_copper',
+    'cut_copper', 'exposed_cut_copper', 'weathered_cut_copper', 'oxidized_cut_copper',
+    'waxed_cut_copper', 'waxed_exposed_cut_copper', 'waxed_weathered_cut_copper', 'waxed_oxidized_cut_copper',
+    'chiseled_copper', 'exposed_chiseled_copper', 'weathered_chiseled_copper', 'oxidized_chiseled_copper',
+    'waxed_chiseled_copper', 'waxed_exposed_chiseled_copper', 'waxed_weathered_chiseled_copper', 'waxed_oxidized_chiseled_copper',
+    'gold_block', 'diamond_block', 'netherite_block', 'emerald_block', 'lapis_block', 'redstone_block',
+    'amethyst_block', 'budding_amethyst', 
+    'sponge', 'wet_sponge', 
+    'sandstone', 'chiseled_sandstone', 'cut_sandstone', 'smooth_sandstone',
+    'red_sandstone', 'chiseled_red_sandstone', 'cut_red_sandstone', 'smooth_red_sandstone',
+    'brown_mushroom', 'red_mushroom',
+    'brown_mushroom_block', 'red_mushroom_block', 'mushroom_stem',
+    'bricks', 'bookshelf', 'chiseled_bookshelf', 'mossy_cobblestone', 'obsidian', 'crying_obsidian',
+    'purpur_block', 'purpur_pillar',
+    'spawner', 'trial_spawner', 'vault',
+    'barrel',
+    'crafting_table', 'furnace', 'blast_furnace', 'smoker',
+    'farmland', 'dirt_path',
+    'snow', 'snow_block', 'ice', 'packed_ice', 'blue_ice',
+    'clay', 'jukebox',
+    'pumpkin', 'carved_pumpkin', 'jack_o_lantern', 'melon',
+    'netherrack', 'soul_sand', 'soul_soil',
+    'basalt', 'polished_basalt', 'smooth_basalt',
+    'glowstone', 'shroomlight', 'sea_lantern', 'redstone_lamp',
+    'stone_bricks', 'mossy_stone_bricks', 'cracked_stone_bricks', 'chiseled_stone_bricks', 'smooth_stone',
+    'infested_stone', 'infested_cobblestone', 'infested_stone_bricks', 'infested_mossy_stone_bricks',
+    'infested_cracked_stone_bricks', 'infested_chiseled_stone_bricks', 'infested_deepslate',
+    'mycelium', 'nether_bricks', 'cracked_nether_bricks', 'chiseled_nether_bricks',
+    'red_nether_bricks', 'nether_wart_block', 'warped_wart_block',
+    'end_stone', 'end_stone_bricks', 
+    'beacon', 
+    'quartz_block', 'chiseled_quartz_block', 'quartz_pillar', 'smooth_quartz',
+    'honeycomb_block',
+    'prismarine', 'prismarine_bricks', 'dark_prismarine',
+    'hay_block', 'bone_block', 'dried_kelp_block',
+    'terracotta', 'white_terracotta', 'orange_terracotta', 'magenta_terracotta', 'light_blue_terracotta',
+    'yellow_terracotta', 'lime_terracotta', 'pink_terracotta', 'gray_terracotta', 'light_gray_terracotta',
+    'cyan_terracotta', 'purple_terracotta', 'blue_terracotta', 'brown_terracotta', 'green_terracotta',
+    'red_terracotta', 'black_terracotta',
+    'magma_block', 'target',
+    'tube_coral', 'brain_coral', 'bubble_coral', 'fire_coral', 'horn_coral',
+    'tube_coral_block', 'brain_coral_block', 'bubble_coral_block', 'fire_coral_block', 'horn_coral_block',
+    'dead_tube_coral', 'dead_brain_coral', 'dead_bubble_coral', 'dead_fire_coral', 'dead_horn_coral',
+    'dead_tube_coral_block', 'dead_brain_coral_block', 'dead_bubble_coral_block', 'dead_fire_coral_block', 'dead_horn_coral_block',
+    'bamboo', 'bamboo_block', 'stripped_bamboo_block',
+    'respawn_anchor',
+    'blackstone', 'gilded_blackstone', 'polished_blackstone', 'chiseled_polished_blackstone',
+    'polished_blackstone_bricks', 'cracked_polished_blackstone_bricks',
+    'tuff', 'tuff_bricks', 'chiseled_tuff', 'polished_tuff',
+    'calcite',
+    'sculk', 'sculk_catalyst', 
+    'dripstone_block', 
+    'moss_block', 
+    'packed_mud', 'mud_bricks',
+    'muddy_mangrove_roots',
+    'ochre_froglight', 'verdant_froglight', 'pearlescent_froglight',
+    'suspicious_sand', 'suspicious_gravel',
+    'crafter',
+    'copper_bulb', 'exposed_copper_bulb', 'weathered_copper_bulb', 'oxidized_copper_bulb',
+    'waxed_copper_bulb', 'waxed_exposed_copper_bulb', 'waxed_weathered_copper_bulb', 'waxed_oxidized_copper_bulb', 
+    'cobbled_deepslate', 'deepslate', 'chiseled_deepslate',
+    'deepslate_bricks', 'cracked_deepslate_bricks', 'deepslate_tiles', 'cracked_deepslate_tiles',
+    'reinforced_deepslate',
+    'iron_bars', 
+    'observer', 'dispenser', 'dropper', 'piston', 'sticky_piston',
+    'tnt', 'loom', 'cartography_table', 'fletching_table', 'smithing_table',
+    'note_block', 
+    'glass_pane',
+    'pale_moss_block', 
+    'resin_block', 'resin_bricks', 'chiseled_resin_bricks', 'resin_brick',
+    'sulfur',
+    'polished_sulfur',
+    'chiseled_sulfur',
+    'sulfur_bricks',
+    'cinnabar',
+    'polished_cinnabar',
+    'chiseled_cinnabar',
+    'cinnabar_bricks', 
+    'potent_sulfur',
+    "oak_planks", "oak_log", "stripped_oak_log", "oak_wood", "stripped_oak_wood",
+    "spruce_planks", "spruce_log", "stripped_spruce_log", "spruce_wood", "stripped_spruce_wood",
+    "birch_planks", "birch_log", "stripped_birch_log", "birch_wood", "stripped_birch_wood",
+    "jungle_planks", "jungle_log", "stripped_jungle_log", "jungle_wood", "stripped_jungle_wood",
+    "acacia_planks", "acacia_log", "stripped_acacia_log", "acacia_wood", "stripped_acacia_wood",
+    "dark_oak_planks", "dark_oak_log", "stripped_dark_oak_log", "dark_oak_wood", "stripped_dark_oak_wood",
+    "mangrove_planks", "mangrove_log", "stripped_mangrove_log", "mangrove_wood", "stripped_mangrove_wood",
+    "cherry_planks", "cherry_log", "stripped_cherry_log", "cherry_wood", "stripped_cherry_wood",
+    "crimson_planks", "crimson_stem", "stripped_crimson_stem", "crimson_hyphae", "stripped_crimson_hyphae",
+    "warped_planks", "warped_stem", "stripped_warped_stem", "warped_hyphae", "stripped_warped_hyphae",
+    "pale_oak_planks", "pale_oak_log", "stripped_pale_oak_log", "pale_oak_wood", "stripped_pale_oak_wood",
+    "bamboo_planks", "bamboo_mosaic",
+    "white_concrete", "orange_concrete", "magenta_concrete", "light_blue_concrete",
+    "yellow_concrete", "lime_concrete", "pink_concrete", "gray_concrete",
+    "light_gray_concrete", "cyan_concrete", "purple_concrete", "blue_concrete",
+    "brown_concrete", "green_concrete", "red_concrete", "black_concrete",
+    "white_glazed_terracotta", "orange_glazed_terracotta", "magenta_glazed_terracotta", "light_blue_glazed_terracotta",
+    "yellow_glazed_terracotta", "lime_glazed_terracotta", "pink_glazed_terracotta", "gray_glazed_terracotta",
+    "light_gray_glazed_terracotta", "cyan_glazed_terracotta", "purple_glazed_terracotta", "blue_glazed_terracotta",
+    "brown_glazed_terracotta", "green_glazed_terracotta", "red_glazed_terracotta", "black_glazed_terracotta",
+    "white_wool", "orange_wool", "magenta_wool", "light_blue_wool",
+    "yellow_wool", "lime_wool", "pink_wool", "gray_wool",
+    "light_gray_wool", "cyan_wool", "purple_wool", "blue_wool",
+    "brown_wool", "green_wool", "red_wool", "black_wool",
+    'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'
+    ];
 
 const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
 const WOODS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'pale_oak', 'crimson', 'warped', 'bamboo'];
-const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick', 'mossy_stone_brick', 'granite', 'diorite', 'andesite', 'sandstone', 'red_sandstone', 'brick', 'prismarine', 'dark_prismarine', 'nether_brick', 'end_stone_brick', 'blackstone', 'polished_blackstone', 'deepslate_brick', 'deepslate_tile', 'tuff', 'polished_tuff', 'mud_brick'];
+const STONE_TYPES = ['stone', 'cobblestone', 'mossy_cobblestone', 'stone_brick', 'mossy_stone_brick', 'granite', 'diorite', 'andesite', 'sandstone', 'red_sandstone', 'brick', 'prismarine', 'dark_prismarine', 'nether_brick', 'red_nether_brick', 'end_stone_brick', 'blackstone', 'polished_blackstone', 'deepslate_brick', 'deepslate_tile', 'tuff', 'polished_tuff', 'mud_brick', 'cut_copper', 'exposed_cut_copper', 'weathered_cut_copper', 'oxidized_cut_copper', 'waxed_cut_copper', 'waxed_exposed_cut_copper', 'waxed_weathered_cut_copper', 'waxed_oxidized_cut_copper', 'cobbled_deepslate', 'smooth_sandstone', 'smooth_red_sandstone', 'smooth_quartz', 'purpur', 'resin_brick'];
 
 const generatedBlocks = [...baseBlocks];
 
 COLORS.forEach(c => {
-    generatedBlocks.push(`${c}_wool`, `${c}_stained_glass`, `${c}_terracotta`, `${c}_concrete`, `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`);
+    generatedBlocks.push(`${c}_wool`, `${c}_stained_glass`, `${c}_concrete`, `${c}_concrete_powder`, `${c}_glazed_terracotta`, `${c}_carpet`, `${c}_stained_glass_pane`, `${c}_shulker_box`, `${c}_candle`, `${c}_bed`, `${c}_bed_head`, `${c}_bed_foot`);
 });
 
 WOODS.forEach(w => {
     let log = w === 'crimson' || w === 'warped' ? `${w}_stem` : w === 'bamboo' ? `${w}_block` : `${w}_log`;
+    let strippedLog = w === 'crimson' || w === 'warped' ? `stripped_${w}_stem` : w === 'bamboo' ? `stripped_${w}_block` : `stripped_${w}_log`;
     let wood = w === 'crimson' || w === 'warped' ? `${w}_hyphae` : w === 'bamboo' ? null : `${w}_wood`;
+    let strippedWood = w === 'crimson' || w === 'warped' ? `stripped_${w}_hyphae` : w === 'bamboo' ? null : `stripped_${w}_wood`;
     let planks = `${w}_planks`;
     let leaves = w === 'crimson' ? 'nether_wart_block' : w === 'warped' ? 'warped_wart_block' : w === 'bamboo' ? null : `${w}_leaves`;
     let sapling = w === 'crimson' || w === 'warped' ? `${w}_fungus` : w === 'mangrove' ? `mangrove_propagule` : w === 'bamboo' ? `bamboo` : `${w}_sapling`;
-    
-    generatedBlocks.push(log, planks);
+
+    generatedBlocks.push(log, strippedLog, planks);
     if (wood) generatedBlocks.push(wood);
+    if (strippedWood) generatedBlocks.push(strippedWood);
     if (leaves && !generatedBlocks.includes(leaves)) generatedBlocks.push(leaves);
     if (sapling && !generatedBlocks.includes(sapling)) generatedBlocks.push(sapling);
-    generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_door`, `${w}_door_top`, `${w}_trapdoor`);
+    generatedBlocks.push(`${w}_slab`, `${w}_stairs`, `${w}_fence`, `${w}_fence_gate`, `${w}_door`, `${w}_door_top`, `${w}_trapdoor`);
+    if (w !== 'bamboo' && w !== 'crimson' && w !== 'warped') {
+        generatedBlocks.push(`${w}_pressure_plate`, `${w}_button`);
+    }
 });
 
 STONE_TYPES.forEach(st => {
     generatedBlocks.push(`${st}_slab`, `${st}_stairs`);
-    if (st !== 'dark_prismarine' && st !== 'stone') generatedBlocks.push(`${st}_wall`);
+    if (!['dark_prismarine', 'stone', 'cut_copper', 'exposed_cut_copper', 'weathered_cut_copper', 'oxidized_cut_copper', 'waxed_cut_copper', 'waxed_exposed_cut_copper', 'waxed_weathered_cut_copper', 'waxed_oxidized_cut_copper', 'smooth_sandstone', 'smooth_red_sandstone', 'smooth_quartz', 'purpur', 'resin_brick', 'sulfur', 'polished_sulfur', 'sulfur_brick', 'cinnabar', 'polished_cinnabar', 'cinnabar_brick'].includes(st)) {
+        generatedBlocks.push(`${st}_wall`);
+    }
 });
 
-generatedBlocks.push('iron_door', 'iron_door_top');
+generatedBlocks.push('iron_door', 'iron_door_top', 'iron_trapdoor');
 
 const allBaseBlocks = [...new Set(generatedBlocks)];
 const extendedBlocks = [];
@@ -178,7 +988,7 @@ const isTransparent = new Uint8Array(65535);
 isTransparent[0] = 1; 
 ALL_BLOCKS.forEach((b) => {
     if (TRANSPARENT_BLOCKS.has(b) || 
-        ['leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'chain', 'iron_bars', 'carpet', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg'].some(kw => b.includes(kw))) {
+        ['pale_hanging_moss', 'leaves', 'glass', 'door', 'trapdoor', 'fence', 'stairs', 'slab', 'wall', 'pane', 'candle', 'campfire', 'chest', 'lantern', 'torch', 'cobweb', 'iron_chain', 'iron_bars', 'carpet', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain', 'lily_pad', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'trial_spawner', 'heavy_core', 'trapped_chest', 'ender_chest', 'cluster', 'azalea', 'lilac', 'peony', 'seagrass', 'kelp', 'pickle', 'conduit', 'head', 'skull', 'pot', 'bell', 'cake', 'end_rod', 'bush', 'fern', 'short_grass', 'tall_grass', 'sprout', 'dripstone', 'spore_blossom', 'flower', 'tulip', 'orchid', 'daisy', 'allium', 'bluet', 'fungus', 'propagule', 'berry', 'dandelion', 'poppy', 'wither_rose', 'azure_bluet', 'lily_of_the_valley', 'sculk_vein', 'glow_lichen', 'ladder', 'bamboo', 'turtle_egg', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike', 'trapped_left', 'trapped_right', 'bed', ].some(kw => b.includes(kw))) {
         isTransparent[TYPE[b]] = 1;
     }
 });
@@ -195,20 +1005,100 @@ const CATEGORIES = {
     combat: { name: 'Combat', icon: 'iron_sword', blocks: [] },
     food: { name: 'Food & Drinks', icon: 'golden_apple', blocks: [] },
     materials: { name: 'Materials', icon: 'iron_ingot', blocks: [] },
-    spawns: { name: 'Spawn Eggs', icon: 'creeper_head', blocks: [] },
+    spawns: { name: 'Spawn Eggs', icon: 'creeper_spawn_egg', blocks: [] },
     operator: { name: 'Operator Utilities', icon: 'command_block', blocks: [] },
     inventory: { name: 'Survival Inventory', icon: 'chest', blocks: [] }
 };
+const HIDDEN_CREATIVE_BLOCKS = new Set([
+    'air',
 
+    'pitcher_crop',
+    'sweet_berry_bush',
+
+    'kelp_plant',
+    'weeping_vines_plant',
+    'twisting_vines_plant',
+
+    'fire',
+    'soul_fire',
+    //'chest_right', 'chest_left', 'trapped_right', 'trapped_left',
+    'end_portal',
+    'end_gateway',
+    'nether_portal',
+    'infested_stone',
+    'infested_cobblestone',
+    'infested_stone_bricks',
+    'infested_mossy_stone_bricks',
+    'infested_cracked_stone_bricks',
+    'infested_chiseled_stone_bricks',
+    'infested_deepslate',
+    'spawner',
+    'trial_spawner',
+    'vault',
+    'knowledge_book',
+    'frogspawn',
+
+    'cave_vines_plant',
+
+    'void_air',
+    'cave_air',
+
+    'moving_piston',
+    'piston_head',
+
+    'wall_torch',
+    'redstone_wall_torch',
+    'soul_wall_torch',
+
+    'attached_melon_stem',
+    'attached_pumpkin_stem',
+
+    'big_dripleaf_stem',
+
+    'bubble_column',
+
+    'wall_sign',
+    'wall_hanging_sign',
+
+    'skeleton_wall_skull',
+    'wither_skeleton_wall_skull',
+    'zombie_wall_head',
+    'player_wall_head',
+    'creeper_wall_head',
+    'dragon_wall_head',
+    'piglin_wall_head',
+    'tripwire',
+    'structure_block',
+    'structure_void',
+    'jigsaw',
+    'command_block',
+    'chain_command_block',
+    'repeating_command'
+]);
+COLORS.forEach(c => {
+    HIDDEN_CREATIVE_BLOCKS.add(`${c}_bed_head`);
+    HIDDEN_CREATIVE_BLOCKS.add(`${c}_bed_foot`);
+});
 ALL_BLOCKS.forEach(b => {
-    if (b.includes('_inner') || b.includes('_outer') || b.includes('_top') || b.includes('_plant') || b === 'air' || b === 'sweet_berry_bush') return;
+    if (
+        HIDDEN_CREATIVE_BLOCKS.has(b) ||
+
+        b.endsWith('_inner') ||
+        b.endsWith('_outer') ||
+        b.endsWith('_top') ||
+
+        b.endsWith('_wall_head') ||
+        b.endsWith('_wall_skull') ||
+        b.endsWith('_wall_sign') ||
+        b.endsWith('_wall_hanging_sign')
+    ) return;
 
     if (STRICT_ITEMS.has(b)) {
-        if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('armor') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots')) CATEGORIES.combat.blocks.push(b);
-        else if (['apple', 'beef', 'bread', 'porkchop', 'potato', 'chicken', 'mutton', 'rabbit', 'salmon', 'cod', 'cookie', 'melon_slice'].some(k=>b.includes(k))) CATEGORIES.food.blocks.push(b);
-        else if (b.includes('pickaxe') || b.includes('axe') || b.includes('shovel') || b.includes('hoe') || b === 'compass' || b === 'clock' || b === 'flint_and_steel') CATEGORIES.tools.blocks.push(b);
-        else if (b.includes('head') || b.includes('skull') || b === 'egg') CATEGORIES.spawns.blocks.push(b);
-        else if (b === 'command_block') CATEGORIES.operator.blocks.push(b);
+        if (b.includes('sword') || b.includes('bow') || b.includes('arrow') || b.includes('helmet') || b.includes('chestplate') || b.includes('leggings') || b.includes('boots') || b === 'shield' || b === 'trident' || b === 'crossbow' || b === 'mace' || b === 'wind_charge' || b === 'totem_of_undying' || b === 'turtle_helmet') CATEGORIES.combat.blocks.push(b);
+        else if (['apple', 'beef', 'bread', 'porkchop', 'potato', 'chicken', 'mutton', 'rabbit', 'salmon', 'cod', 'cookie', 'melon_slice', 'beetroot', 'carrot', 'berry', 'kelp', 'stew', 'soup', 'pie', 'honey_bottle', 'chorus_fruit', 'tropical_fish', 'pufferfish', 'sweet_berries', 'glow_berries', 'dried_kelp', 'suspicious_stew', 'enchanted_golden_apple'].some(k=>b.includes(k))) CATEGORIES.food.blocks.push(b);
+        else if (b.includes('pickaxe') || b.includes('axe') || b.includes('shovel') || b.includes('hoe') || b === 'compass' || b === 'recovery_compass' || b === 'clock' || b === 'flint_and_steel' || b === 'shears' || b === 'fishing_rod' || b === 'carrot_on_a_stick' || b === 'warped_fungus_on_a_stick' || b === 'spyglass' || b === 'brush' || b === 'lead' || b === 'name_tag' || b.includes('horse_armor') || b === 'saddle' || b === 'elytra' || b === 'goat_horn' || b === 'wolf_armor') CATEGORIES.tools.blocks.push(b);
+        else if (b.includes('head') || b.includes('skull') || b === 'egg' || b.includes('spawn_egg') || b.includes('pottery_sherd') || b.includes('banner_pattern') || b === 'sniffer_egg') CATEGORIES.spawns.blocks.push(b);
+        else if (b.includes('command_block') || b.includes('structure') || b === 'light' || b === 'jigsaw' || b === 'barrier') CATEGORIES.operator.blocks.push(b);
         else CATEGORIES.materials.blocks.push(b);
     } else if (b.includes('wool') || b.includes('concrete') || b.includes('terracotta') || b.includes('stained_glass')) {
         CATEGORIES.colored.blocks.push(b);
@@ -236,7 +1126,7 @@ const INVENTORY_SIZE = 9;
 const inventory = Array(INVENTORY_SIZE).fill(null).map(() => ({ type: null, count: 0 }));
 
 inventory[0] = { type: 'netherite_shovel', count: 1 };
-inventory[1] = { type: 'snow', count: 64 };
+inventory[1] = { type: 'decorated_pot', count: 64 };
 inventory[2] = { type: 'grass_block', count: 64 };
 inventory[3] = { type: 'tall_grass', count: 64 };
 inventory[4] = { type: 'sunflower', count: 64 };
@@ -259,6 +1149,8 @@ const iconCache = {};
 const animatedTextures = [];
 const allTabsUI = [];
 
+const STRICT_ITEMS_SET = new Set(STRICT_ITEMS);
+
 // ============================================================================
 // 4. TEXTURE LOADERS & PATH RESOLVERS
 // ============================================================================
@@ -275,10 +1167,19 @@ function resolveTexturePath(name, isIconContext = false) {
     else if (name === 'compass_tab') filename = 'compass_01';
     else if (name === 'redstone') { folder = ITEM_TEX_DIR; filename = 'redstone'; }
     else if (name === 'clock') { folder = ITEM_TEX_DIR; filename = 'clock_00'; }
-
+    else if (name === 'glass_pane') { folder = BLOCK_TEX_DIR; filename = 'glass'}
+    else if (name === 'bucket_of_sulfur_cube') { folder = ITEM_TEX_DIR; filename = 'sulfur_cube_bucket'}
+    else if (name === 'waxed_copper_door') { folder = ITEM_TEX_DIR; filename = 'copper_door'}
+    else if (name === 'waxed_exposed_copper_door') { folder = ITEM_TEX_DIR; filename = 'exposed_copper_door'}
+    else if (name === 'waxed_oxidized_copper_door') { folder = ITEM_TEX_DIR; filename = 'oxidized_copper_door'}
+    else if (name === 'waxed_weathered_copper_door') { folder = ITEM_TEX_DIR; filename = 'weathered_copper_door'}
+    else if (name === 'waxed_copper_chain') { folder = ITEM_TEX_DIR; filename = 'copper_chain'}
+    else if (name === 'waxed_exposed_copper_chain') { folder = ITEM_TEX_DIR; filename = 'exposed_copper_chain'}
+    else if (name === 'waxed_oxidized_copper_chain') { folder = ITEM_TEX_DIR; filename = 'oxidized_copper_chain'}
+    else if (name === 'waxed_weathered_copper_chain') { folder = ITEM_TEX_DIR; filename = 'weathered_copper_chain'}
     return { folder, filename, is2D: false };
 }
-
+//hhayyy
 const loadTex = (filename, explicitFolder = null, isIconContext = false, originalTypeName = null) => {
     if (!filename) filename = 'missingno';
     
@@ -336,6 +1237,7 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
                     cvs.height = isStandardSkin ? 64 : fh;
                     ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(image, 0, 0);
+                    t.dispose();
 
                     if (isIconContext && originalTypeName) {
                         const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
@@ -371,14 +1273,36 @@ const loadTex = (filename, explicitFolder = null, isIconContext = false, origina
 function resolveFallbackTexture(name) {
     if (!name) return 'stone';
     if (name === 'grass_block') return 'grass_block_side';
-    if (name === 'chest') return 'oak_planks'; 
+    if (name === 'chest') return '../entity/chest/normal';
+    if (name === 'trapped_chest') return '../entity/chest/trapped';
+    if (name === 'ender_chest') return '../entity/chest/ender';
+    if (name === 'trapped_left') return '../entity/chest/trapped_left';
+    if (name === 'chest_left') return '../entity/chest/normal_left';
+    if (name === 'trapped_right') return '../entity/chest/trapped_right'
+    if (name === 'chest_right') return '../entity/chest/normal_right'
     if (name === 'crafting_table') return 'crafting_table_top';
     if (name === 'furnace') return 'furnace_front';
     if (name.includes('shulker_box')) return 'shulker_box';
     if (name.includes('anvil')) return 'anvil_base';
     if (name === 'packed_mud') return 'mud';
     if (name === 'conduit') return 'conduit';
-    
+    if (name === 'red_bed_head' || name === 'red_bed_foot') return '../entity/bed/red';
+    if (name === 'orange_bed_head' || name === 'orange_bed_foot') return '../entity/bed/orange';
+    if (name === 'magenta_bed_head' || name === 'magenta_bed_foot') return '../entity/bed/magenta';
+    if (name === 'light_blue_bed_head' || name === 'light_blue_bed_foot') return '../entity/bed/light_blue';
+    if (name === 'yellow_bed_head' || name === 'yellow_bed_foot') return '../entity/bed/yellow';
+    if (name === 'lime_bed_head' || name === 'lime_bed_foot') return '../entity/bed/lime';
+    if (name === 'pink_bed_head' || name === 'pink_bed_foot') return '../entity/bed/pink';
+    if (name === 'gray_bed_head' || name === 'gray_bed_foot') return '../entity/bed/gray';
+    if (name === 'light_gray_bed_head' || name === 'light_gray_bed_foot') return '../entity/bed/light_gray';
+    if (name === 'cyan_bed_head' || name === 'cyan_bed_foot') return '../entity/bed/cyan';
+    if (name === 'purple_bed_head' || name === 'purple_bed_foot') return '../entity/bed/purple';
+    if (name === 'blue_bed_head' || name === 'blue_bed_foot') return '../entity/bed/blue';
+    if (name === 'brown_bed_head' || name === 'brown_bed_foot') return '../entity/bed/brown';
+    if (name === 'green_bed_head' || name === 'green_bed_foot') return '../entity/bed/green';
+    if (name === 'white_bed_head' || name === 'white_bed_foot') return '../entity/bed/white';
+    if (name === 'black_bed_head' || name === 'black_bed_foot') return '../entity/bed/black';
+
     if (name === 'creeper_head') return '../entity/creeper/creeper';
     if (name === 'zombie_head') return '../entity/zombie/zombie';
     if (name === 'skeleton_skull') return '../entity/skeleton/skeleton';
@@ -386,7 +1310,7 @@ function resolveFallbackTexture(name) {
     if (name === 'dragon_head') return '../entity/enderdragon/dragon';
     if (name === 'player_head') return '../entity/player/wide/steve';
     if (name === 'decorated_pot') return '../entity/decorated_pot/decorated_pot_side';
-    
+    if (name === 'piglin_head') return '../entity/piglin/piglin';
     return resolveTexturePath(name).filename;
 }
 
@@ -440,14 +1364,35 @@ const JSONReader = {
     },
 
     evaluateWhen(when, state) {
-        if (when['OR']) {
-            return when['OR'].some(cond => this.evaluateWhen(cond, state));
+        if (!when) return true;
+
+        if (when.OR) {
+            return when.OR.some(cond => this.evaluateWhen(cond, state));
         }
-        for (let key in when) {
-            let expectedValues = when[key].split('|');
-            let currentState = state[key] !== undefined ? String(state[key]) : "false";
+
+        if (when.AND) {
+            return when.AND.every(cond => this.evaluateWhen(cond, state));
+        }
+
+        for (const key in when) {
+            if (key === 'OR' || key === 'AND') continue;
+
+            const rawExpected = when[key];
+            const currentState = state[key] !== undefined ? String(state[key]) : "false";
+
+            let expectedValues;
+
+            if (Array.isArray(rawExpected)) {
+                expectedValues = rawExpected.map(v => String(v));
+            } else if (typeof rawExpected === 'string') {
+                expectedValues = rawExpected.split('|').map(v => String(v));
+            } else {
+                expectedValues = [String(rawExpected)];
+            }
+
             if (!expectedValues.includes(currentState)) return false;
         }
+
         return true;
     }
 };
@@ -512,17 +1457,7 @@ function getBlockContext(gx, gy, gz, bName) {
         let tipIsDripstone =
             tipBlock &&
             REVERSE_TYPE[tipBlock] === 'pointed_dripstone';
-        let blockBeyondBase =
-            getGlobalBlock(
-                gx,
-                gy - (dir * 2),
-                gz
-            );
 
-        let beyondBaseIsDripstone =
-            blockBeyondBase &&
-            REVERSE_TYPE[blockBeyondBase] ===
-                'pointed_dripstone';
         let blockBeyondTip =
             getGlobalBlock(
                 gx,
@@ -564,6 +1499,64 @@ function getBlockContext(gx, gy, gz, bName) {
             }
         }
     }
+    if (bName === 'sulfur_spike') {
+        if (!state.vertical_direction)
+            state.vertical_direction = 'up';
+
+        let dir = state.vertical_direction === 'up' ? 1 : -1;
+
+        let baseBlock = getGlobalBlock(gx, gy - dir, gz);
+        let tipBlock  = getGlobalBlock(gx, gy + dir, gz);
+
+        let baseIsSpike =
+            baseBlock &&
+            REVERSE_TYPE[baseBlock] === 'sulfur_spike';
+
+        let tipIsSpike =
+            tipBlock &&
+            REVERSE_TYPE[tipBlock] === 'sulfur_spike';
+        let blockBeyondTip =
+            getGlobalBlock(
+                gx,
+                gy + (dir * 2),
+                gz
+            )
+        let beyondTipIsSpike = 
+            blockBeyondTip &&
+            REVERSE_TYPE[blockBeyondTip] === 'sulfur_spike';
+        if (tipIsSpike) {
+            let neighborstate = getStoredBlockState (
+                gx,
+                gy+dir,
+                gz
+            );
+            if (
+                neighborstate &&
+                neighborstate.vertical_direction &&
+                neighborstate.vertical_direction !==
+                    state.vertical_direction
+            ) {state.thickness = 'tip_merge'}
+        }
+        if (!state.thickness) {
+
+            if (!tipIsSpike) {
+                state.thickness = 'tip';
+            }
+            else if (tipIsSpike && !beyondTipIsSpike) {
+                state.thickness = 'frustum';
+            }
+            else {
+                if (beyondTipIsSpike && tipIsSpike && baseIsSpike) {
+                    state.thickness = 'middle';
+                } else if (!baseIsSpike){
+                    state.thickness = 'base';
+                } else{
+                    state.thickness = 'tip'
+                }
+            }
+        }
+    }
+    
 
     if (bName === 'kelp') {
         if (!state.age) state.age = '0';
@@ -588,28 +1581,91 @@ function getBlockContext(gx, gy, gz, bName) {
         }
     }
 
-    if (bName.includes('fence') || bName.includes('pane') || bName.includes('wall') || bName === 'iron_bars') {
+    if (bName.includes('fence') || bName.includes('pane') || bName === 'iron_bars') {
         const connects = (nx, ny, nz) => {
             let nb = getGlobalBlock(nx, ny, nz);
             if (!nb) return false;
             let nn = REVERSE_TYPE[nb];
-            if (nn.includes('fence') || nn.includes('pane') || nn.includes('wall') || nn === 'iron_bars') return true;
+            if (nn.includes('fence') || nn.includes('pane') || nn === 'iron_bars') return true;
             return !isTransparent[nb];
         };
         state.north = connects(gx, gy, gz - 1) ? 'true' : 'false';
         state.south = connects(gx, gy, gz + 1) ? 'true' : 'false';
         state.east = connects(gx + 1, gy, gz) ? 'true' : 'false';
         state.west = connects(gx - 1, gy, gz) ? 'true' : 'false';
-        if (bName.includes('wall') && !state.up) {
-            const isStraight =
-                (state.north === 'true' && state.south === 'true' && state.east === 'false' && state.west === 'false') ||
-                (state.east  === 'true' && state.west  === 'true' && state.north === 'false' && state.south === 'false');
-            const blockAbove = getGlobalBlock(gx, gy + 1, gz);
-            const solidAbove = blockAbove !== null && blockAbove !== 0 && !isTransparent[blockAbove];
-            const numH = [state.north, state.south, state.east, state.west].filter(v => v === 'true').length;
-            state.up = (!isStraight || solidAbove || numH === 0) ? 'true' : 'false';
+    }
+    if (bName.includes('wall')) {
+        let eastblock  = getGlobalBlock(gx + 1, gy, gz);
+        let westblock  = getGlobalBlock(gx - 1, gy, gz);
+        let northblock = getGlobalBlock(gx, gy, gz - 1);
+        let southblock = getGlobalBlock(gx, gy, gz + 1);
+        let topblock   = getGlobalBlock(gx, gy + 1, gz);
+        let beyondeastblock  = getGlobalBlock(gx + 1, gy + 1, gz);
+        let beyondwestblock  = getGlobalBlock(gx - 1, gy + 1, gz);
+        let beyondnorthblock = getGlobalBlock(gx, gy + 1, gz - 1);
+        let beyondsouthblock = getGlobalBlock(gx, gy + 1, gz + 1);
+        function getBlockName(blockObj) {
+            if (!blockObj) return "";
+            return typeof blockObj === "string" ? blockObj : (REVERSE_TYPE[blockObj] || "");
+        }
+        let eastName  = getBlockName(eastblock);
+        let westName  = getBlockName(westblock);
+        let northName = getBlockName(northblock);
+        let southName = getBlockName(southblock);
+        let topName   = getBlockName(topblock);
+        let beyondeastName  = getBlockName(beyondeastblock);
+        let beyondwestName  = getBlockName(beyondwestblock);
+        let beyondnorthName = getBlockName(beyondnorthblock);
+        let beyondsouthName = getBlockName(beyondsouthblock);
+        let eastIsWall  = eastName.includes("wall");
+        let westIsWall  = westName.includes("wall");
+        let northIsWall = northName.includes("wall");
+        let southIsWall = southName.includes("wall");
+        let topIsWall   = topName.includes("wall");
+        let beyondeastIsWall  = beyondeastName.includes("wall");
+        let beyondwestIsWall  = beyondwestName.includes("wall");
+        let beyondnorthIsWall = beyondnorthName.includes("wall");
+        let beyondsouthIsWall = beyondsouthName.includes("wall");
+        function isSolidBlock(nameStr, rawBlock) {
+            if (!nameStr) return false;
+            return cubeAllBlocks.includes(nameStr) || cubeAllBlocks.includes(rawBlock);
+        }
+        let eastIsLegal  = eastIsWall  || isSolidBlock(eastName, eastblock);
+        let westIsLegal  = westIsWall  || isSolidBlock(westName, westblock);
+        let northIsLegal = northIsWall || isSolidBlock(northName, northblock);
+        let southIsLegal = southIsWall || isSolidBlock(southName, southblock);
+        let openDirections = [northIsLegal, southIsLegal, eastIsLegal, westIsLegal].filter(Boolean).length;
+        let straightLineNS = northIsLegal && southIsLegal && !eastIsLegal && !westIsLegal;
+        let straightLineEW = eastIsLegal && westIsLegal && !northIsLegal && !southIsLegal;
+        if (topblock || openDirections !== 2 || (!straightLineNS && !straightLineEW)) {
+            state.up = 'true';
+        } else {
+            state.up = 'false';
+        } 
+        if (northblock && northIsLegal) {
+            state.north = (beyondnorthblock && isSolidBlock(beyondnorthName, beyondnorthblock) && !beyondnorthIsWall) ? 'tall' : 'low';
+        } else {
+            state.north = 'none';
+        }
+        if (southblock && southIsLegal) {
+            state.south = (beyondsouthblock && isSolidBlock(beyondsouthName, beyondsouthblock) && !beyondsouthIsWall) ? 'tall' : 'low';
+        } else {
+            state.south = 'none';
+        }
+        if (eastblock && eastIsLegal) {
+            state.east = (beyondeastblock && isSolidBlock(beyondeastName, beyondeastblock) && !beyondeastIsWall) ? 'tall' : 'low';
+        } else {
+            state.east = 'none';
+        }
+        if (westblock && westIsLegal) {
+            state.west = (beyondwestblock && isSolidBlock(beyondwestName, beyondwestblock) && !beyondwestIsWall) ? 'tall' : 'low';
+        } else {
+            state.west = 'none';
         }
     }
+
+
+
 
     if (bName === 'chorus_plant') {
         const connects = (nx, ny, nz) => {
@@ -720,13 +1776,60 @@ function getBlockContext(gx, gy, gz, bName) {
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 
+const DEFAULT_ROTATION_OFFSET = { x: 0, y: -90 };
+
+const MODEL_ROTATION_OFFSETS = {
+    'crafter': {x: -90, y: -90},
+    'crafting_table': {x:0, y: 180},
+    'bone_block': {x: 90},
+    'hay_block': {x: 90},
+    'bamboo_block': {x:90},
+    'stripped_bamboo_block': {x: 90},
+    'deepslate': {x: 90},
+    'grindstone': {x: 180, y: -90},
+    'dispenser': {x: 180},
+    'dropper': {x: 180},
+    'observer': {x: -90},
+    'lightning_rod': {x: 180},
+    'oak_wood': {x: 90},
+    'stripped_oak_wood': {x: 90},
+    'spruce_wood': {x: 90},
+    'stripped_spruce_wood': {x: 90},
+    'birch_wood': {x: 90},
+    'stripped_birch_wood': {x: 90},
+    'jungle_wood': {x:90},
+    'stripped_jungle_wood': {x: 90},
+    'acacia_wood': {x: 90},
+    'stripped_acacia_wood': {x: 90},
+    'dark_oak_wood': {x: 90},
+    'stripped_oak_wood': {x: 90},
+    'mangrove_wood': {x: 90},
+    'stripped_mangrove_wood': {x: 90},
+    'cherry_wood': {x: 90},
+    'stripped_cherry_wood': {x: 90},
+    'pale_oak_wood': {x: 90},
+    'stripped_pale_oak_wood': {x: 90},
+    'crimson_stem': {x: 90},
+    'stripped_crimson_stem': {x: 90},
+    'crimson_hyphae': {x: 90},
+    'stripped_crimson_hyphae': {x: 90},
+    'warped_stem': {x: 90},
+    'stripped_warped_stem': {x: 90},
+    'warped_hyphae': {x: 90},
+    'stripped_warped_hyphae': {x: 90},
+    'polished_basalt': {x: 90},
+    'end_rod': {x: 180},
+    'bamboo_block': {x: -90},
+    'stripped_bamboo_block': {x: -90}
+};
+
 async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
     let key = cacheKey || bName;
     if (customGeometries[key]) return; 
 
     if (bName === 'conduit') {
         const tex = loadTex('conduit');
-        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+        let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
         const px = 1/16;
         const geos = [];
         
@@ -776,8 +1879,9 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         return;
     }
 
-    const hardcodedModels = new Set(['creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head']);
+    const hardcodedModels = new Set(['piglin_head', 'decorated_pot', 'creeper_head', 'zombie_head', 'skeleton_skull', 'wither_skeleton_skull', 'dragon_head', 'player_head', 'chest', 'trapped_chest', 'ender_chest', 'chest_right', 'chest_left', 'trapped_right', 'trapped_left', 'red_bed_head', 'red_bed_foot', 'orange_bed_head', 'orange_bed_foot', 'magenta_bed_head', 'magenta_bed_foot', 'light_blue_bed_head', 'light_blue_bed_foot', 'yellow_bed_head', 'yellow_bed_foot', 'lime_bed_head', 'lime_bed_foot', 'pink_bed_head', 'pink_bed_foot', 'gray_bed_head', 'gray_bed_foot', 'light_gray_bed_head', 'light_gray_bed_foot', 'cyan_bed_head', 'cyan_bed_foot', 'purple_bed_head', 'purple_bed_foot', 'blue_bed_head', 'blue_bed_foot', 'brown_bed_head', 'brown_bed_foot', 'green_bed_head', 'green_bed_foot', 'white_bed_head', 'white_bed_foot', 'black_bed_head', 'black_bed_foot']);
     if (hardcodedModels.has(bName)) {
+      try {
         const fallbackName = resolveFallbackTexture(bName);
         const tex = loadTex(fallbackName);
         let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
@@ -785,31 +1889,45 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         const buildMCModel = (parts, tS, scaleFactor = 1.0) => {
             const geos = [];
             const px = 1/16;
-            for (let p of parts) {
+
+            const applyPivotRotation = (geo, pivotArr, rotArr, rotXVal) => {
+                if (!pivotArr) return;
+                const pivX = pivotArr[0] * px; const pivY = pivotArr[1] * px; const pivZ = pivotArr[2] * px;
+                geo.translate(-pivX, -pivY, -pivZ);
+                if (rotArr) {
+                    if (rotArr[0]) geo.rotateX(THREE.MathUtils.degToRad(rotArr[0]));
+                    if (rotArr[1]) geo.rotateY(THREE.MathUtils.degToRad(rotArr[1]));
+                    if (rotArr[2]) geo.rotateZ(THREE.MathUtils.degToRad(rotArr[2]));
+                } else if (rotXVal) geo.rotateX(rotXVal);
+                geo.translate(pivX, pivY, pivZ);
+            };
+
+            const buildPart = (p, ancestors) => {
                 let w = p.to ? p.to[0]-p.from[0] : p.size ? p.size[0] : p.w;
                 let h = p.to ? p.to[1]-p.from[1] : p.size ? p.size[1] : p.h;
                 let d = p.to ? p.to[2]-p.from[2] : p.size ? p.size[2] : p.d;
                 let mcX = p.to ? p.from[0] : p.pos ? p.pos[0] : p.mcX;
                 let mcY = p.to ? p.from[1] : p.pos ? p.pos[1] : p.mcY;
                 let mcZ = p.to ? p.from[2] : p.pos ? p.pos[2] : p.mcZ;
-                
+
                 const physW = w * scaleFactor;
                 const physH = h * scaleFactor;
                 const physD = d * scaleFactor;
 
-                const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror } = p;
+                const { pivot, rot, rotX, uvEast, uvWest, uvUp, uvDown, uvSouth, uvNorth, mirror, mirrorV, rotSouthNorth, rotDown } = p;
                 const geo = new THREE.BoxGeometry(physW * px, physH * px, physD * px);
                 geo.clearGroups();
                 const uvs = geo.attributes.uv.array;
 
-                const setF = (faceIdx, uvArr, fw, fh, mirrorU = false, rot180 = false) => {
+                const setF = (faceIdx, uvArr, fw, fh, mirror = false, rot180 = false, mirrorV = false) => {
                     if (!uvArr) return; 
                     const u = uvArr[0];
                     const v = uvArr[1] !== undefined ? uvArr[1] : 0;
                     let u1 = u / tS; let u2 = (u + fw) / tS;
                     let v1 = 1 - (v + fh) / tS; let v2 = 1 - v / tS;        
                     
-                    if (mirrorU) { const tmp = u1; u1 = u2; u2 = tmp; }
+                    if (mirror) { const tmp = u1; u1 = u2; u2 = tmp; }
+                    if (mirrorV) { const tmp = v1; v1 = v2; v2 = tmp; }
                     
                     const i = faceIdx * 8;
                     if (rot180) {
@@ -821,30 +1939,227 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     }
                 };
 
-                const m = mirror || false;
-                setF(0, uvEast, d, h, m); setF(1, uvWest, d, h, m);
-                setF(2, uvUp, w, d, m, true); setF(3, uvDown, w, d, m);
-                setF(4, uvSouth, w, h, m); setF(5, uvNorth, w, h, m);
+                const m = p.mirror || false;
+                const mv = p.mirrorV || false;
+                const snRot = p.rotSouthNorth || false;
+                const dRot = p.rotDown || false;
+
+                // Simple, direct overrides for Top and Bottom
+                const topU = p.topU !== undefined ? p.topU : m;
+                const topV = p.topV !== undefined ? p.topV : mv;
+                const botU = p.botU !== undefined ? p.botU : m;
+                const botV = p.botV !== undefined ? p.botV : mv;
+                const nsU = p.nsU !== undefined ? p.nsU : m;
+                const nsV = p.nsV !== undefined ? p.nsV : (snRot ? false : mv);
+                // The mapping calls:
+                setF(0, uvEast, d, h, m, false, mv);
+                setF(1, uvWest, d, h, m, false, mv);
+                setF(2, uvUp, w, d, topU, true, topV);
+                setF(3, uvDown, w, d, botU, dRot, botV);
+                setF(4, uvSouth, w, h, nsU, snRot, nsV);
+                setF(5, uvNorth, w, h, nsU, snRot, nsV);
 
                 geo.rotateY(Math.PI);
                 geo.translate((mcX + physW/2) * px, (mcY + physH/2) * px, (mcZ + physD/2) * px);
 
-                if (pivot) {
-                    const pivX = pivot[0] * px; const pivY = pivot[1] * px; const pivZ = pivot[2] * px;
-                    geo.translate(-pivX, -pivY, -pivZ);
-                    if (rot) {
-                        if (rot[0]) geo.rotateX(THREE.MathUtils.degToRad(rot[0]));
-                        if (rot[1]) geo.rotateY(THREE.MathUtils.degToRad(rot[1]));
-                        if (rot[2]) geo.rotateZ(THREE.MathUtils.degToRad(rot[2]));
-                    } else if (rotX) geo.rotateX(rotX);
-                    geo.translate(pivX, pivY, pivZ);
+                applyPivotRotation(geo, pivot, rot, rotX);
+                for (let anc of ancestors) {
+                    applyPivotRotation(geo, anc.pivot, anc.rot, anc.rotX);
                 }
 
                 geos.push(geo);
-            }
+
+                if (p.children) {
+                    const childAncestors = [{ pivot, rot, rotX }, ...ancestors];
+                    for (let child of p.children) {
+                        buildPart(child, childAncestors);
+                    }
+                }
+            };
+
+            for (let p of parts) buildPart(p, []);
+
             return mergeBufferGeometries(geos);
         };
 
+        const boxUV = (u, v, w, h, d) => ({
+            uvUp:    [u + d + w, v],
+            uvDown:  [u + d, v],
+            uvEast:  [u, v + d],
+            uvSouth: [u + d, v + d],
+            uvWest:  [u + d + w, v + d],
+            uvNorth: [u + d + w + d, v + d]
+        });
+
+        if (bName.includes('chest') && !bName.includes('right') && !bName.includes('left')) {
+            const parts = [
+                { size: [14, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 14, 10, 14), mirrorV: true },
+                { 
+                    size: [14, 5, 14], pos: [1, 9, 1], pivot: [0, 9, 1], ...boxUV(0, 0, 14, 5, 14), mirrorV: true,
+                    children: [
+                        { size: [2, 4, 1], pos: [7, 7, 15], ...boxUV(0, 0, 2, 4, 1), mirrorV: true }
+                    ]
+                }
+            ];
+            let chestGeo = buildMCModel(parts, 64);
+            chestGeo.clearGroups();
+            chestGeo.addGroup(0, chestGeo.index.count, 0);
+            chestGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries[key] = chestGeo;
+            return;
+        }
+        else if (bName.includes('left')) {
+            const parts = [
+                { size: [15, 10, 14], pos: [0, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true, rotSouthNorth: true, rotDown: true },
+                {
+                    size: [15, 5, 14], pos: [0, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true, rotSouthNorth: true, rotDown: true,
+                    children: [
+                        { size: [1, 4, 1], pos: [0, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true, rotSouthNorth: true, rotDown: true }
+                    ] 
+                }
+            ];
+            let leftchestGeo = buildMCModel(parts, 64);
+            leftchestGeo.clearGroups();
+            leftchestGeo.addGroup(0, leftchestGeo.index.count, 0);
+            leftchestGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries[key] = leftchestGeo;
+            return;
+        }
+        else if (bName === 'decorated_pot') {
+            const potBaseTex = loadTex('decorated_pot_base', 'assets/minecraft/textures/entity/decorated_pot/');
+            const potSideTex = loadTex('decorated_pot_side', 'assets/minecraft/textures/entity/decorated_pot/');
+            const potBaseMat = new THREE.MeshLambertMaterial({ map: potBaseTex, transparent: false, alphaTest: 0.5 });
+            const potSideMat = new THREE.MeshLambertMaterial({ map: potSideTex, transparent: false, alphaTest: 0.5 });
+
+            const px = 1 / 16;
+            const tS = 32;
+
+            const setFaceUV = (uvAttr, faceIdx, u, v, w, h) => {
+                const u1 = u / tS, u2 = (u + w) / tS;
+                const v1 = 1 - (v + h) / tS, v2 = 1 - v / tS;
+                const i = faceIdx * 8;
+                uvAttr[i] = u1;   uvAttr[i+1] = v2;
+                uvAttr[i+2] = u2; uvAttr[i+3] = v2;
+                uvAttr[i+4] = u1; uvAttr[i+5] = v1;
+                uvAttr[i+6] = u2; uvAttr[i+7] = v1;
+            };
+
+            const neckBaseParts = [
+                { size: [8, 3, 8], pos: [4, 17, 4], uvNorth: [0, 8], uvSouth: [16, 8], uvEast: [24, 8], uvWest: [8, 8], uvUp: [8, 0], uvDown: [16, 0] },
+                { size: [6, 1, 6], pos: [5, 16, 5], uvNorth: [0, 11], uvSouth: [12, 11], uvEast: [18, 11], uvWest: [6, 11], uvUp: [0, 0], uvDown: [24, 0] }
+            ];
+
+            let neckBaseGeo = buildMCModel(neckBaseParts, tS);
+            neckBaseGeo.clearGroups();
+            neckBaseGeo.addGroup(0, neckBaseGeo.index.count, 0);
+
+            const bodyTS = 16;
+            const setBodyFaceUV = (uvAttr, faceIdx, u, v, w, h, ts) => {
+                const u1 = u / ts, u2 = (u + w) / ts;
+                const v1 = 1 - (v + h) / ts, v2 = 1 - v / ts;
+                const i = faceIdx * 8;
+                uvAttr[i] = u1;   uvAttr[i+1] = v2;
+                uvAttr[i+2] = u2; uvAttr[i+3] = v2;
+                uvAttr[i+4] = u1; uvAttr[i+5] = v1;
+                uvAttr[i+6] = u2; uvAttr[i+7] = v1;
+            };
+
+            const bodyGeo = new THREE.BoxGeometry(14 * px, 16 * px, 14 * px);
+            bodyGeo.clearGroups();
+            const bodyUVs = bodyGeo.attributes.uv.array;
+
+            setBodyFaceUV(bodyUVs, 0, 1, 0, 14, 16, 16); // east  
+            setBodyFaceUV(bodyUVs, 1, 1, 0, 14, 16, 16); // west  
+            setBodyFaceUV(bodyUVs, 4, 1, 0, 14, 16, 16); // south 
+            setBodyFaceUV(bodyUVs, 5, 1, 0, 14, 16, 16); // north 
+
+            setBodyFaceUV(bodyUVs, 2, 0, 13, 14, 14, 32); // up    
+            setBodyFaceUV(bodyUVs, 3, 14, 13, 14, 14, 32); // down
+            bodyGeo.rotateY(Math.PI);
+            bodyGeo.translate(8 * px, 8 * px, 8 * px);
+            bodyGeo.addGroup(0, 6, 1);
+            bodyGeo.addGroup(6, 6, 1);
+            bodyGeo.addGroup(12, 6, 0);
+            bodyGeo.addGroup(18, 6, 0);
+            bodyGeo.addGroup(24, 6, 1);
+            bodyGeo.addGroup(30, 6, 1);
+
+            let potGeo = mergeBufferGeometries([neckBaseGeo, bodyGeo]);
+            potGeo.translate(-0.5, -0.5, -0.5);
+
+            materials[key] = [potBaseMat, potSideMat];
+            customGeometries[key] = potGeo;
+            return;
+        }
+
+        else if (bName.includes('bed_head')) {
+            const parts = [
+                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 0, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true},
+                {size: [3, 3, 3], pos: [0, 0, 0], ...boxUV(50, 0, 3, 3, 3), pivot: [1.5, 1.5, 1.5], rot: [180, -90, 0], mirror: true, mirrorV: true, nsV: false, nsU: false, rotSouthNorth: true},
+                {size: [3, 3, 3], pos: [13, 0, 0], ...boxUV(50, 6, 3, 3, 3), pivot: [14.5, 1.5, 1.5], rot: [180, -180, 0], mirror: true, mirrorV: true, nsV: false, nsU: false, rotSouthNorth: true}
+            ]
+            let bedheadGeo = buildMCModel(parts, 64);
+            bedheadGeo.clearGroups();
+            bedheadGeo.addGroup(0, bedheadGeo.index.count, 0);
+            bedheadGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries [key] = bedheadGeo;
+            return;
+        }
+
+        else if (bName.includes('bed_foot')) {
+            const parts = [
+                {size: [16, 16, 6], pos: [0, 3, -6], ...boxUV(0, 22, 16, 16, 6), pivot: [0, 3, 0], rot: [90, 0, 0], mirror: true, mirrorV: true, rotSouthNorth: true},
+                {size: [3, 3, 3], pos: [0, 0, 13], ...boxUV(50, 12, 3, 3, 3), pivot: [1.5, 1.5, 14.5], rot: [180, 0, 0], mirror: true, mirrorV: true, nsV: false, nsU: false, rotSouthNorth: true},
+                {size: [3, 3, 3], pos: [13, 0, 13], ...boxUV(50, 18, 3, 3, 3), pivot: [14.5, 1.5, 14.5], rot: [180, 90, 0], mirror: true, mirrorV: true, nsV: false, nsU: false, rotSouthNorth: true}
+            ]
+            let bedfootGeo = buildMCModel(parts, 64);
+            bedfootGeo.clearGroups();
+            bedfootGeo.addGroup(0, bedfootGeo.index.count, 0);
+            bedfootGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries [key] = bedfootGeo;
+            return;
+        }
+        //heh
+        else if (bName === 'piglin_head') {
+            const parts = [
+                {size: [10, 8, 8], pos: [3, 0, 4],uvNorth: [8, 8], uvSouth: [26, 8], uvEast: [0, 8], uvWest: [18, 8], uvUp: [8, 0], uvDown: [18, 0]},
+                {size: [4, 4, 1], pos: [6, 0, 12], uvNorth: [32, 2], uvSouth: [37, 2], uvEast: [31, 2], uvWest: [36, 2], uvUp: [32, 1], uvDown: [36, 1]},
+                {size: [1, 2, 1], pos: [5, 0, 12], uvNorth: [3, 1], uvSouth: [5, 1], uvEast: [2, 1], uvWest: [4, 1], uvUp: [3, 0], uvDown: [4, 0]},
+                {size: [1, 2, 1], pos: [10, 0, 12], uvNorth: [3, 5], uvSouth: [5, 5], uvEast: [2, 5], uvWest: [4, 5], uvUp: [3, 4], uvDown: [4, 4]},
+                {size: [1, 5, 4], pos: [12, 1, 6], uvNorth: [43, 10], uvSouth: [48, 10], uvEast: [39, 10], uvWest: [44, 10], uvUp: [43, 6], uvDown: [44, 6], pivot: [12, 6, 8], rot: [0, 0, 30]},
+                {size: [1, 5, 4], pos: [3, 1, 6], uvNorth: [55, 10], uvSouth: [60, 10], uvEast: [56, 10], uvWest: [51, 10], uvUp: [55, 6], uvDown: [56, 6], pivot: [3, 6, 8], rot: [0, 0, -30]}
+            ]
+            let pigheadGeo = buildMCModel(parts, 64);
+            pigheadGeo.clearGroups();
+            pigheadGeo.addGroup(0, pigheadGeo.index.count, 0);
+            pigheadGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries [key] = pigheadGeo;
+            return;
+        }
+
+        else if (bName.includes('right')) {
+            const parts = [
+                { size: [15, 10, 14], pos: [1, 0, 1], ...boxUV(0, 19, 15, 10, 14), mirrorV: true, rotSouthNorth: true, rotDown: true },
+                {
+                    size: [15, 5, 14], pos: [1, 9, 1], ...boxUV(0, 0, 15, 5, 14), mirrorV: true, rotSouthNorth: true, rotDown: true,
+                    children: [
+                        { size: [1, 4, 1], pos: [15, 7, 15], ...boxUV(0, 0, 1, 4, 1), mirrorV: true, rotSouthNorth: true, rotDown: true }
+                    ] 
+                }
+            ];
+            let leftchestGeo = buildMCModel(parts, 64);
+            leftchestGeo.clearGroups();
+            leftchestGeo.addGroup(0, leftchestGeo.index.count, 0);
+            leftchestGeo.translate(-0.5, -0.5, -0.5);
+            materials[key] = mat;
+            customGeometries[key] = leftchestGeo;
+            return;
+        }
         let headGeo;
         if (bName === 'dragon_head') {
             const parts = [
@@ -869,6 +2184,10 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         materials[key] = mat;
         customGeometries[key] = headGeo;
         return;
+      } catch (e) {
+        console.error("HARDCODED MODEL BUILD FAILED:", bName, e);
+        return;
+      }
     }
 
     try {
@@ -950,15 +2269,15 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
             captureDisplayTransforms(currentModel);
 
-
             let elements = currentModel ? currentModel.elements : null;
             let textures = currentModel && currentModel.textures ? { ...currentModel.textures } : {};
+            let partIsGenerated = false;
             let depth = 0;
 
             while (currentModel && currentModel.parent && depth < 10) {
                 let parentPath = currentModel.parent.replace('minecraft:', '');
                 if (parentPath === 'item/generated' || parentPath === 'item/handheld' || parentPath === 'builtin/generated' || parentPath.startsWith('builtin/')) {
-                    isGenerated = true; break;
+                    partIsGenerated = true; isGenerated = true; break;
                 }
                 currentModel = await JSONReader.getModel(parentPath);
                 if (currentModel) {
@@ -974,15 +2293,32 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 
             const resolveTexture = (texStr) => {
                 if (!texStr) return null;
+
                 let tKey = texStr.startsWith('#') ? texStr.substring(1) : texStr;
+
                 if (textures[tKey]) {
-                    let safe = 10;
-                    while (textures[tKey] && textures[tKey].startsWith('#') && safe > 0) {
-                        tKey = textures[tKey].substring(1); safe--;
+                    if (typeof textures[tKey] === "object" && textures[tKey].sprite) {
+                        return textures[tKey].sprite;
                     }
+
+                    let safe = 10;
+                    while (
+                        typeof textures[tKey] === "string" &&
+                        textures[tKey].startsWith("#") &&
+                        safe > 0
+                    ) {
+                        tKey = textures[tKey].substring(1);
+                        safe--;
+                    }
+
+                    if (typeof textures[tKey] === "object" && textures[tKey].sprite) {
+                        return textures[tKey].sprite;
+                    }
+
                     if (textures[tKey]) return textures[tKey];
                 }
-                return texStr.startsWith('#') ? null : texStr;
+
+                return texStr.startsWith("#") ? null : texStr;
             };
 
             const getMaterialForTex = (texPath) => {
@@ -997,11 +2333,26 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 let tex = loadTex(file, folder);
                 let mat;
                 let isOverlay = texPath.includes('overlay');
-                const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit';
+                const isTranslucent = texPath.includes('glass') || texPath.includes('water') || texPath.includes('ice') || bName === 'conduit'
+                    || bName === 'slime_block' || bName.includes('sulfur_cube');
                 
-                const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo'].some(kw => texPath.includes(kw) || baseName.includes(kw));
+                const isCutout = ['pale_hanging_moss', 'leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'iron_chain', 'bars', 'sculk', 'sprouts', 'stem', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo', 'scaffolding', 'copper_grate', 'exposed_copper_grate', 'weathered_copper_grate', 'oxidized_copper_grate', 'waxed_copper_grate', 'waxed_exposed_copper_grate', 'waxed_weathered_copper_grate', 'waxed_oxidized_copper_grate', 'stonecutter', 'sulfur_spike', 'copper_chain', 'exposed_copper_chain', 'weathered_copper_chain', 'oxidized_copper_chain', 'waxed_copper_chain', 'waxed_exposed_copper_chain', 'waxed_weathered_copper_chain', 'waxed_oxidized_copper_chain'].some(kw => texPath.includes(kw) || baseName.includes(kw));
 
-                if (isTranslucent || isOverlay) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: !isOverlay });
+                if (isOverlay) {
+                    // Block overlays (grass side tint, vine overlay, redstone dust, etc.)
+                    // are drawn flush against their own base face at the SAME depth,
+                    // relying on the depth test's equal-passes rule to layer on top -
+                    // no polygonOffset here, since pushing it back would make it fail
+                    // that depth test against its own base face.
+                    mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: false });
+                } else if (isTranslucent) {
+                    // Genuinely translucent blocks (glass/water/ice/slime/conduit/sulfur
+                    // cube) sitting flush against a SEPARATE neighboring solid block can
+                    // z-fight at that seam. polygonOffset pushes this face's depth
+                    // slightly back so it reliably loses any near-tie against an
+                    // adjacent opaque face, instead of flickering based on view angle.
+                    mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+                }
                 else if (isGenerated) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
                 else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 });
                 else mat = new THREE.MeshLambertMaterial({ map: tex });
@@ -1021,7 +2372,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 matArray.push(mat); texMap[texPath] = matIndexCounter; return matIndexCounter++;
             };
 
-            if (isGenerated) {
+            if (partIsGenerated) {
                 let layer0 = resolveTexture(textures.layer0 || textures.cross) || `item/${baseName}`; 
                 let matIdx = getMaterialForTex(layer0);
                 const geo = new THREE.PlaneGeometry(1, 1);
@@ -1041,7 +2392,7 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                     geo.clearGroups();
 
                     if (el.rotation && el.rotation.origin) {
-                        let pX = el.rotation.origin[0]/16 - 0.5, pY = el.rotation.origin[1]/16 - 0.5, pZ = el.rotation.origin[2]/16 - 0.5;
+                        let pX = el.rotation.origin[0]/16 - 0.5, pY = el.rotation.origin[1]/16, pZ = el.rotation.origin[2]/16 - 0.5;
                         let rad = THREE.MathUtils.degToRad(el.rotation.angle || 0);
                         geo.translate(-pX, -pY, -pZ);
                         if (el.rotation.axis === 'x') geo.rotateX(rad);
@@ -1080,10 +2431,41 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                             else if (rot === 270) { uvs.setXY(vIdx, u2, tv1); uvs.setXY(vIdx+1, u2, tv2); uvs.setXY(vIdx+2, u1, tv1); uvs.setXY(vIdx+3, u1, tv2); }
                         }
                     }
-
                     if (p.x || p.y) {
-                        if (p.x) geo.rotateX(THREE.MathUtils.degToRad(p.x));
-                        if (p.y) geo.rotateY(-THREE.MathUtils.degToRad(p.y)); 
+                        const uvs = geo.attributes.uv;
+                        const hasUVLock = !!p.uvlock;
+                        const modelYRotDeg = p.y || 0;
+                        const modelXRotDeg = p.x || 0;
+                        const rotOffset = MODEL_ROTATION_OFFSETS[baseName] || DEFAULT_ROTATION_OFFSET;
+                        const yRotDeg = modelYRotDeg + (rotOffset.y || 0);
+                        const xRotDeg = modelXRotDeg + (rotOffset.x || 0);
+                        if (hasUVLock && modelYRotDeg !== 0) {
+                            const counterRad = THREE.MathUtils.degToRad(-modelYRotDeg);
+                            for (const faceIdx of [2, 3]) {
+                                const base = faceIdx * 4;
+                                const u0 = uvs.getX(base+0), v0 = uvs.getY(base+0);
+                                const u1 = uvs.getX(base+1), v1 = uvs.getY(base+1);
+                                const u2 = uvs.getX(base+2), v2 = uvs.getY(base+2);
+                                const u3 = uvs.getX(base+3), v3 = uvs.getY(base+3);
+                                const cos = Math.cos(counterRad);
+                                const sin = Math.sin(counterRad);
+                                const rotUV = (u, v) => {
+                                    const du = u - 0.5, dv = v - 0.5;
+                                    return [0.5 + du * cos - dv * sin, 0.5 + du * sin + dv * cos];
+                                };
+                                const [ru0, rv0] = rotUV(u0, v0);
+                                const [ru1, rv1] = rotUV(u1, v1);
+                                const [ru2, rv2] = rotUV(u2, v2);
+                                const [ru3, rv3] = rotUV(u3, v3);
+                                uvs.setXY(base+0, ru0, rv0);
+                                uvs.setXY(base+1, ru1, rv1);
+                                uvs.setXY(base+2, ru2, rv2);
+                                uvs.setXY(base+3, ru3, rv3);
+                            }
+                            uvs.needsUpdate = true;
+                        }
+                        if (xRotDeg) geo.rotateX(THREE.MathUtils.degToRad(xRotDeg));
+                        if (yRotDeg) geo.rotateY(-THREE.MathUtils.degToRad(yRotDeg));
                     }
 
                     allCompiledGeometries.push(geo);
@@ -1092,7 +2474,6 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
                 throw new Error("No elements found");
             }
         }
-        
         materials[key] = matArray;
         if (allCompiledGeometries.length === 1) customGeometries[key] = allCompiledGeometries[0];
         else if (allCompiledGeometries.length > 1) customGeometries[key] = mergeBufferGeometries(allCompiledGeometries);
@@ -1100,31 +2481,8 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
         if (customGeometries[key]) customGeometries[key].userData = { display: combinedDisplay, is2D: isGenerated, guiLight: parsedGuiLight || 'side' };
         
     } catch(e) {
-        const fallbackName = resolveFallbackTexture(bName);
-        const tex = loadTex(fallbackName);
-        let mat;
-        
-        const isTranslucent = fallbackName.includes('glass') || fallbackName.includes('water') || fallbackName.includes('ice') || fallbackName.includes('slime');
-        const isCutout = ['leaves', 'door', 'trapdoor', 'ladder', 'rail', 'torch', 'lantern', 'campfire', 'fire', 'bush', 'plant', 'flower', 'mushroom', 'sapling', 'roots', 'vines', 'coral', 'cactus', 'spawner', 'vault', 'cluster', 'lilac', 'azalea', 'peony', 'allium', 'orchid', 'tulip', 'daisy', 'cornflower', 'lily', 'rose', 'heavy_core', 'seagrass', 'kelp', 'spore_blossom', 'cobweb', 'grass', 'fern', 'fungus', 'propagule', 'dandelion', 'poppy', 'azure_bluet', 'wither_rose', 'dripstone', 'glow_lichen', 'sculk_vein', 'turtle_egg', 'bamboo'].some(kw => fallbackName.includes(kw) || bName.includes(kw));
-
-        if (isTranslucent) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, depthWrite: false });
-        else if (isCutout) mat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5 }); // Removed DoubleSide here
-        else mat = new THREE.MeshLambertMaterial({ map: tex });
-        
-        if (fallbackName.includes('grass_block_top') || fallbackName.includes('vine') || fallbackName.includes('grass_block_side_overlay') || bName === 'short_grass' || bName === 'tall_grass' || bName === 'fern' || bName === 'large_fern' || fallbackName.includes('tall_grass') || fallbackName.includes('fern') || bName === 'sugar_cane') {
-            mat.color.setHex(0x91bd59);
-        }
-        else if (bName === 'lily_pad' || fallbackName.includes('lily_pad')) {
-            mat.color.setHex(0x208030);
-        }
-        else if (fallbackName.includes('leaves')) { 
-            mat.color.setHex(0x91bd59); 
-            if (fallbackName.includes('spruce')) mat.color.setHex(0x619961); 
-            if (fallbackName.includes('birch')) mat.color.setHex(0x80a755); 
-        }
-        
-        materials[key] = mat;
-        customGeometries[key] = geometry.clone(); 
+        console.error("MODEL BUILD FAILED:", bName, e);
+        return;
     }
     
     const promises = [];
@@ -1139,14 +2497,41 @@ async function loadCustomModel(bName, stateDict = {}, cacheKey = null) {
 async function getBlockIcon(type) {
     if (!type || type === 'air') return 'none';
     if (iconCache[type]) return iconCache[type];
+
+    // Vanilla special item sprites that should NOT be built from a base item + glint
+    if (type === 'enchanted_golden_apple' || type === 'enchanted_book') {
+        const baseIconName =
+            type === 'enchanted_golden_apple' ? 'golden_apple' :
+            type === 'enchanted_book' ? 'enchanted_book' :
+            type;
+
+        let tex = loadTex(baseIconName, ITEM_TEX_DIR);
+        await tex.loadPromise;
+
+        if (tex && tex.image && tex.image.width > 0) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16;
+            cvs.height = 16;
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+
+            const url = `url(${cvs.toDataURL('image/png')})`;
+            iconCache[type] = url;
+            return url;
+        }
+    }
     
     let defaultState = {};
     if (type.includes('stairs')) defaultState = { shape: 'straight', half: 'bottom', facing: 'east' };
-    if (type.includes('fence')) defaultState = { north: 'false', south: 'false', east: 'false', west: 'false' };
-    if (type.includes('wall')) defaultState = { up: 'true', north: 'false', south: 'false', east: 'false', west: 'false' };
     if (type.includes('log') || type.includes('pillar') || type === 'basalt') defaultState.axis = 'y';
     if (type === 'pointed_dripstone') defaultState = { vertical_direction: 'up', thickness: 'tip' };
-    
+    if (type === 'dispenser' || type === 'dropper') defaultState = {facing: 'north'};
+    if (type.includes('fence')) defaultState = {south: 'true'};
+    if (type.includes('wall')) defaultState = {up: 'true', north: 'tall', south: 'tall', east: 'none', west: 'none'};
+    if (type.includes('gate')) defaultState = {open: 'false'};
+    if (type.includes('mushroom_block')) defaultState = {east: 'false', west: 'false', north: 'false', south: 'false', north: 'false', south: 'false'};
+    if (type === ('mushroom_stem')) defaultState = {east: 'false', west: 'false', north: 'false', south: 'false', north: 'true', south: 'true'};
     if (type === 'compass_tab') {
         let tex = loadTex('compass_01', ITEM_TEX_DIR);
         await tex.loadPromise;
@@ -1199,50 +2584,59 @@ async function getBlockIcon(type) {
         
         layer0Ref = resolveTexRef(layer0Ref);
         
-        if (!layer0Ref) layer0Ref = `item/${type}`;
-        if (layer0Ref.startsWith('minecraft:')) layer0Ref = layer0Ref.replace('minecraft:', '');
-        
-        let folder = `assets/minecraft/textures/`;
-        let file = layer0Ref;
-        if (!file.includes('/')) {
-            folder = ITEM_TEX_DIR;
-        } else {
-            let parts = file.split('/');
-            file = parts.pop();
-            folder += parts.join('/') + '/';
-        }
-        
-        let tex = loadTex(file, folder, true, type);
-        await tex.loadPromise;
-        
-        if (tex && tex.image && tex.image.width > 0) {
-            const cvs = document.createElement('canvas');
-            cvs.width = 16; cvs.height = 16;
-            const ctx = cvs.getContext('2d');
-            ctx.imageSmoothingEnabled = false; 
+        // If the item model didn't resolve to a real texture, don't invent item/<type>.
+        // Let getBlockIcon fall through to the normal block-model icon path below.
+        if (layer0Ref) {
+            if (layer0Ref.startsWith('minecraft:')) layer0Ref = layer0Ref.replace('minecraft:', '');
             
-            const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
-            if (tintables.includes(type)) {
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
-                ctx.globalCompositeOperation = 'source-atop';
-                ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
-                ctx.fillRect(0, 0, cvs.width, cvs.height);
-                ctx.globalCompositeOperation = 'multiply';
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
-                ctx.globalCompositeOperation = 'destination-in';
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
-                ctx.globalCompositeOperation = 'source-over';
+            let folder = `assets/minecraft/textures/`;
+            let file = layer0Ref;
+            if (!file.includes('/')) {
+                folder = ITEM_TEX_DIR;
             } else {
-                ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                let parts = file.split('/');
+                file = parts.pop();
+                folder += parts.join('/') + '/';
             }
+            
+            let tex = loadTex(file, folder, true, type);
+            await tex.loadPromise;
+            
+            if (tex && tex.image && tex.image.width > 0) {
+                const cvs = document.createElement('canvas');
+                cvs.width = 16; cvs.height = 16;
+                const ctx = cvs.getContext('2d');
+                ctx.imageSmoothingEnabled = false; 
+                
+                const tintables = ['lily_pad', 'short_grass', 'tall_grass', 'fern', 'large_fern', 'vine', 'oak_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'sugar_cane'];
+                if (tintables.includes(type)) {
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                    ctx.globalCompositeOperation = 'source-atop';
+                    ctx.fillStyle = type === 'lily_pad' ? '#4aa850' : '#91bd59';
+                    ctx.fillRect(0, 0, cvs.width, cvs.height);
+                    ctx.globalCompositeOperation = 'multiply';
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                    ctx.globalCompositeOperation = 'destination-in';
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16); 
+                    ctx.globalCompositeOperation = 'source-over';
+                } else {
+                    ctx.drawImage(tex.image, 0, 0, 16, 16, 0, 0, 16, 16);
+                }
 
-            const url = `url(${cvs.toDataURL('image/png')})`;
-            iconCache[type] = url;
-            
-            if (!customGeometries[type]) loadCustomModel(type, defaultState, type).catch(()=>{});
-            
-            return url;
+                const url = `url(${cvs.toDataURL('image/png')})`;
+                iconCache[type] = url;
+                
+                if (!STRICT_ITEMS_SET.has(type) && !customGeometries[type]) {
+                    loadCustomModel(type, defaultState, type).catch(()=>{});
+                }
+                
+                return url;
+            }
         }
+    }
+
+    if (STRICT_ITEMS_SET.has(type)) {
+        return 'none';
     }
 
     if (!customGeometries[type]) await loadCustomModel(type, defaultState, type);
@@ -1359,18 +2753,76 @@ async function getBlockIcon(type) {
     iconCache[type] = url;
     return url;
 }
+function getItemGlintType(type) {
+    if (ITEM_GLINT_ITEMS.has(type)) return 'item';
+    if (EQUIPMENT_GLINT_ITEMS.has(type)) return 'equipment';
+    return null;
+}
+function updateItemGlintOverlay(element, type) {
+    const glintType = getItemGlintType(type);
+    let itemGlint = element.querySelector(':scope > .item-icon-glint');
+    let equipGlint = element.querySelector(':scope > .equipment-icon-glint');
 
-function applyIcon(element, type) {
-    element.dataset.iconType = type || 'none';
-    if (!type) { element.style.backgroundImage = 'none'; return; }
-    
-    if (type === 'compass') {
-        element.style.backgroundImage = `url(${ITEM_TEX_DIR}compass_00.png)`;
+    if (glintType === 'item') {
+        if (equipGlint) equipGlint.remove();
+        if (!itemGlint) {
+            itemGlint = document.createElement('div');
+            itemGlint.className = 'item-icon-glint';
+            element.appendChild(itemGlint);
+        }
+    } else if (glintType === 'equipment') {
+        if (itemGlint) itemGlint.remove();
+        if (!equipGlint) {
+            equipGlint = document.createElement('div');
+            equipGlint.className = 'equipment-icon-glint';
+            element.appendChild(equipGlint);
+        }
+    } else {
+        if (itemGlint) itemGlint.remove();
+        if (equipGlint) equipGlint.remove();
+    }
+}
+function setGlintMaskFromBackground(element) {
+    const glint = element.querySelector(':scope > .item-icon-glint, :scope > .equipment-icon-glint');
+    if (!glint) return;
+
+    const bg = element.style.backgroundImage;
+    if (!bg || bg === 'none') {
+        glint.style.webkitMaskImage = '';
+        glint.style.maskImage = '';
         return;
     }
-    
+
+    glint.style.webkitMaskImage = bg;
+    glint.style.maskImage = bg;
+    glint.style.webkitMaskRepeat = 'no-repeat';
+    glint.style.maskRepeat = 'no-repeat';
+    glint.style.webkitMaskPosition = 'center';
+    glint.style.maskPosition = 'center';
+    glint.style.webkitMaskSize = 'contain';
+    glint.style.maskSize = 'contain';
+}
+function applyIcon(element, type) {
+    element.dataset.iconType = type || 'none';
+
+    if (!type) {
+        element.style.backgroundImage = 'none';
+        updateItemGlintOverlay(element, null);
+        return;
+    }
+
+    if (type === 'compass') {
+        element.style.backgroundImage = `url(${ITEM_TEX_DIR}compass_00.png)`;
+        updateItemGlintOverlay(element, type);
+        setGlintMaskFromBackground(element);
+        return;
+    }
+
     getBlockIcon(type).then(url => {
-        if (element.dataset.iconType === type) element.style.backgroundImage = url;
+        if (element.dataset.iconType !== type) return;
+        element.style.backgroundImage = url;
+        updateItemGlintOverlay(element, type);
+        setGlintMaskFromBackground(element);
     });
 }
 
@@ -1449,6 +2901,7 @@ for (let i = 0; i < 9; i++) {
     itemSprite.style.backgroundSize = 'contain';
     itemSprite.style.backgroundPosition = 'center';
     itemSprite.style.backgroundRepeat = 'no-repeat';
+    itemSprite.style.overflow = 'hidden';
     slotWrap.appendChild(itemSprite);
 
     const countLabel = document.createElement('span');
@@ -1871,8 +3324,16 @@ function populateCreativeGrid() {
     
     if (currentCategory === 'search') {
         const query = searchInput.value.toLowerCase();
-        blocksToShow = ALL_BLOCKS.filter(b => 
-            !b.includes('_inner') && !b.includes('_outer') && !b.includes('_top') && !b.includes('_plant') && b !== 'air' && b !== 'sweet_berry_bush' && b.includes(query)
+        blocksToShow = ALL_BLOCKS.filter(b =>
+            !HIDDEN_CREATIVE_BLOCKS.has(b) &&
+            !b.includes('_inner') &&
+            !b.includes('_outer') &&
+            !b.includes('_top') &&
+            !b.endsWith('_wall_head') &&
+            !b.endsWith('_wall_skull') &&
+            !b.endsWith('_wall_sign') &&
+            !b.endsWith('_wall_hanging_sign') &&
+            b.includes(query)
         );
     }
 
@@ -2154,7 +3615,8 @@ function canHarvestBlock(blockName, heldItemType) {
 }
 
 function calculateMiningTime(blockName, heldItemType) {
-    const hardness = REAL_MINECRAFT_HARDNESS[blockName] !== undefined ? REAL_MINECRAFT_HARDNESS[blockName] : 1.5;
+    let hardness = REAL_MINECRAFT_HARDNESS[blockName] !== undefined ? REAL_MINECRAFT_HARDNESS[blockName] : 1.5;
+    if (blockName.endsWith('_bed_head') || blockName.endsWith('_bed_foot')) hardness = 0.2;
     if (hardness < 0) return Infinity; 
     if (hardness === 0) return 0; 
     
@@ -2346,6 +3808,93 @@ function updateStairConnections(x, y, z) {
     evaluateStair(x-1, y, z);
     evaluateStair(x, y, z+1);
     evaluateStair(x, y, z-1);
+}
+
+const CHEST_RIGHT_DIR_BY_FACING = { south: 'east', north: 'west', west: 'south', east: 'north' };
+const CHEST_PAIR_AXIS_DIRS = { south: ['east','west'], north: ['east','west'], west: ['north','south'], east: ['north','south'] };
+const CHEST_DIR_OFFSETS = { north: [0,0,-1], south: [0,0,1], east: [1,0,0], west: [-1,0,0] };
+const HORIZONTAL_FACING_YROTATION = { south: 0, east: Math.PI / 2, north: Math.PI, west: -Math.PI / 2 };
+const BED_MODEL_YAW_OFFSET = Math.PI; // extra Y rotation (radians) applied to the whole bed (both halves)
+
+function getChestBaseName(name) {
+    if (!name) return null;
+    if (name === 'chest_left' || name === 'chest_right') return 'chest';
+    if (name === 'trapped_left' || name === 'trapped_right') return 'trapped_chest';
+    if (name === 'chest' || name === 'trapped_chest') return name;
+    return null;
+}
+
+function getChestVariantName(baseType, side) {
+    if (baseType === 'chest') return side === 'left' ? 'chest_left' : 'chest_right';
+    if (baseType === 'trapped_chest') return side === 'left' ? 'trapped_left' : 'trapped_right';
+    return baseType;
+}
+
+function tryMergeChest(x, y, z, baseType, facing, rotY) {
+    const rightDir = CHEST_RIGHT_DIR_BY_FACING[facing];
+    const axisDirs = CHEST_PAIR_AXIS_DIRS[facing];
+    const leftDir = axisDirs.find(d => d !== rightDir);
+
+    for (const side of [rightDir, leftDir]) {
+        const [dx, dy, dz] = CHEST_DIR_OFFSETS[side];
+        const nx = x + dx, ny = y, nz = z + dz;
+        const nb = getGlobalBlock(nx, ny, nz);
+        if (!nb) continue;
+        const nName = REVERSE_TYPE[nb];
+        if (getChestBaseName(nName) !== baseType) continue;
+
+        const nKey = `${nx},${ny},${nz}`;
+        const nData = placedBlocks.get(nKey);
+        const nState = (nData && nData.state) ? nData.state : {};
+        if (nState.facing !== facing) continue;
+        if (nState.type && nState.type !== 'single') continue;
+
+        const isNeighborRight = (side === rightDir);
+        const thisSide = isNeighborRight ? 'left' : 'right';
+        const otherSide = isNeighborRight ? 'right' : 'left';
+
+        setGlobalBlock(x, y, z, {
+            type: TYPE[getChestVariantName(baseType, otherSide)],
+            rotation: [0, rotY, 0],
+            state: { facing: facing, type: otherSide }
+        });
+        setGlobalBlock(nx, ny, nz, {
+            type: TYPE[getChestVariantName(baseType, thisSide)],
+            rotation: [0, rotY, 0],
+            state: { facing: facing, type: thisSide }
+        });
+        return true;
+    }
+    return false;
+}
+
+function unmergeChestPartner(x, y, z, blockName, blockState) {
+    if (!blockState || (blockState.type !== 'left' && blockState.type !== 'right')) return;
+    const baseType = getChestBaseName(blockName);
+    const facing = blockState.facing;
+    if (!baseType || !facing) return;
+
+    const rightDir = CHEST_RIGHT_DIR_BY_FACING[facing];
+    const axisDirs = CHEST_PAIR_AXIS_DIRS[facing];
+    const leftDir = axisDirs.find(d => d !== rightDir);
+    const partnerSide = blockState.type === 'right' ? leftDir : rightDir;
+
+    const [dx, dy, dz] = CHEST_DIR_OFFSETS[partnerSide];
+    const nx = x + dx, ny = y, nz = z + dz;
+    const nb = getGlobalBlock(nx, ny, nz);
+    if (!nb) return;
+    const nName = REVERSE_TYPE[nb];
+    if (getChestBaseName(nName) !== baseType) return;
+
+    const nKey = `${nx},${ny},${nz}`;
+    const nData = placedBlocks.get(nKey);
+    const nRotation = (nData && nData.rotation) ? nData.rotation : [0, 0, 0];
+
+    setGlobalBlock(nx, ny, nz, {
+        type: TYPE[baseType],
+        rotation: nRotation,
+        state: { facing: facing }
+    });
 }
 
 function getGlobalBlock(gx, gy, gz) {
@@ -2559,6 +4108,600 @@ function mergeBufferGeometries(geos) {
     mergedGeo.setIndex(new THREE.BufferAttribute(indArray, 1));
     
     return mergedGeo;
+}
+
+
+function boxUVShared(u, v, w, h, d) {
+    return {
+        uvUp:    [u + d, v],
+        uvDown:  [u + d + w, v],
+        uvEast:  [u + d + w, v + d],
+        uvNorth: [u + d, v + d],
+        uvWest:  [u, v + d],
+        uvSouth: [u + d + w + d, v + d]
+    };
+}
+
+const MOB_TEXTURE_CACHE = {};
+function getMobTexture(path) {
+    if (MOB_TEXTURE_CACHE[path]) return MOB_TEXTURE_CACHE[path];
+    const tex = new THREE.TextureLoader().load(path);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace; else tex.encoding = 3001;
+    MOB_TEXTURE_CACHE[path] = tex;
+    return tex;
+}
+
+function applyMcCubeUVs(geometry, faces, w, h, d, texW, texH, mirror, mirrorUFaces, mirrorVFaces) {
+    const uv = geometry.attributes.uv;
+
+    const faceNameByIdx = ['west', 'east', 'up', 'down', 'south', 'north'];
+    const setFace = (faceIdx, rect, fw, fh) => {
+        if (!rect) return;
+        let u1 = rect[0] / texW, u2 = (rect[0] + fw) / texW;
+        let v1 = 1 - (rect[1] + fh) / texH, v2 = 1 - rect[1] / texH;
+
+        const faceName = faceNameByIdx[faceIdx];
+        const mirrorU = mirror || (mirrorUFaces && mirrorUFaces.includes(faceName));
+        const mirrorV = mirrorVFaces && mirrorVFaces.includes(faceName);
+
+        if (mirrorU) { const t = u1; u1 = u2; u2 = t; }
+        if (mirrorV) { const t = v1; v1 = v2; v2 = t; }
+
+        const i = faceIdx * 4;
+        uv.setXY(i,   u1, v2);
+        uv.setXY(i+1, u2, v2);
+        uv.setXY(i+2, u1, v1);
+        uv.setXY(i+3, u2, v1);
+    };
+    setFace(0, faces.uvWest,  d, h);
+    setFace(1, faces.uvEast,  d, h);
+    setFace(2, faces.uvUp,    w, d);
+    setFace(3, faces.uvDown,  w, d);
+    setFace(4, faces.uvSouth, w, h);
+    setFace(5, faces.uvNorth, w, h);
+}
+
+function buildMcCubeGeometry(cube, texW, texH, inflate = 0) {
+    const [dx, dy, dz] = cube.size;
+    // Per-cube inflate: cube.inflate lets any individual cube (not just
+    // overlay layers) puff outward by a given amount, in the same raw units
+    // as from/size. If both a per-cube inflate AND a caller-passed inflate
+    // (e.g. from the overlay system) apply, they stack additively.
+    if (cube.inflate) inflate += cube.inflate;
+
+    const [x, y, z] = cube.from;
+    const geo = new THREE.BoxGeometry((dx + inflate * 2) / 16, (dy + inflate * 2) / 16, (dz + inflate * 2) / 16);
+
+    if (cube.texOffs) {
+        const faces = boxUVShared(cube.texOffs[0], cube.texOffs[1], dx, dy, dz);
+        // Standard Minecraft box-UV unwrapping always needs the 'up' face
+        // mirrored vertically to line up correctly with the rest of the
+        // cross-layout - so when using texOffs (auto-generated faces), this
+        // is applied automatically instead of needing mirrorV: ['up'] on
+        // every single cube. Any mirrorV you do specify is merged in on top.
+        const autoMirrorV = cube.mirrorV ? [...new Set(['up', ...cube.mirrorV])] : ['up'];
+        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, autoMirrorV);
+    }
+    else {
+        const faces = {
+            uvUp: cube.uvUp,
+            uvDown: cube.uvDown,
+            uvEast: cube.uvEast,
+            uvWest: cube.uvWest,
+            uvNorth: cube.uvNorth,
+            uvSouth: cube.uvSouth
+        };
+        applyMcCubeUVs(geo, faces, dx, dy, dz, texW, texH, !!cube.mirror, cube.mirrorU, cube.mirrorV);
+    }
+    const cx = -(x + dx / 2);
+    const cy = (y + dy / 2);
+    const cz =  (z + dz / 2);
+    geo.translate(cx / 16, cy / 16, cz / 16);
+    return geo;
+}
+
+function buildMcPart(partDef, material, texW, texH, overlayOptions = null, emissiveOverlayOptions = null, parentPivot = null) {
+    const group = new THREE.Group();
+
+    if (partDef.pivot) {
+        const [px, py, pz] = partDef.pivot;
+        const [ppx, ppy, ppz] = parentPivot || [0, 0, 0];
+        group.position.set(-(px - ppx) / 16, (py - ppy) / 16, (pz - ppz) / 16);
+    }
+
+    if (partDef.rot) {
+        group.rotation.set(
+            THREE.MathUtils.degToRad(partDef.rot[0]),
+            THREE.MathUtils.degToRad(partDef.rot[1]),
+            THREE.MathUtils.degToRad(partDef.rot[2]),
+            'ZYX'
+        );
+    }
+
+    // Per-cube opacity: cube.opacity (0-100, percent) needs its own material,
+    // since opacity is a material-level property in three.js, not per-vertex.
+    // Cubes WITHOUT a custom opacity still share the one mob-wide `material`
+    // passed in, exactly as before - only cubes that opt in get a separate
+    // (cloned) material instance.
+    const opaqueCubes = partDef.cubes.filter(c => c.opacity === undefined);
+    const translucentCubes = partDef.cubes.filter(c => c.opacity !== undefined);
+
+    if (opaqueCubes.length > 0) {
+        const geos = opaqueCubes.map(c => buildMcCubeGeometry(c, texW, texH, 0));
+        const merged = geos.length > 1 ? mergeBufferGeometries(geos) : geos[0];
+        const mesh = new THREE.Mesh(merged, material);
+        group.add(mesh);
+        group.userData.mesh = mesh;
+    }
+
+    for (const c of translucentCubes) {
+        const geo = buildMcCubeGeometry(c, texW, texH, 0);
+        const mat = material.clone();
+        mat.transparent = true;
+        mat.opacity = THREE.MathUtils.clamp(c.opacity, 0, 100) / 100;
+        const mesh = new THREE.Mesh(geo, mat);
+        group.add(mesh);
+    }
+
+    if (overlayOptions && partDef.overlay) {
+        const inflate = partDef.overlayInflate !== undefined ? partDef.overlayInflate : overlayOptions.defaultInflate;
+        const overlayGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, overlayOptions.texW, overlayOptions.texH, inflate));
+        const overlayMerged = overlayGeos.length > 1 ? mergeBufferGeometries(overlayGeos) : overlayGeos[0];
+        const overlayMesh = new THREE.Mesh(overlayMerged, overlayOptions.material);
+        overlayMesh.renderOrder = 1;
+        group.add(overlayMesh);
+        group.userData.overlayMesh = overlayMesh;
+    }
+
+    if (emissiveOverlayOptions && partDef.emissiveOverlay) {
+        const inflate = partDef.emissiveOverlayInflate !== undefined ? partDef.emissiveOverlayInflate : emissiveOverlayOptions.defaultInflate;
+        const emissiveGeos = partDef.cubes.map(c => buildMcCubeGeometry(c, emissiveOverlayOptions.texW, emissiveOverlayOptions.texH, inflate));
+        const emissiveMerged = emissiveGeos.length > 1 ? mergeBufferGeometries(emissiveGeos) : emissiveGeos[0];
+        const emissiveMesh = new THREE.Mesh(emissiveMerged, emissiveOverlayOptions.material);
+        emissiveMesh.renderOrder = 2;
+        group.add(emissiveMesh);
+        group.userData.emissiveMesh = emissiveMesh;
+    }
+    return group;
+}
+
+const MOB_MODELS = {
+    cow: {
+        texture: 'assets/minecraft/textures/entity/cow/cow_temperate.png',
+        texW: 64,
+        texH: 64,
+        parts: {
+            body: {
+                parent: null,
+                pivot: [0, 19, 2],
+                rot: [-90, 0, 0],
+                cubes: [ 
+                    { texOffs: [18, 4], from: [-6, -8, -7], size: [12, 18, 10], mirrorU: ['up', 'down']},
+                    {texOffs: [52, 0], from: [-2, -8, -8], size: [4, 6, 1]}
+                ]
+            },
+            head: {
+                parent: null,
+                pivot: [0, 20, -8],
+                cubes: [
+                    { texOffs: [0, 0],  from: [-4, -4, -6], size: [8, 8, 6], mirrorU: ['up', 'down']},
+                    { texOffs: [22, 0], from: [-5, 2, -5], size: [1, 3, 1] },
+                    { texOffs: [22, 0], from: [4, 2, -5],  size: [1, 3, 1] },
+                    { texOffs: [0, 32], from: [-3, -4, -7], size: [6, 3, 2] },
+                ]
+            },
+            legFrontLeft: { parent: null, pivot: [-4, 12, -6], cubes: [ { texOffs: [0, 16], from: [-2, -12, -2], size: [4, 12, 4] } ] },
+            legFrontRight:  { parent: null, pivot: [4, 12, -6],  cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, -12, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] },
+            legBackLeft:  { parent: null, pivot: [-4, 12, 7],  cubes: [ { texOffs: [0, 16], from: [-2, -12, -2], size: [4, 12, 4] } ] },
+            legBackRight:   { parent: null, pivot: [4, 12, 7],   cubes: [ { uvUp: [4, 16], uvDown: [8, 16], uvEast: [0, 20], uvWest: [8, 20], uvNorth: [4, 20], uvSouth: [12, 20], from: [-2, -12, -2], size: [4, 12, 4], mirrorU: ['north', 'west', 'east'] } ] }
+        }
+    },
+//why dd the last one not work?!?"!"!"!"?!Q@L!
+    creeper: {
+        texture: 'assets/minecraft/textures/entity/creeper/creeper.png',
+        texW: 64,
+        texH: 32,
+        parts: {
+            body: {
+                parent: null,
+                pivot: [0, 0, 0],
+                cubes: [ {texOffs: [16, 16], from: [-4, 0, -2], size: [8, 12, 4]}]
+            },
+            head: {
+                parent: 'body',
+                pivot: [0, 8, 0],
+                cubes: [ {texOffs: [0, 0], from: [-4, 0, -4], size: [8, 8, 8]}]
+            },
+            legFrontRight: {parent: 'body', pivot: [-2, 6, -4], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legFrontLeft: {parent: 'body', pivot: [2, 6, -4], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legBackRight: {parent: 'body', pivot: [-2, 6, 4], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]},
+            legBackLeft: {parent: 'body', pivot: [2, 6, 4], cubes: [ {texOffs: [0, 16], from: [-2, 6, -2], size: [4, 6, 4]}]}
+
+
+
+        }
+    },
+    wolf: {
+        texture: 'assets/minecraft/textures/entity/wolf/wolf.png',
+        texW: 64,
+        texH: 32,
+        parts: {
+            head: {
+                parent: null,
+                pivot: [1, 10.5, -7],
+                cubes: [
+                    {texOffs: [0, 0], from: [-3, -3, -2], size: [6, 6, 4]},
+                    {texOffs: [0, 10], from: [-1.5, -2.99, -5], size: [3, 3, 4]},
+                    {texOffs: [16, 14], from: [-3, 3, 0], size: [2, 2, 1]},
+                    {texOffs: [16, 14], from: [1, 3, 0], size: [2, 2, 1]}
+                ]
+            },
+            upperBody: {
+                parent: null,
+                pivot: [1, 10, -3],
+                rot: [-90, 0, 0],
+                cubes: [
+                    {texOffs: [21, 0], from: [-4, -3, -3], size: [8, 6, 7]}, //for -90 pivots: z neg: down, zpos: up, ypos: south, yneg: north
+                ]
+            },
+            body: {
+                parent: null,
+                pivot: [0, 10, 2],
+                rot: [-90, 0, 0],
+                cubes: [
+                    {texOffs: [18, 14], from: [-2, -7, -3], size: [6, 9, 6]},
+                ]
+            },
+            legFrontRight: {parent: null, pivot: [2.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
+            legFrontLeft: {parent: null, pivot: [-0.5, 8, -4], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
+            legBackRight: {parent: null, pivot: [2.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
+            legBackLeft: {parent: null, pivot: [-0.5, 8, 7], cubes: [{texOffs: [0, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
+            tail: {parent: null, pivot: [1, 12, 8], rot: [-55, 0, 0], cubes: [{texOffs: [9, 18], from: [-1, -8, -1], size: [2, 8, 2]}]},
+        }
+    },
+    iron_golem: {
+        texture: 'assets/minecraft/textures/entity/iron_golem/iron_golem.png',
+        texW: 128,
+        texH: 128,
+        parts: {
+            body: {
+                parent: null,
+                pivot: [0, 31, 0],
+                cubes: [
+                    {texOffs: [0, 40], from: [-9, -10, -6], size: [18, 12, 11]},
+                    {texOffs: [0, 70], from: [-5, -14.5, -3], size: [9, 5, 6]}
+                ]
+            },
+            head: {
+                parent: 'body',
+                pivot: [0, 31, -2],
+                cubes: [
+                    {texOffs: [0, 0], from: [-4, 2, -5.5], size: [8, 10, 8]},
+                    {texOffs: [24, 0], from: [-1, 1, -7.5], size: [2, 4, 2]}
+                ]
+            },
+            armRight: {
+                parent: 'body',
+                pivot: [0, 31, 0],
+                cubes: [{texOffs: [60, 58], from: [9, -27.5, -3], size: [4, 30, 6]}]
+            },
+            armLeft: {
+                parent: 'body',
+                pivot: [0, 31, 0],
+                cubes: [{texOffs: [60, 21], from: [-13, -27.5, -3], size: [4, 30, 6]}]
+            },
+            legRight: {
+                parent: 'body',
+                pivot: [4, 13, 0],
+                cubes: [{texOffs: [60, 0], from: [-2.5, -13, -2], size: [6, 16, 5]}]
+            },
+            legLeft: {
+                parent: 'body',
+                pivot: [-5, 13, 0],
+                cubes: [{texOffs: [37, 0], from: [-3.5, -13, -2], size: [6, 16, 5]}]
+            }
+        }
+    },
+    warden: {
+        texture: 'assets/minecraft/textures/entity/warden/warden.png',
+        emissiveOverlayTexture: 'assets/minecraft/textures/entity/warden/warden_bioluminescent_layer.png',
+        texW: 128,
+        texH: 128,
+        parts: {
+            body: {
+                parent: null,
+                pivot: [0, 21, 0],
+                emissiveOverlay: true,
+                cubes: [
+                    {texOffs: [0, 0], from: [-9, -8, -4], size: [18, 21, 11]}
+                ]
+            },
+            ribcage_Right: {
+                parent: 'body',
+                pivot: [-7, 23, -4],
+                cubes: [
+                    {uvNorth: [90, 11], uvSouth:[107, 107], from: [-2, -10, -0.1], size: [9, 21, 0]}
+                ]
+            },
+            ribcage_Left: {
+                parent: 'body',
+                pivot: [7, 23, -4],
+                cubes: [
+                    {uvNorth: [90, 11], uvSouth:[107, 107], from: [-7, -10, -0.1], size: [9, 21, 0], mirrorU: ['north']}
+                ]
+            },
+            head: {
+                parent: 'body',
+                pivot: [0, 34, 0],
+                emissiveOverlay: true,
+                cubes: [
+                    {texOffs: [0, 32], from: [-8, 0, -5], size: [16, 16, 10]}
+                ]
+            },
+            tendril_Right: {
+                parent: 'head',
+                pivot: [-8, 46, 0],
+                cubes: [
+                    {uvNorth: [52, 32], uvSouth:[107, 107], from: [-16, -3, 0], size: [16, 16, 0]}
+                ]
+            },
+            tendril_Left: {
+                parent: 'head',
+                pivot: [8, 46, 0],
+                cubes: [
+                    {uvNorth: [58, 0], uvSouth:[107, 107], from: [0, -3, 0], size: [16, 16, 0]}
+                ]
+            },
+            arm_Right: {
+                parent: 'body',
+                pivot: [13, 34, 1],
+                emissiveOverlay: true,
+                cubes: [
+                    {texOffs: [0, 58], from: [-4, -28, -4], size: [8, 28, 8]}
+                ]
+            },
+            arm_Left: {
+                parent: 'body',
+                pivot: [-13, 34, 1],
+                emissiveOverlay: true,
+                cubes: [
+                    {texOffs: [44, 50], from: [-4, -28, -4], size: [8, 28, 8]}
+                ]
+            },
+            leg_Right: {
+                parent: 'body',
+                pivot: [5.9, 13, 0],
+                emissiveOverlay: true,
+                cubes: [
+                    {texOffs: [76, 48], from: [-3, -13, -3], size: [6, 13, 6]}
+                ]
+            },
+            leg_Left: {
+                parent: 'body',
+                pivot: [-5.9, 13, 0],
+                emissiveOverlay: true,
+                cubes: [
+                    {texOffs: [76, 76], from: [-3, -13, -3], size: [6, 13, 6]}
+                ]
+            }
+        }
+    },
+    phantom: {
+        texture: 'assets/minecraft/textures/entity/phantom/phantom.png',
+        emissiveOverlayTexture: 'assets/minecraft/textures/entity/phantom/phantom_eyes.png',
+        texW: 64,
+        texH: 64,//24.5
+        parts: {
+            body: {parent: null, pivot: [0, 24, 0], cubes: [{texOffs: [0, 8], from: [-2, -1, -8], size: [5, 3, 9]}]},
+            head: {parent: 'body', pivot: [0, 23, -7], rot: [-12.5, 0, 0], emissiveOverlay: true, cubes: [{texOffs: [0, 0], from: [-4, -1, -5], size: [7, 3, 5]}]},
+            tailBase: {parent: 'body', pivot: [0, 26, 1], rot: [5, 0, 0], cubes: [{texOffs: [3, 20], from: [-1, -2, 0], size: [3, 2, 6]}]},
+            tailTip: {parent: 'tailBase', pivot: [0, 25.5, 7], rot: [5, 0, 0], cubes: [{texOffs: [4, 29], from: [0, -1, 0], size: [1, 1, 6]}]},
+            wingRightBase: {parent: 'body', pivot: [-2, 26, -8], rot: [0, 0, -5], cubes: [{texOffs: [23, 12], from: [-6, -2, 0], size: [6, 2, 9]}]},
+            wingLeftBase: {parent: 'body', pivot: [3, 26, -8], rot: [0, 0, 5], cubes: [{texOffs: [23, 12], from: [0, -2, 0], size: [6, 2, 9], mirrorU: ['up', 'down']}]},
+            wingRightTip: {parent: 'wingRightBase', pivot: [-8, 26, -8], rot: [0, 0, -10], cubes: [{texOffs: [16, 24], from: [-13, -1, 0], size: [13, 1, 9]}]},
+            wingLeftTip: {parent: 'wingLeftBase', pivot: [9, 26, -8], rot: [0, 0, 10], cubes: [{texOffs: [16, 24], from: [0, -1, 0], size: [13, 1, 9], mirrorU: ['up', 'down']}]},
+        }
+    },
+    shulker: {
+        texture: 'assets/minecraft/textures/entity/shulker/shulker.png',
+        texW: 64,
+        texH: 64,
+        parts: {
+            base: {parent: null, pivot: [0, 0, 0],  cubes: [{texOffs: [0, 28], from: [-8, 0, -8], size: [16, 8, 16]}]},
+            lid: {parent: 'base', pivot: [0, 0, 0], cubes: [{texOffs: [0, 0], from: [-8, 4, -8], size: [16, 12, 16]}]},
+            head: {parent: 'base', pivot: [0, 12, 0], cubes: [{texOffs: [0, 52], from: [-3, -6, -3], size: [6, 6, 6]}]}
+        }
+    },
+    strider: {
+        texture: 'assets/minecraft/textures/entity/strider/strider.png',
+        texW: 64,
+        texH: 128,
+        parts: {
+            base: {parent: null, pivot: [0, 16, 0], cubes: [{texOffs: [0, 0], from: [-8, -2, -8], size: [16, 14, 16]}]},
+            legRight: {parent: null, pivot: [4, 16, 0], cubes: [{texOffs: [0, 32], from: [-2, -17, -2], size: [4, 17, 4]}]},
+            legLeft: {parent: null, pivot: [-4, 16, 0], cubes: [{texOffs: [0, 55], from: [-2, -17, -2], size: [4, 17, 4]}]},
+            bristlesRightTop: {parent: 'body', pivot: [-8, 28, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 33], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
+            bristlesLeftTop: {parent: 'body', pivot: [8, 28, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 33], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up']}]},
+            bristlesRightMiddle: {parent: 'body', pivot: [-8, 24, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 49], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
+            bristlesLeftMiddle: {parent: 'body', pivot: [8, 24, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 49], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up']}]},
+            bristlesRightBottom: {parent: 'body', pivot: [-8, 19, 0], rot: [0, 0, -60], cubes: [{uvUp: [32, 64], from: [-12, 0, -8], size: [12, 0, 16], mirrorV: ['up']}]},
+            bristlesLeftBottom: {parent: 'body', pivot: [8, 19, 0], rot: [0, 0, 60], cubes: [{uvUp: [32, 64], from: [0, 0, -8], size: [12, 0, 16], mirrorV: ['up'], mirrorU: ['up']}]},
+
+
+
+
+        }
+    },
+    pig: {
+        texture :'assets/minecraft/textures/entity/pig/pig_temperate.png',
+        texW: 64,
+        texH: 64,
+        parts: {
+            body: {parent: null, pivot: [0, 11, 9], rot: [-90, 0, 0], parentRotatesChild: false, cubes: [{texOffs: [28, 8], from: [-5, 1, -5], size: [10, 16, 8]}, {texOffs: [28, 32], from: [-5, 1, -5], size: [10, 16, 8], inflate: 0.5}]},
+            head: {parent: 'body', pivot: [0, 12, -6], cubes: [{texOffs: [0, 0], from: [-4, -4, -8], size: [8, 8, 8]}, {texOffs: [16, 16], from: [-2, -3, -9], size: [4, 3, 1]}]},
+            legFrontRight: {parent: 'body', pivot: [3, 6, -5], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4]}]},
+            legFrontLeft: {parent: 'body', pivot: [-3, 6, -5], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]},
+            legBackRight: {parent: 'body', pivot: [3, 6, 7], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4]}]},
+            legBackLeft: {parent: 'body', pivot: [-3, 6, 7], cubes: [{texOffs: [0, 16], from: [-2, -6, -2], size: [4, 6, 4], mirrorU: ['north', 'west', 'east']}]}
+        }
+    },
+    slime: {
+        texture: 'assets/minecraft/textures/entity/slime/slime.png',
+        translucent: true,
+        texW: 64,
+        texH: 32,
+        parts: {
+            inner: {
+                parent: null,
+                pivot: [0, 24, 0],
+                cubes: [
+                    {texOffs: [0, 16], from: [-3, 25, -3], size: [6, 6, 6]},
+                    {texOffs: [32, 0], from: [-3.25, 26, -3], size: [2, 2, 2]},
+                    {texOffs: [32, 4], from: [1.25, 26, -3], size: [2, 2, 2]},
+                    {texOffs: [32, 8], from: [0, 29, -3], size: [1, 1, 1]},
+                ]
+            },
+            outer: {
+                parent: null,
+                pivot: [0, 24, 0],
+                cubes: [
+                    {texOffs: [0, 0], from: [-4, 24, -4], size: [8, 8, 8]}
+                ]
+            }
+        }
+    },
+};
+
+function buildMobModel(type) {
+    const def = MOB_MODELS[type];
+    if (!def) return null;
+
+    let sharedMat = null;
+    if (def.texture) {
+        const tex = getMobTexture(def.texture);
+        if (def.translucent) {
+            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: false, side: THREE.DoubleSide });
+        } else {
+            sharedMat = new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide });
+        }
+    }
+
+    let overlayOptions = null;
+    if (def.overlayTexture) {
+        const overlayTex = getMobTexture(def.overlayTexture);
+        overlayOptions = {
+            // No polygonOffset here - overlayInflate already makes this mesh
+            // genuinely larger in real 3D space than the base mesh underneath,
+            // so it wins depth comparisons honestly via true geometry. A
+            // polygonOffset depth-bias on top of that was strong enough to
+            // also incorrectly win against OTHER, unrelated nearby geometry
+            // (not just its own base mesh), since polygonOffset affects every
+            // depth comparison that mesh takes part in, not just one specific
+            // "opponent" surface.
+            material: new THREE.MeshLambertMaterial({ map: overlayTex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide }),
+            texW: def.overlayTexW || def.texW,
+            texH: def.overlayTexH || def.texH,
+            defaultInflate: def.overlayInflate !== undefined ? def.overlayInflate : 0.25
+        };
+    }
+
+    // Emissive overlay: for small "stray" glowing decals sitting flush on the
+    // base surface (enderman/phantom eyes, etc.) - deliberately separate from
+    // the puff-out overlay system above. Two differences: (1) geometry is
+    // built with ZERO inflate by default (coincident with the base face, so
+    // it never visually floats off the surface like an inflated overlay
+    // would for a small detail), and (2) the material is a plain unlit
+    // MeshBasicMaterial, so the glowing pixels render at full, constant
+    // brightness regardless of scene lighting - matching how vanilla's own
+    // glowing eyes ignore local light level entirely. Z-fighting is avoided
+    // WITHOUT polygonOffset (which we found earlier can incorrectly win
+    // depth comparisons against unrelated, genuinely-closer geometry) by
+    // instead using the same proven-safe technique as block texture overlays:
+    // depthWrite: false, drawn after the base mesh via renderOrder, so it
+    // reliably composites on top without ever needing a fake depth bias.
+    let emissiveOverlayOptions = null;
+    if (def.emissiveOverlayTexture) {
+        const emissiveTex = getMobTexture(def.emissiveOverlayTexture);
+        emissiveOverlayOptions = {
+            material: new THREE.MeshBasicMaterial({ map: emissiveTex, transparent: true, alphaTest: 0.02, depthWrite: false, side: THREE.DoubleSide }),
+            texW: def.emissiveOverlayTexW || def.texW,
+            texH: def.emissiveOverlayTexH || def.texH,
+            defaultInflate: def.emissiveOverlayInflate !== undefined ? def.emissiveOverlayInflate : 0
+        };
+    }
+
+    const groups = {};
+    for (const name in def.parts) {
+        const partDef = def.parts[name];
+        const parentDef = partDef.parent ? def.parts[partDef.parent] : null;
+        const parentPivot = parentDef ? parentDef.pivot : null;
+        const mat = sharedMat || new THREE.MeshLambertMaterial({ color: partDef.color !== undefined ? partDef.color : 0xffffff, side: THREE.DoubleSide });
+        groups[name] = buildMcPart(partDef, mat, def.texW, def.texH, overlayOptions, emissiveOverlayOptions, parentPivot);
+    }
+
+    const root = new THREE.Group();
+    for (const name in groups) {
+        const partDef = def.parts[name];
+        const parentName = partDef.parent;
+        if (parentName && groups[parentName]) {
+            const parentDef = def.parts[parentName];
+            // Default true: a parent's rotation normally cascades to its
+            // children too, same as a real bone rig (rotate an arm, the hand
+            // rotates with it) - matching how Minecraft's own ModelPart
+            // hierarchy behaves. Setting parentRotatesChild: false on the
+            // PARENT opts that one link out - useful when a part's rot exists
+            // only to re-orient that part's own geometry (e.g. a sideways-built
+            // body tilted to lie flat) and shouldn't swing separately-defined
+            // children around with it too.
+            const parentRotates = parentDef.parentRotatesChild !== false;
+            if (parentRotates) {
+                groups[parentName].add(groups[name]);
+            } else {
+                if (!groups[parentName].userData.counterNode) {
+                    const counter = new THREE.Group();
+                    // Cancel the parent's own rotation exactly (regardless of
+                    // Euler order/signs used to build it) by inverting its
+                    // quaternion, so position/pivot placement still passes
+                    // through this link normally but rotation doesn't.
+                    counter.quaternion.copy(groups[parentName].quaternion).invert();
+                    groups[parentName].add(counter);
+                    groups[parentName].userData.counterNode = counter;
+                }
+                groups[parentName].userData.counterNode.add(groups[name]);
+            }
+        } else {
+            root.add(groups[name]);
+        }
+    }
+
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
+    const feetOffset = box.min.y;
+    console.log(`[${type}] feetOffset =`, feetOffset, 'box.min =', box.min, 'box.max =', box.max);
+
+    return { root, parts: groups, def, feetOffset };
+}
+
+const mobs = [];
+
+function spawnMob(type, x, y, z) {
+    const model = buildMobModel(type);
+    if (!model) { console.warn('No MOB_MODELS entry for', type); return; }
+
+    model.root.position.set(x, y, z);
+    scene.add(model.root);
+    mobs.push({ type, model, position: new THREE.Vector3(x, y, z), velocity: new THREE.Vector3(0, 0, 0), onGround: false, bobTime: Math.random() * 10 });
+}
+
+function updateMobs(delta) {
+    for (const mob of mobs) {
+        mob.model.root.position.set(mob.position.x, mob.position.y, mob.position.z);
+    }
 }
 
 const sharedLightMap = new Uint8Array(16 * 16 * 256);
@@ -2927,10 +5070,23 @@ async function generateChunk(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[getIdx(nx, ny, nz)];
+                        // A same-type neighbor doesn't count as "open" for
+                        // visibility purposes - two touching blocks of the
+                        // IDENTICAL type (e.g. slime touching slime) shouldn't
+                        // keep each other rendered on that account alone,
+                        // matching vanilla's same-type face-culling behavior.
+                        // This only helps fully-buried same-type clusters skip
+                        // rendering entirely - it does NOT hide the single
+                        // internal face on a same-type block that still has a
+                        // genuinely different, open neighbor elsewhere, since
+                        // this engine renders each block as one indivisible
+                        // 6-face box rather than per-face quads.
+                        if (b === typeId) return false;
                         return b === 0 || isTransparent[b];
                     }
                     let gb = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
-                    if (gb === null) return true; 
+                    if (gb === null) return true;
+                    if (gb === typeId) return false;
                     return gb === 0 || isTransparent[gb];
                 };
 
@@ -3101,10 +5257,23 @@ async function rebuildChunkGeometry(chunkX, chunkZ) {
                     if (ny < 0 || ny >= worldHeight) return true;
                     if (nx >= 0 && nx < chunkSize && nz >= 0 && nz < chunkSize) {
                         let b = blocks[getIdx(nx, ny, nz)];
+                        // A same-type neighbor doesn't count as "open" for
+                        // visibility purposes - two touching blocks of the
+                        // IDENTICAL type (e.g. slime touching slime) shouldn't
+                        // keep each other rendered on that account alone,
+                        // matching vanilla's same-type face-culling behavior.
+                        // This only helps fully-buried same-type clusters skip
+                        // rendering entirely - it does NOT hide the single
+                        // internal face on a same-type block that still has a
+                        // genuinely different, open neighbor elsewhere, since
+                        // this engine renders each block as one indivisible
+                        // 6-face box rather than per-face quads.
+                        if (b === typeId) return false;
                         return b === 0 || isTransparent[b];
                     }
                     let gb = getGlobalBlock(startX + nx, ny + minworldY, startZ + nz);
-                    if (gb === null) return true; 
+                    if (gb === null) return true;
+                    if (gb === typeId) return false;
                     return gb === 0 || isTransparent[gb];
                 };
 
@@ -3469,40 +5638,60 @@ function spawnDroppedItem(x, y, z, blockName) {
 }
 
 function getTarget() {
-    let start = playerEyePosition.clone();
-    let dir = getCameraForwardVector(true);
-    let maxDist = 6;
-    let step = 0.05;
-    let current = start.clone();
-    
-    for (let d = 0; d < maxDist; d += step) {
-        current.add(dir.clone().multiplyScalar(step));
-        let bx = Math.round(current.x);
-        let by = Math.round(current.y);
-        let bz = Math.round(current.z);
-        let b = getGlobalBlock(bx, by, bz);
-        
-        if (b !== null && b !== 0 && b !== TYPE.water && !REVERSE_TYPE[b].includes('sculk_vein') && !REVERSE_TYPE[b].includes('glow_lichen')) {
-            let prev = current.clone().sub(dir.clone().multiplyScalar(step));
-            let pbx = Math.round(prev.x);
-            let pby = Math.round(prev.y);
-            let pbz = Math.round(prev.z);
-            let normal = new THREE.Vector3(pbx - bx, pby - by, pbz - bz);
-            
-            if (Math.abs(normal.x) > Math.abs(normal.y) && Math.abs(normal.x) > Math.abs(normal.z)) {
-                normal.set(Math.sign(normal.x), 0, 0);
-            } else if (Math.abs(normal.y) > Math.abs(normal.z)) {
-                normal.set(0, Math.sign(normal.y), 0);
-            } else {
-                normal.set(0, 0, Math.sign(normal.z));
-            }
+    const dir = getCameraForwardVector(true);
+    const ox = playerEyePosition.x;
+    const oy = playerEyePosition.y;
+    const oz = playerEyePosition.z;
+    let ix = Math.floor(ox + 0.5);
+    let iy = Math.floor(oy + 0.5);
+    let iz = Math.floor(oz + 0.5);
+    const stepX = dir.x >= 0 ? 1 : -1;
+    const stepY = dir.y >= 0 ? 1 : -1;
+    const stepZ = dir.z >= 0 ? 1 : -1;
+    const tDeltaX = Math.abs(1.0 / dir.x);
+    const tDeltaY = Math.abs(1.0 / dir.y);
+    const tDeltaZ = Math.abs(1.0 / dir.z);
+    const nextBoundaryX = ix + stepX * 0.5;
+    const nextBoundaryY = iy + stepY * 0.5;
+    const nextBoundaryZ = iz + stepZ * 0.5;
+    let tMaxX = (dir.x !== 0) ? Math.abs((nextBoundaryX - ox) / dir.x) : Infinity;
+    let tMaxY = (dir.y !== 0) ? Math.abs((nextBoundaryY - oy) / dir.y) : Infinity;
+    let tMaxZ = (dir.z !== 0) ? Math.abs((nextBoundaryZ - oz) / dir.z) : Infinity;
+    const maxDist = 6;
+    let normalX = 0, normalY = 0, normalZ = 0;
+    while (true) {
+        if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+            if (tMaxX > maxDist) break;
+            ix += stepX;
+            tMaxX += tDeltaX;
+            normalX = -stepX; normalY = 0; normalZ = 0;
+        } else if (tMaxY < tMaxZ) {
+            if (tMaxY > maxDist) break;
+            iy += stepY;
+            tMaxY += tDeltaY;
+            normalX = 0; normalY = -stepY; normalZ = 0;
+        } else {
+            if (tMaxZ > maxDist) break;
+            iz += stepZ;
+            tMaxZ += tDeltaZ;
+            normalX = 0; normalY = 0; normalZ = -stepZ;
+        }
+        const b = getGlobalBlock(ix, iy, iz);
+        if (b !== null && b !== 0 && b !== TYPE.water
+            && !REVERSE_TYPE[b].includes('sculk_vein')
+            && !REVERSE_TYPE[b].includes('glow_lichen')) {
+            const tCrossed = normalX !== 0 ? tMaxX - tDeltaX : normalY !== 0 ? tMaxY - tDeltaY : tMaxZ - tDeltaZ;
+            const hitPoint = new THREE.Vector3(
+                ox + dir.x * tCrossed,
+                oy + dir.y * tCrossed,
+                oz + dir.z * tCrossed
+            );
 
-            let blockName = REVERSE_TYPE[b];
             return {
-                position: new THREE.Vector3(bx, by, bz),
-                normal: normal,
-                blockName: blockName,
-                point: prev.clone()
+                position: new THREE.Vector3(ix, iy, iz),
+                normal: new THREE.Vector3(normalX, normalY, normalZ),
+                blockName: REVERSE_TYPE[b],
+                point: hitPoint
             };
         }
     }
@@ -3518,7 +5707,7 @@ function startMining(hit) {
 
     mining = { active: true, startTime: Date.now(), blockPosition: hit.position, blockName: blockName, requiredTime: requiredTime };
     destroyMat.map = destroyTextures[0]; destroyMat.needsUpdate = true;
-    destroyMesh.position.copy(hit.position);
+    destroyMesh.position.set(hit.position.x, hit.position.y, hit.position.z);
     destroyMesh.visible = true; 
 }
 
@@ -3534,9 +5723,35 @@ function breakBlockRecursive(pX, pY, pZ, dropItems = true) {
     let isUpperHalf = placed && placed.state && placed.state.half === 'upper';
 
     setGlobalBlock(pX, pY, pZ, 0);
+
+    if (placed && placed.state && (placed.state.type === 'left' || placed.state.type === 'right')) {
+        unmergeChestPartner(pX, pY, pZ, blockName, placed.state);
+    }
+
+    if (placed && placed.state && placed.state.facing && (blockName.endsWith('_bed_head') || blockName.endsWith('_bed_foot'))) {
+        const facing = placed.state.facing;
+        const off = CHEST_DIR_OFFSETS[facing];
+        const isHead = blockName.endsWith('_bed_head');
+        const partnerX = isHead ? pX + off[0] : pX - off[0];
+        const partnerY = isHead ? pY + off[1] : pY - off[1];
+        const partnerZ = isHead ? pZ + off[2] : pZ - off[2];
+        const partnerBlock = getGlobalBlock(partnerX, partnerY, partnerZ);
+        if (partnerBlock !== null && partnerBlock !== 0) {
+            const bedColor = blockName.replace('_bed_head', '').replace('_bed_foot', '');
+            const partnerName = REVERSE_TYPE[partnerBlock];
+            if (partnerName === `${bedColor}_bed_head` || partnerName === `${bedColor}_bed_foot`) {
+                breakBlockRecursive(partnerX, partnerY, partnerZ, false);
+            }
+        }
+    }
     
     if (dropItems && !isUpperHalf) {
         let dropName = blockName;
+        if (dropName === 'chest_left' || dropName === 'chest_right') dropName = 'chest';
+        if (dropName === 'trapped_left' || dropName === 'trapped_right') dropName = 'trapped_chest';
+        if (dropName.endsWith('_bed_head') || dropName.endsWith('_bed_foot')) {
+            dropName = dropName.replace('_bed_head', '_bed').replace('_bed_foot', '_bed');
+        }
         // Fix for weeping and twisting vines explicitly dropping their _plant base types
         if (dropName === 'weeping_vines' || dropName === 'weeping_vines_plant') dropName = 'weeping_vines_plant';
         if (dropName === 'twisting_vines' || dropName === 'twisting_vines_plant') dropName = 'twisting_vines_plant';
@@ -3607,16 +5822,11 @@ function updateMining() {
 
     if (elapsed >= mining.requiredTime) {
         const p = mining.blockPosition;
-        const blockName = mining.blockName; 
-        
-        let pX = Math.round(p.x); let pY = Math.round(p.y); let pZ = Math.round(p.z);
-        
+        const blockName = mining.blockName;
+        let pX = p.x | 0; let pY = p.y | 0; let pZ = p.z | 0;
         const heldItemType = inventory[selectedSlot].type;
         const harvestable = canHarvestBlock(blockName, heldItemType);
-
-        // Initiate the recursive breaking loop starting at the targeted block
         breakBlockRecursive(pX, pY, pZ, harvestable);
-
         mining.active = false;
         destroyMesh.visible = false;
     }
@@ -3628,6 +5838,197 @@ function triggerPlayerAction(type) {
     actionType = type;
     actionSwing = 1;
 }
+const horizontalFacingBlocks = [
+  "furnace",
+  "blast_furnace",
+  "smoker",
+  "crafter",
+  "loom",
+  "stonecutter",
+  "lectern",
+  "grindstone",
+  "bell",
+  "campfire",
+  "soul_campfire",
+  "heavy_core",
+  "chest",
+  "trapped_chest",
+  "ender_chest",
+  "barrel",
+  "chiseled_bookshelf",
+  "repeater",
+  "comparator",
+  "beehive",
+  "bee_nest",
+  "carved_pumpkin",
+  "jack_o_lantern",
+  "cocoa",
+  "anvil",
+  "chipped_anvil",
+  "damaged_anvil",
+  "shulker_box",
+  "white_shulker_box",
+  "orange_shulker_box",
+  "magenta_shulker_box",
+  "light_blue_shulker_box",
+  "yellow_shulker_box",
+  "lime_shulker_box",
+  "pink_shulker_box",
+  "gray_shulker_box",
+  "light_gray_shulker_box",
+  "cyan_shulker_box",
+  "purple_shulker_box",
+  "blue_shulker_box",
+  "brown_shulker_box",
+  "green_shulker_box",
+  "red_shulker_box",
+  "black_shulker_box",
+  "white_bed",
+  "orange_bed",
+  "magenta_bed",
+  "light_blue_bed",
+  "yellow_bed",
+  "lime_bed",
+  "pink_bed",
+  "gray_bed",
+  "light_gray_bed",
+  "cyan_bed",
+  "purple_bed",
+  "blue_bed",
+  "brown_bed",
+  "green_bed",
+  "red_bed",
+  "black_bed",
+  "white_glazed_terracotta",
+  "orange_glazed_terracotta",
+  "magenta_glazed_terracotta",
+  "light_blue_glazed_terracotta",
+  "yellow_glazed_terracotta",
+  "lime_glazed_terracotta",
+  "pink_glazed_terracotta",
+  "gray_glazed_terracotta",
+  "light_gray_glazed_terracotta",
+  "cyan_glazed_terracotta",
+  "purple_glazed_terracotta",
+  "blue_glazed_terracotta",
+  "brown_glazed_terracotta",
+  "green_glazed_terracotta",
+  "red_glazed_terracotta",
+  "black_glazed_terracotta",
+  "oak_fence_gate",
+  "spruce_fence_gate",
+  "birch_fence_gate",
+  "jungle_fence_gate",
+  "acacia_fence_gate",
+  "dark_oak_fence_gate",
+  "mangrove_fence_gate",
+  "cherry_fence_gate",
+  "bamboo_fence_gate",
+  "crimson_fence_gate",
+  "warped_fence_gate",
+  "oak_stairs",
+  "spruce_stairs",
+  "birch_stairs",
+  "jungle_stairs",
+  "acacia_stairs",
+  "dark_oak_stairs",
+  "mangrove_stairs",
+  "cherry_stairs",
+  "bamboo_stairs",
+  "crimson_stairs",
+  "warped_stairs",
+  "stone_stairs",
+  "cobblestone_stairs",
+  "mossy_cobblestone_stairs",
+  "smooth_stone_stairs",
+  "stone_brick_stairs",
+  "mossy_stone_brick_stairs",
+  "granite_stairs",
+  "polished_granite_stairs",
+  "diorite_stairs",
+  "polished_diorite_stairs",
+  "andesite_stairs",
+  "polished_andesite_stairs",
+  "deepslate_stairs",
+  "cobbled_deepslate_stairs",
+  "polished_deepslate_stairs",
+  "deepslate_brick_stairs",
+  "deepslate_tile_stairs",
+  "brick_stairs",
+  "mud_brick_stairs",
+  "resin_brick_stairs",
+  "sandstone_stairs",
+  "smooth_sandstone_stairs",
+  "red_sandstone_stairs",
+  "smooth_red_sandstone_stairs",
+  "prismarine_stairs",
+  "prismarine_brick_stairs",
+  "dark_prismarine_stairs",
+  "nether_brick_stairs",
+  "red_nether_brick_stairs",
+  "quartz_stairs",
+  "smooth_quartz_stairs",
+  "purpur_stairs",
+  "blackstone_stairs",
+  "polished_blackstone_stairs",
+  "polished_blackstone_brick_stairs",
+  "tuff_stairs",
+  "polished_tuff_stairs",
+  "tuff_brick_stairs",
+  "cut_copper_stairs",
+  "exposed_cut_copper_stairs",
+  "weathered_cut_copper_stairs",
+  "oxidized_cut_copper_stairs",
+  "waxed_cut_copper_stairs",
+  "waxed_exposed_cut_copper_stairs",
+  "waxed_weathered_cut_copper_stairs",
+  "waxed_oxidized_cut_copper_stairs",
+  "creeper_wall_head",
+  "dragon_wall_head",
+  "player_wall_head",
+  "zombie_wall_head",
+  "skeleton_wall_skull",
+  "wither_skeleton_wall_skull",
+  "piglin_wall_head",
+  "white_wall_banner",
+  "orange_wall_banner",
+  "magenta_wall_banner",
+  "light_blue_wall_banner",
+  "yellow_wall_banner",
+  "lime_wall_banner",
+  "pink_wall_banner",
+  "gray_wall_banner",
+  "light_gray_wall_banner",
+  "cyan_wall_banner",
+  "purple_wall_banner",
+  "blue_wall_banner",
+  "brown_wall_banner",
+  "green_wall_banner",
+  "red_wall_banner",
+  "black_wall_banner",
+  "oak_wall_sign",
+  "spruce_wall_sign",
+  "birch_wall_sign",
+  "jungle_wall_sign",
+  "acacia_wall_sign",
+  "dark_oak_wall_sign",
+  "mangrove_wall_sign",
+  "cherry_wall_sign",
+  "bamboo_wall_sign",
+  "crimson_wall_sign",
+  "warped_wall_sign",
+  "oak_wall_hanging_sign",
+  "spruce_wall_hanging_sign",
+  "birch_wall_hanging_sign",
+  "jungle_wall_hanging_sign",
+  "acacia_wall_hanging_sign",
+  "dark_oak_wall_hanging_sign",
+  "mangrove_wall_hanging_sign",
+  "cherry_wall_hanging_sign",
+  "bamboo_wall_hanging_sign",
+  "crimson_wall_hanging_sign",
+  "warped_wall_hanging_sign"
+];
 
 document.addEventListener('mousedown', (e) => {
     if (e.target.closest('#creative-inventory-screen') || e.target.closest('#hotbar')) return; 
@@ -3644,13 +6045,28 @@ document.addEventListener('mousedown', (e) => {
             triggerPlayerAction('place');
             
             const p = hit.position;
-            const placeX = Math.round(p.x + hit.normal.x);
-            const placeY = Math.round(p.y + hit.normal.y);
-            const placeZ = Math.round(p.z + hit.normal.z);
+            const placeX = (p.x + hit.normal.x) | 0;
+            const placeY = (p.y + hit.normal.y) | 0;
+            const placeZ = (p.z + hit.normal.z) | 0;
             
             const selectedItem = inventory[selectedSlot];
             
             let placementType = selectedItem.type;
+
+            if (placementType && placementType.endsWith('_spawn_egg')) {
+                // Block meshes are centered exactly at their integer coordinate
+                // (matrix.makeTranslation(startX+x, ...) uses no +0.5 offset), so
+                // the mob's X/Z should match that same integer coordinate directly -
+                // not be shifted by +0.5, which would spawn it off-center toward
+                // one corner of the block instead of centered on it.
+                const mobType = placementType.slice(0, -'_spawn_egg'.length);
+                spawnMob(mobType, placeX, placeY - 0.5, placeZ);
+                selectedItem.count--;
+                if (selectedItem.count <= 0) { selectedItem.type = null; selectedItem.count = 0; }
+                updateInventoryUI();
+                return;
+            }
+
             if (placementType === 'sweet_berries') placementType = 'sweet_berry_bush';
             
             const explicit2DItems = new Set([
@@ -3723,17 +6139,15 @@ document.addEventListener('mousedown', (e) => {
                     if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
                     else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
                     else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
-
-                    let localY =
-                        hit.point.y -
-                        Math.floor(hit.point.y);
-
-                    let isTop =
-                        hit.normal.y === -1 ||
-                        (
-                            hit.normal.y !== 1 &&
-                            localY > 0.5
-                        );
+                    let isTop;
+                    if (hit.normal.y === -1) {
+                        isTop = true;
+                    } else if (hit.normal.y === 1) {
+                        isTop = false;
+                    } else {
+                        const localHitY = hit.point.y - hit.position.y + 0.5;
+                        isTop = localHitY > 0.5;
+                    }
 
                     blockStateDict = {
                         facing: facingStr,
@@ -3748,6 +6162,10 @@ document.addEventListener('mousedown', (e) => {
                     ];
                 }
                 else if (placementType === 'pointed_dripstone') {
+                    let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
+                    blockStateDict = { vertical_direction: isTop ? 'down' : 'up'};
+                }
+                else if (placementType === 'sulfur_spike') {
                     let isTop = (hit.normal.y === -1 || (hit.normal.y === 0 && (playerEyePosition.y - placeY) < 0));
                     blockStateDict = { vertical_direction: isTop ? 'down' : 'up'};
                 }
@@ -3766,19 +6184,63 @@ document.addEventListener('mousedown', (e) => {
                     blockStateDict = { half: 'lower', facing: facingStr, open: 'false', hinge: 'left' };
                     extraBlock = { x: placeX, y: placeY + 1, z: placeZ, type: TYPE[placementType + '_top'], rotation: [0, rotY, 0], state: { half: 'upper', facing: facingStr, open: 'false', hinge: 'left' } };
                 }
-                else if (placementType.includes('furnace') || placementType === 'chest' || placementType === 'carved_pumpkin' || placementType === 'jack_o_lantern' || placementType === 'loom' || placementType === 'observer' || placementType === 'dispenser' || placementType === 'dropper' || placementType === 'crafter') {
+                else if (placementType.endsWith('_bed')) {
+                    let ry = yaw % (Math.PI * 2);
+                    if (ry < 0) ry += Math.PI * 2;
+
+                    let viewFacing = 'south';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) viewFacing = 'south';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) viewFacing = 'east';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) viewFacing = 'north';
+                    else viewFacing = 'west';
+
+                    const OPPOSITE_FACING = { north: 'south', south: 'north', east: 'west', west: 'east' };
+
+                    const dx = (placeX + 0.5) - playerEyePosition.x;
+                    const dz = (placeZ + 0.5) - playerEyePosition.z;
+                    const horizDist = Math.sqrt(dx*dx + dz*dz);
+
+                    // Close placement (block right in front of you): bed's head extends away from you.
+                    // Farther placement: bed's head extends back toward you.
+                    const facingStr = horizDist > 1.5 ? viewFacing : OPPOSITE_FACING[viewFacing];
+
+                    const bedColor = placementType.slice(0, -'_bed'.length);
+                    const footOffset = CHEST_DIR_OFFSETS[facingStr];
+                    const footX = placeX + footOffset[0];
+                    const footY = placeY + footOffset[1];
+                    const footZ = placeZ + footOffset[2];
+
+                    if (getGlobalBlock(footX, footY, footZ) !== 0) return;
+
+                    const bedRotY = HORIZONTAL_FACING_YROTATION[facingStr] + BED_MODEL_YAW_OFFSET;
+                    rotation = [0, bedRotY + Math.PI, 0];
+                    blockStateDict = { facing: facingStr, part: 'head', occupied: 'false' };
+                    placementType = `${bedColor}_bed_head`;
+                    extraBlock = {
+                        x: footX, y: footY, z: footZ,
+                        type: TYPE[`${bedColor}_bed_foot`],
+                        rotation: [0, bedRotY + Math.PI, 0],
+                        state: { facing: facingStr, part: 'foot', occupied: 'false' }
+                    };
+                }
+                else if (horizontalFacingBlocks.includes(placementType)) {
                     let ry = yaw % (Math.PI * 2);
                     if (ry < 0) ry += Math.PI * 2;
                     
-                    let facingStr = 'north';
-                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'north';
-                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'west';
-                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'south';
-                    else facingStr = 'east';
+                    let facingStr = 'south';
+                    if (ry >= 7*Math.PI/4 || ry < Math.PI/4) facingStr = 'south';
+                    else if (ry >= Math.PI/4 && ry < 3*Math.PI/4) facingStr = 'east';
+                    else if (ry >= 3*Math.PI/4 && ry < 5*Math.PI/4) facingStr = 'north';
+                    else facingStr = 'west';
                     
                     blockStateDict = { facing: facingStr };
+                    if (placementType === 'chest' || placementType === 'trapped_chest' || placementType === 'decorated_pot') {
+                        rotation = [0, HORIZONTAL_FACING_YROTATION[facingStr], 0];
+                    } else {
+                        rotation = [0, 0, 0];
+                    }
                 }
-
+                
                 // Two-tall plants parsing logic
                 const twoTallPlants = ['sunflower', 'lilac', 'rose_bush', 'peony', 'tall_grass', 'large_fern', 'pitcher_plant'];
                 if (twoTallPlants.includes(placementType)) {
@@ -3789,11 +6251,15 @@ document.addEventListener('mousedown', (e) => {
                 }
                 
                 let placedData = { type: TYPE[placementType], rotation: rotation, state: blockStateDict };
-                
+
                 if (extraBlock && getGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z) !== 0) {
                     // Not enough room
                 } else {
                     setGlobalBlock(placeX, placeY, placeZ, placedData);
+                    
+                    if (placementType === 'chest' || placementType === 'trapped_chest') {
+                        tryMergeChest(placeX, placeY, placeZ, placementType, blockStateDict.facing, rotation[1]);
+                    }
                     
                     if (extraBlock) {
                         setGlobalBlock(extraBlock.x, extraBlock.y, extraBlock.z, { type: extraBlock.type, rotation: extraBlock.rotation, state: extraBlock.state });
@@ -4094,7 +6560,9 @@ function animate() {
         isGeneratingChunk = true;
         const next = chunkQueue.shift();
         const [cx, cz] = next.split(',').map(Number);
-        generateChunk(cx, cz).then(() => { isGeneratingChunk = false; });
+        generateChunk(cx, cz)
+            .catch((err) => { console.error('generateChunk failed for', next, err); })
+            .then(() => { isGeneratingChunk = false; });
     }
 
     if (isLeftMouseDown && document.pointerLockElement && creativeScaleCenter.style.display === 'none') {
@@ -4109,13 +6577,16 @@ function animate() {
 
     updateMining();
     doRandomTicks();
+    updateMobs(delta);
 
     if (chunksToRebuild.size > 0 && !isRebuildingChunk) {
         isRebuildingChunk = true;
         const chunkId = chunksToRebuild.values().next().value;
         chunksToRebuild.delete(chunkId);
         let [cx, cz] = chunkId.split(',').map(Number);
-        rebuildChunkGeometry(cx, cz).then(() => { isRebuildingChunk = false; });
+        rebuildChunkGeometry(cx, cz)
+            .catch((err) => { console.error('rebuildChunkGeometry failed for', chunkId, err); })
+            .then(() => { isRebuildingChunk = false; });
     }
     
     for (let i = droppedItems.length - 1; i >= 0; i--) {
